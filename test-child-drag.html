@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Child Component Drag & Drop</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            position: relative;
+            width: 400px;
+            height: 300px;
+            background-color: #e3f2fd;
+            border: 2px solid #1976d2;
+            margin: 20px 0;
+            overflow: visible;
+            padding: 10px;
+        }
+        
+        .child-component {
+            position: absolute;
+            width: 120px;
+            height: 40px;
+            background-color: #fff3e0;
+            border: 2px solid #ff9800;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: box-shadow 0.2s;
+        }
+        
+        .child-component:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .child-component.selected {
+            border-color: #2196f3;
+            box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.3);
+        }
+        
+        .child-drag-handle {
+            position: absolute;
+            top: -6px;
+            left: -6px;
+            width: 18px;
+            height: 18px;
+            background-color: #1976d2;
+            cursor: grab;
+            border-radius: 3px;
+            z-index: 1002;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.8;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+            transition: all 0.15s ease;
+        }
+        
+        .child-drag-handle:hover {
+            opacity: 1;
+            transform: scale(1.05);
+            background-color: #1e88e5;
+        }
+        
+        .child-drag-handle.grabbing {
+            cursor: grabbing;
+        }
+        
+        .container.drag-active {
+            outline: 2px dashed #3b82f6;
+            background-color: rgba(59, 130, 246, 0.05);
+        }
+        
+        .status {
+            background: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .success {
+            border-left-color: #4caf50;
+            background-color: #f1f8e9;
+        }
+        
+        .dragging {
+            opacity: 0.8;
+            z-index: 1001;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <h1>🎯 Test de Drag & Drop de Componentes Hijos</h1>
+    
+    <div class="status" id="status">
+        ✅ Sistema cargado. Arrastra el handle verde para mover el componente dentro del contenedor.
+    </div>
+    
+    <h2>Contenedor con Componente Hijo:</h2>
+    <div class="container" id="container">
+        <div class="child-component" id="child1" style="top: 20%; left: 10%;">
+            Componente 1
+            <div class="child-drag-handle" id="handle1" title="↕↔ Arrastra para mover">
+                <svg width="10" height="10" viewBox="0 0 10 10" style="fill: white;">
+                    <polygon points="5,1 3,3 7,3" />
+                    <polygon points="5,9 3,7 7,7" />
+                    <polygon points="1,5 3,3 3,7" />
+                    <polygon points="9,5 7,3 7,7" />
+                </svg>
+            </div>
+        </div>
+        
+        <div class="child-component" id="child2" style="top: 60%; left: 50%;">
+            Componente 2
+            <div class="child-drag-handle" id="handle2" title="↕↔ Arrastra para mover">
+                <svg width="10" height="10" viewBox="0 0 10 10" style="fill: white;">
+                    <polygon points="5,1 3,3 7,3" />
+                    <polygon points="5,9 3,7 7,7" />
+                    <polygon points="1,5 3,3 3,7" />
+                    <polygon points="9,5 7,3 7,7" />
+                </svg>
+            </div>
+        </div>
+    </div>
+    
+    <div id="info" style="background: #fff; padding: 15px; border-radius: 4px; margin-top: 20px;">
+        <h3>Información de Depuración:</h3>
+        <p><strong>Posición Componente 1:</strong> <span id="pos1">top: 20%, left: 10%</span></p>
+        <p><strong>Posición Componente 2:</strong> <span id="pos2">top: 60%, left: 50%</span></p>
+        <p><strong>Eventos:</strong> <span id="eventLog">Ninguno</span></p>
+    </div>
+
+    <script>
+        const container = document.getElementById('container');
+        const child1 = document.getElementById('child1');
+        const child2 = document.getElementById('child2');
+        const handle1 = document.getElementById('handle1');
+        const handle2 = document.getElementById('handle2');
+        const status = document.getElementById('status');
+        const pos1Span = document.getElementById('pos1');
+        const pos2Span = document.getElementById('pos2');
+        const eventLog = document.getElementById('eventLog');
+        
+        let events = [];
+        let isDragging = false;
+        let currentChild = null;
+        let selectedChild = null;
+        
+        function logEvent(event) {
+            events.push(event);
+            eventLog.textContent = events.slice(-3).join(', ');
+        }
+        
+        function updatePosition(child, top, left) {
+            child.style.top = `${top}%`;
+            child.style.left = `${left}%`;
+            
+            if (child === child1) {
+                pos1Span.textContent = `top: ${top.toFixed(1)}%, left: ${left.toFixed(1)}%`;
+            } else {
+                pos2Span.textContent = `top: ${top.toFixed(1)}%, left: ${left.toFixed(1)}%`;
+            }
+        }
+        
+        function setupDragForChild(child, handle) {
+            // Selección al hacer click
+            child.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (selectedChild) {
+                    selectedChild.classList.remove('selected');
+                    selectedChild.querySelector('.child-drag-handle').style.opacity = '0.7';
+                }
+                selectedChild = child;
+                child.classList.add('selected');
+                handle.style.opacity = '1';
+                logEvent(`Selected ${child.id}`);
+            });
+            
+            // Drag desde el handle
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                logEvent(`Drag start ${child.id}`);
+                isDragging = true;
+                currentChild = child;
+                
+                // Visual feedback mejorado
+                child.classList.add('dragging');
+                container.classList.add('drag-active');
+                document.body.style.cursor = 'grabbing';
+                handle.classList.add('grabbing');
+                handle.style.cursor = 'grabbing';
+                handle.style.backgroundColor = '#1565c0';
+                
+                const containerRect = container.getBoundingClientRect();
+                const childRect = child.getBoundingClientRect();
+                
+                // Offset del handle actualizado
+                const handleSize = 18;
+                const handlePosition = 6;
+                const initialOffset = {
+                    x: handlePosition + (handleSize / 2),
+                    y: handlePosition + (handleSize / 2)
+                };
+                
+                console.log('Container rect:', containerRect);
+                console.log('Child rect:', childRect);
+                console.log('Initial offset:', initialOffset);
+                
+                status.textContent = `🔄 Arrastrando ${child.id}... Mueve el mouse para cambiar la posición.`;
+                
+                // Variables para throttling optimizado
+                let lastUpdateTime = 0;
+                const updateThrottle = 16; // ~60fps
+                let animationFrameId = null;
+                
+                function handleMouseMove(moveEvent) {
+                    if (!isDragging) return;
+                    
+                    // Cancelar frame anterior si existe
+                    if (animationFrameId) {
+                        cancelAnimationFrame(animationFrameId);
+                    }
+                    
+                    animationFrameId = requestAnimationFrame(() => {
+                        const now = Date.now();
+                        if (now - lastUpdateTime < updateThrottle) return;
+                        lastUpdateTime = now;
+                        
+                        // Posición del mouse relativa al contenedor
+                        const mouseRelativeX = moveEvent.clientX - containerRect.left;
+                        const mouseRelativeY = moveEvent.clientY - containerRect.top;
+                        
+                        // Posición del hijo considerando el offset del handle
+                        const childLeft = mouseRelativeX - initialOffset.x;
+                        const childTop = mouseRelativeY - initialOffset.y;
+                        
+                        // Padding del contenedor
+                        const containerPadding = 10;
+                        const availableWidth = containerRect.width - (containerPadding * 2);
+                        const availableHeight = containerRect.height - (containerPadding * 2);
+                        
+                        // Límites con margen de seguridad
+                        const maxX = availableWidth - childRect.width;
+                        const maxY = availableHeight - childRect.height;
+                        const safeMargin = 5;
+                        
+                        // Constrain within bounds
+                        const constrainedX = Math.max(
+                            containerPadding + safeMargin, 
+                            Math.min(childLeft + containerPadding, maxX + containerPadding - safeMargin)
+                        );
+                        const constrainedY = Math.max(
+                            containerPadding + safeMargin, 
+                            Math.min(childTop + containerPadding, maxY + containerPadding - safeMargin)
+                        );
+                        
+                        // Convertir a porcentajes
+                        const leftPercent = ((constrainedX - containerPadding) / availableWidth) * 100;
+                        const topPercent = ((constrainedY - containerPadding) / availableHeight) * 100;
+                        
+                        // Redondear para mejor precisión visual
+                        const finalLeft = Math.max(0, Math.min(92, Math.round(leftPercent * 10) / 10));
+                        const finalTop = Math.max(0, Math.min(92, Math.round(topPercent * 10) / 10));
+                        
+                        updatePosition(child, finalTop, finalLeft);
+                        logEvent('Moving');
+                    });
+                }
+                
+                function handleMouseUp() {
+                    logEvent(`Drag end ${child.id}`);
+                    
+                    // Cancelar cualquier animación pendiente
+                    if (animationFrameId) {
+                        cancelAnimationFrame(animationFrameId);
+                        animationFrameId = null;
+                    }
+                    
+                    isDragging = false;
+                    currentChild = null;
+                    
+                    // Restore visual state
+                    child.classList.remove('dragging');
+                    container.classList.remove('drag-active');
+                    document.body.style.cursor = '';
+                    handle.classList.remove('grabbing');
+                    handle.style.cursor = 'grab';
+                    handle.style.backgroundColor = '#1976d2';
+                    
+                    status.textContent = '✅ Drag completado exitosamente.';
+                    status.className = 'status success';
+                    
+                    // Cleanup
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                }
+                
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+            });
+        }
+        
+        // Setup drag for both children
+        setupDragForChild(child1, handle1);
+        setupDragForChild(child2, handle2);
+        
+        // Deselect when clicking container
+        container.addEventListener('click', () => {
+            if (selectedChild) {
+                selectedChild.classList.remove('selected');
+                selectedChild.querySelector('.child-drag-handle').style.opacity = '0.7';
+                selectedChild = null;
+                logEvent('Deselected');
+            }
+        });
+        
+        console.log('🎯 Test de drag child inicializado');
+        console.log('- Haz click en un componente para seleccionarlo');
+        console.log('- Arrastra el handle verde para mover el componente');
+    </script>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drag & Drop Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .sidebar {
+            width: 200px;
+            height: 300px;
+            border: 2px solid #ccc;
+            padding: 10px;
+            background: #f5f5f5;
+            float: left;
+            margin-right: 20px;
+        }
+        .drag-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border: 1px solid #ddd;
+            cursor: grab;
+            border-radius: 4px;
+        }
+        .drag-item:active {
+            cursor: grabbing;
+        }
+        .container {
+            width: 400px;
+            height: 300px;
+            border: 2px solid #333;
+            background: #fff;
+            position: relative;
+            float: left;
+        }
+        .container.drag-over {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.05);
+        }
+        .drop-indicator {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #3b82f6;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Drag & Drop Test - Sidebar to Container</h1>
+    
+    <div class="sidebar">
+        <h3>Components</h3>
+        <div class="drag-item" draggable="true" data-type="text">
+            📝 Text Component
+        </div>
+        <div class="drag-item" draggable="true" data-type="button">
+            🔘 Button Component
+        </div>
+        <div class="drag-item" draggable="true" data-type="image">
+            🖼️ Image Component
+        </div>
+        <div class="drag-item" draggable="true" data-type="container">
+            📦 Container Component
+        </div>
+    </div>
+    
+    <div class="container" id="dropContainer">
+        <h3 style="margin: 10px;">Drop Zone</h3>
+        <div id="dropIndicator" class="drop-indicator" style="display: none;"></div>
+    </div>
+    
+    <div style="clear: both; margin-top: 20px;">
+        <h3>Log:</h3>
+        <div id="log" style="background: #f0f0f0; padding: 10px; height: 200px; overflow-y: auto; border: 1px solid #ccc;"></div>
+    </div>
+
+    <script>
+        const log = document.getElementById('log');
+        const container = document.getElementById('dropContainer');
+        const dropIndicator = document.getElementById('dropIndicator');
+        
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            log.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        // Drag source events
+        document.querySelectorAll('.drag-item').forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                const type = e.target.getAttribute('data-type');
+                const dragData = {
+                    type: type,
+                    label: e.target.textContent.trim()
+                };
+                
+                e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+                e.target.style.opacity = '0.5';
+                
+                addLog(`🖱️ Started dragging: ${type}`);
+                console.log('Drag data set:', dragData);
+            });
+            
+            item.addEventListener('dragend', (e) => {
+                e.target.style.opacity = '1';
+                addLog(`🏁 Ended dragging`);
+            });
+        });
+        
+        // Drop target events
+        container.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            dropIndicator.style.left = x + 'px';
+            dropIndicator.style.top = y + 'px';
+            dropIndicator.style.display = 'block';
+            
+            container.classList.add('drag-over');
+            e.dataTransfer.dropEffect = 'copy';
+        });
+        
+        container.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            addLog(`📥 Drag entered container`);
+        });
+        
+        container.addEventListener('dragleave', (e) => {
+            if (!container.contains(e.relatedTarget)) {
+                container.classList.remove('drag-over');
+                dropIndicator.style.display = 'none';
+                addLog(`📤 Drag left container`);
+            }
+        });
+        
+        container.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            container.classList.remove('drag-over');
+            dropIndicator.style.display = 'none';
+            
+            addLog(`🎯 Drop event fired!`);
+            console.log('Drop event:', e);
+            console.log('DataTransfer types:', Array.from(e.dataTransfer.types));
+            
+            try {
+                const jsonData = e.dataTransfer.getData('application/json');
+                addLog(`📦 Retrieved JSON data: ${jsonData}`);
+                
+                if (jsonData) {
+                    const componentData = JSON.parse(jsonData);
+                    addLog(`✅ Successfully parsed: ${componentData.type} - ${componentData.label}`);
+                    
+                    // Add visual element to show successful drop
+                    const rect = container.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    
+                    const element = document.createElement('div');
+                    element.style.cssText = `
+                        position: absolute;
+                        left: ${x}px;
+                        top: ${y}px;
+                        background: #e3f2fd;
+                        border: 1px solid #2196f3;
+                        padding: 5px 10px;
+                        border-radius: 4px;
+                        font-size: 12px;
+                        pointer-events: none;
+                    `;
+                    element.textContent = componentData.type;
+                    container.appendChild(element);
+                } else {
+                    addLog(`❌ No JSON data received`);
+                }
+            } catch (error) {
+                addLog(`❌ Error parsing data: ${error.message}`);
+            }
+        });
+        
+        addLog(`🚀 Test page loaded. Try dragging components to the container.`);
+    </script>
+</body>
+</html>

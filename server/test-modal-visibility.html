@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prueba de Visibilidad del Modal</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      color: #333;
+    }
+    
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px 5px 10px 0;
+    }
+    
+    button.secondary {
+      background-color: #2196F3;
+    }
+    
+    button.danger {
+      background-color: #f44336;
+    }
+    
+    button:hover {
+      opacity: 0.9;
+    }
+    
+    pre {
+      background-color: #f5f5f5;
+      padding: 15px;
+      border-radius: 4px;
+      overflow: auto;
+      max-height: 200px;
+      font-size: 12px;
+    }
+    
+    .results {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f0f8ff;
+      border-radius: 4px;
+    }
+    
+    .test-variations {
+      margin-top: 30px;
+      border-top: 1px solid #ddd;
+      padding-top: 20px;
+    }
+    
+    /* ESTILOS PARA EL MODAL - VARIACIÓN 1 - ORIGINAL */
+    #test-modal-1 .cmp-modal-overlay {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      background-color: rgba(0,0,0,0.5) !important;
+      z-index: 999998 !important;
+      display: block !important;
+    }
+    
+    #test-modal-1 #cmp-modal-wrapper {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      z-index: 999999 !important;
+    }
+    
+    #test-modal-1 .cmp-banner--modal {
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3) !important;
+      border-radius: 8px !important;
+      max-width: 90% !important;
+      max-height: 90vh !important;
+      overflow-y: auto !important;
+      margin: 0 !important;
+      padding: 30px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: flex-start !important;
+      align-items: center !important;
+      position: relative !important;
+      width: 90% !important;
+      max-width: 600px !important;
+      z-index: 999999 !important;
+      background-color: #ffffff !important;
+    }
+    
+    /* ESTILOS PARA EL MODAL - VARIACIÓN 2 - SIMPLIFICADA */
+    #test-modal-2 {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999999;
+    }
+    
+    #test-modal-2 .modal-content {
+      background-color: white;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 600px;
+      width: 90%;
+      text-align: center;
+    }
+    
+    /* ESTILOS PARA EL MODAL - VARIACIÓN 3 - BÁSICA */
+    #test-modal-3 {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.3);
+      z-index: 99999;
+    }
+    
+    /* Overlay separado para variación 3 */
+    #test-overlay-3 {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 99998;
+    }
+    
+    /* ESTILOS PARA EL MODAL - VARIACIÓN 4 - ALTERNATIVA */
+    #test-modal-4 {
+      position: fixed;
+      inset: 0; /* Shorthand para top/right/bottom/left: 0 */
+      display: grid;
+      place-items: center;
+      background: rgba(0,0,0,0.5);
+      z-index: 999999;
+    }
+    
+    #test-modal-4 .modal-dialog {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      width: min(500px, 90vw);
+      box-shadow: 0 5px 30px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+  <h1>Prueba de Visibilidad del Modal</h1>
+  
+  <p>Esta página permite probar diferentes implementaciones del modal para identificar cuál funciona mejor para el cookie consent banner.</p>
+  
+  <div class="controls">
+    <h3>Controles generales</h3>
+    <button id="reset-all" class="danger">Ocultar todos los modales</button>
+    <button id="check-visibility">Verificar visibilidad</button>
+  </div>
+  
+  <div class="results" id="results">
+    <p>Los resultados aparecerán aquí...</p>
+  </div>
+  
+  <div class="test-variations">
+    <h2>Variación 1: Implementación Original (Tres capas)</h2>
+    <p>Usa la estructura de tres capas (overlay → wrapper → banner) con estilos inline y !important.</p>
+    <button id="show-modal-1">Mostrar Modal V1</button>
+    
+    <!-- Variación 1: Estructura Original -->
+    <div id="test-modal-1" style="display: none">
+      <div id="cmp-modal-overlay" class="cmp-modal-overlay">
+        <div id="cmp-modal-wrapper">
+          <div id="cmp-banner" class="cmp-banner cmp-banner--modal">
+            <div class="cmp-modal-content">
+              <h2>Cookie Consent - V1</h2>
+              <p>Este sitio utiliza cookies para garantizar la mejor experiencia en nuestro sitio web.</p>
+              <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="hideModal('test-modal-1')" style="background: #f44336; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px;">Rechazar</button>
+                <button onclick="hideModal('test-modal-1')" style="background: #4CAF50; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px;">Aceptar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <h2>Variación 2: Implementación Simplificada</h2>
+    <p>Una versión más simple con menos capas anidadas y menos propiedades CSS.</p>
+    <button id="show-modal-2">Mostrar Modal V2</button>
+    
+    <!-- Variación 2: Estructura Simplificada -->
+    <div id="test-modal-2" style="display: none">
+      <div class="modal-content">
+        <h2>Cookie Consent - V2</h2>
+        <p>Este sitio utiliza cookies para garantizar la mejor experiencia en nuestro sitio web.</p>
+        <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: center;">
+          <button onclick="hideModal('test-modal-2')" style="background: #f44336; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px;">Rechazar</button>
+          <button onclick="hideModal('test-modal-2')" style="background: #4CAF50; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px;">Aceptar</button>
+        </div>
+      </div>
+    </div>
+    
+    <h2>Variación 3: Implementación Básica</h2>
+    <p>La implementación más básica posible con posicionamiento absoluto.</p>
+    <button id="show-modal-3">Mostrar Modal V3</button>
+    
+    <!-- Variación 3: Estructura Básica -->
+    <div id="test-overlay-3" style="display: none"></div>
+    <div id="test-modal-3" style="display: none">
+      <h2>Cookie Consent - V3</h2>
+      <p>Este sitio utiliza cookies para garantizar la mejor experiencia en nuestro sitio web.</p>
+      <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: center;">
+        <button onclick="hideModal('test-modal-3'); document.getElementById('test-overlay-3').style.display = 'none';" style="background: #f44336; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px;">Rechazar</button>
+        <button onclick="hideModal('test-modal-3'); document.getElementById('test-overlay-3').style.display = 'none';" style="background: #4CAF50; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px;">Aceptar</button>
+      </div>
+    </div>
+    
+    <h2>Variación 4: Implementación Alternativa</h2>
+    <p>Usa propiedades CSS modernas como grid y inset.</p>
+    <button id="show-modal-4">Mostrar Modal V4</button>
+    
+    <!-- Variación 4: Estructura Alternativa -->
+    <div id="test-modal-4" style="display: none">
+      <div class="modal-dialog">
+        <h2>Cookie Consent - V4</h2>
+        <p>Este sitio utiliza cookies para garantizar la mejor experiencia en nuestro sitio web.</p>
+        <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: center;">
+          <button onclick="hideModal('test-modal-4')" style="background: #f44336; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px;">Rechazar</button>
+          <button onclick="hideModal('test-modal-4')" style="background: #4CAF50; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px;">Aceptar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <h2>Sección de pruebas avanzadas</h2>
+  <div>
+    <button id="test-create-dynamic" class="secondary">Crear Modal Dinámicamente</button>
+    <button id="force-visibility" class="secondary">Forzar Visibilidad de Todos los Modales</button>
+    <button id="test-all-styles" class="secondary">Probar Todas las Variaciones</button>
+  </div>
+  
+  <pre id="debug-output"></pre>
+  
+  <script>
+    // Funciones generales para mostrar/ocultar modales
+    function showModal(id) {
+      const modal = document.getElementById(id);
+      
+      if (!modal) {
+        console.error(`Modal ${id} no encontrado!`);
+        logDebug(`Error: Modal ${id} no encontrado`);
+        return;
+      }
+      
+      // Mostrar el modal
+      modal.style.display = 'block';
+      
+      // Si es la variación 3, mostrar también el overlay
+      if (id === 'test-modal-3') {
+        document.getElementById('test-overlay-3').style.display = 'block';
+      }
+      
+      // Para la variación 1, asegurar que todos los elementos internos sean visibles
+      if (id === 'test-modal-1') {
+        const modalOverlay = document.getElementById('cmp-modal-overlay');
+        const modalWrapper = document.getElementById('cmp-modal-wrapper');
+        const modalBanner = document.getElementById('cmp-banner');
+        
+        if (modalOverlay) modalOverlay.style.cssText += "; display: block !important; opacity: 1 !important;";
+        if (modalWrapper) modalWrapper.style.cssText += "; display: flex !important; opacity: 1 !important;";
+        if (modalBanner) modalBanner.style.cssText += "; display: flex !important; opacity: 1 !important;";
+      }
+      
+      logStatus(`Modal ${id} mostrado`);
+      logDebug(`Modal ${id} mostrado - display: ${window.getComputedStyle(modal).display}`);
+    }
+    
+    function hideModal(id) {
+      const modal = document.getElementById(id);
+      
+      if (modal) {
+        modal.style.display = 'none';
+        logStatus(`Modal ${id} ocultado`);
+        logDebug(`Modal ${id} ocultado`);
+      }
+    }
+    
+    function hideAllModals() {
+      document.getElementById('test-modal-1').style.display = 'none';
+      document.getElementById('test-modal-2').style.display = 'none';
+      document.getElementById('test-modal-3').style.display = 'none';
+      document.getElementById('test-overlay-3').style.display = 'none';
+      document.getElementById('test-modal-4').style.display = 'none';
+      logStatus('Todos los modales ocultados');
+    }
+    
+    // Función para verificar la visibilidad de todos los modales
+    function checkVisibility() {
+      const results = document.getElementById('results');
+      let statusHTML = '<h3>Estado de visibilidad:</h3>';
+      const modals = [
+        {id: 'test-modal-1', label: 'Modal V1 (Original)'},
+        {id: 'test-modal-2', label: 'Modal V2 (Simplificado)'},
+        {id: 'test-modal-3', label: 'Modal V3 (Básico)'},
+        {id: 'test-modal-4', label: 'Modal V4 (Alternativo)'}
+      ];
+      
+      modals.forEach(modal => {
+        const el = document.getElementById(modal.id);
+        
+        statusHTML += `<p><strong>${modal.label}:</strong> `;
+        
+        if (el) {
+          const style = window.getComputedStyle(el);
+          statusHTML += `Existe | Display: ${style.display} | Visibility: ${style.visibility} | Opacity: ${style.opacity}</p>`;
+          
+          // Verificar si realmente es visible en la página
+          const rect = el.getBoundingClientRect();
+          const isInViewport = (
+            rect.width > 0 &&
+            rect.height > 0 &&
+            rect.top >= 0 &&
+            rect.left >= 0 &&
+            rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+            rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+          );
+          
+          statusHTML += `<p>Dimensiones: ${rect.width}x${rect.height} | Posición: (${rect.left}, ${rect.top}) | En viewport: ${isInViewport ? 'SÍ' : 'NO'}</p>`;
+        } else {
+          statusHTML += 'No existe en el DOM</p>';
+        }
+      });
+      
+      // Para el Modal V1, verificar también las capas internas
+      const modalOverlay = document.getElementById('cmp-modal-overlay');
+      const modalWrapper = document.getElementById('cmp-modal-wrapper');
+      const modalBanner = document.getElementById('cmp-banner');
+      
+      statusHTML += '<h4>Capas internas del Modal V1:</h4>';
+      
+      if (modalOverlay) {
+        const overlayStyle = window.getComputedStyle(modalOverlay);
+        statusHTML += `<p><strong>Overlay:</strong> Display: ${overlayStyle.display} | Visibility: ${overlayStyle.visibility}</p>`;
+      } else {
+        statusHTML += '<p><strong>Overlay:</strong> No existe</p>';
+      }
+      
+      if (modalWrapper) {
+        const wrapperStyle = window.getComputedStyle(modalWrapper);
+        statusHTML += `<p><strong>Wrapper:</strong> Display: ${wrapperStyle.display} | Visibility: ${wrapperStyle.visibility}</p>`;
+      } else {
+        statusHTML += '<p><strong>Wrapper:</strong> No existe</p>';
+      }
+      
+      if (modalBanner) {
+        const bannerStyle = window.getComputedStyle(modalBanner);
+        statusHTML += `<p><strong>Banner:</strong> Display: ${bannerStyle.display} | Visibility: ${bannerStyle.visibility}</p>`;
+      } else {
+        statusHTML += '<p><strong>Banner:</strong> No existe</p>';
+      }
+      
+      results.innerHTML = statusHTML;
+    }
+    
+    // Función para crear un modal dinámicamente
+    function createDynamicModal() {
+      // Limpiar cualquier modal dinámico anterior
+      const oldModal = document.getElementById('dynamic-modal');
+      if (oldModal && oldModal.parentNode) {
+        oldModal.parentNode.removeChild(oldModal);
+      }
+      
+      // Crear estructura simplificada
+      const modal = document.createElement('div');
+      modal.id = 'dynamic-modal';
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999999;
+      `;
+      
+      const content = document.createElement('div');
+      content.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        max-width: 500px;
+        width: 90%;
+        text-align: center;
+      `;
+      
+      content.innerHTML = `
+        <h2>Modal Dinámico</h2>
+        <p>Este modal ha sido creado dinámicamente mediante JavaScript.</p>
+        <button onclick="document.getElementById('dynamic-modal').remove()" style="background: #4CAF50; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px; margin-top: 20px;">Cerrar</button>
+      `;
+      
+      modal.appendChild(content);
+      document.body.appendChild(modal);
+      
+      logStatus('Modal dinámico creado y mostrado');
+      logDebug('Modal dinámico creado y añadido al DOM');
+    }
+    
+    // Función para forzar la visibilidad de todos los modales
+    function forceVisibility() {
+      // Mostrar todos los modales
+      document.getElementById('test-modal-1').style.display = 'block';
+      document.getElementById('test-modal-2').style.display = 'block';
+      document.getElementById('test-modal-3').style.display = 'block';
+      document.getElementById('test-overlay-3').style.display = 'block';
+      document.getElementById('test-modal-4').style.display = 'block';
+      
+      // Aplicar estilos forzados para el Modal V1
+      const modalOverlay = document.getElementById('cmp-modal-overlay');
+      const modalWrapper = document.getElementById('cmp-modal-wrapper');
+      const modalBanner = document.getElementById('cmp-banner');
+      
+      if (modalOverlay) {
+        modalOverlay.style.cssText = `
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          background-color: rgba(0,0,0,0.5) !important;
+          z-index: 9999998 !important;
+          display: block !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+        `;
+      }
+      
+      if (modalWrapper) {
+        modalWrapper.style.cssText = `
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          z-index: 9999999 !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+        `;
+      }
+      
+      if (modalBanner) {
+        modalBanner.style.cssText = `
+          box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3) !important;
+          border-radius: 8px !important;
+          max-width: 90% !important;
+          max-height: 90vh !important;
+          overflow-y: auto !important;
+          margin: 0 !important;
+          padding: 30px !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: flex-start !important;
+          align-items: center !important;
+          position: relative !important;
+          width: 90% !important;
+          max-width: 600px !important;
+          z-index: 9999999 !important;
+          background-color: #ffffff !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+        `;
+      }
+      
+      logStatus('Visibilidad forzada en todos los modales');
+      logDebug('Aplicados estilos forzados a todos los modales');
+      
+      // Verificar el estado después de 100ms
+      setTimeout(checkVisibility, 100);
+    }
+    
+    // Función para probar todas las variaciones secuencialmente
+    function testAllStyles() {
+      hideAllModals();
+      
+      logStatus('Iniciando prueba secuencial de todas las variaciones...');
+      
+      // Prueba V1
+      setTimeout(() => {
+        showModal('test-modal-1');
+        logDebug('Probando Variación 1...');
+        
+        // Prueba V2
+        setTimeout(() => {
+          hideModal('test-modal-1');
+          showModal('test-modal-2');
+          logDebug('Probando Variación 2...');
+          
+          // Prueba V3
+          setTimeout(() => {
+            hideModal('test-modal-2');
+            showModal('test-modal-3');
+            logDebug('Probando Variación 3...');
+            
+            // Prueba V4
+            setTimeout(() => {
+              hideModal('test-modal-3');
+              document.getElementById('test-overlay-3').style.display = 'none';
+              showModal('test-modal-4');
+              logDebug('Probando Variación 4...');
+              
+              // Finalizar prueba
+              setTimeout(() => {
+                hideModal('test-modal-4');
+                logDebug('Prueba secuencial completada');
+                logStatus('Prueba completada - ¿Cuál variación funcionó mejor?');
+              }, 2000);
+            }, 2000);
+          }, 2000);
+        }, 2000);
+      }, 500);
+    }
+    
+    // Funciones auxiliares para registro
+    function logStatus(message) {
+      console.log(message);
+      const results = document.getElementById('results');
+      results.innerHTML = `<p>${message}</p>`;
+    }
+    
+    function logDebug(message) {
+      console.log(message);
+      const debugOutput = document.getElementById('debug-output');
+      debugOutput.innerHTML += message + '\n';
+      debugOutput.scrollTop = debugOutput.scrollHeight;
+    }
+    
+    // Agregar listeners de eventos
+    document.getElementById('show-modal-1').addEventListener('click', () => showModal('test-modal-1'));
+    document.getElementById('show-modal-2').addEventListener('click', () => showModal('test-modal-2'));
+    document.getElementById('show-modal-3').addEventListener('click', () => showModal('test-modal-3'));
+    document.getElementById('show-modal-4').addEventListener('click', () => showModal('test-modal-4'));
+    document.getElementById('reset-all').addEventListener('click', hideAllModals);
+    document.getElementById('check-visibility').addEventListener('click', checkVisibility);
+    document.getElementById('test-create-dynamic').addEventListener('click', createDynamicModal);
+    document.getElementById('force-visibility').addEventListener('click', forceVisibility);
+    document.getElementById('test-all-styles').addEventListener('click', testAllStyles);
+    
+    // Inicialización
+    logDebug('Página de prueba de modales inicializada');
+    
+    // Verificar compatibilidad del navegador
+    logDebug('Verificando compatibilidad del navegador:');
+    logDebug(`- CSS Grid: ${typeof CSS !== 'undefined' && CSS.supports('display', 'grid') ? 'Soportado' : 'No soportado'}`);
+    logDebug(`- CSS Flexbox: ${typeof CSS !== 'undefined' && CSS.supports('display', 'flex') ? 'Soportado' : 'No soportado'}`);
+    logDebug(`- Position Fixed: ${typeof CSS !== 'undefined' && CSS.supports('position', 'fixed') ? 'Soportado' : 'No soportado'}`);
+  </script>
+</body>
+</html>

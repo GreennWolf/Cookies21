@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentación de Cookie21</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            padding-top: 60px;
+        }
+        .hero-section {
+            background-color: #f8f9fa;
+            padding: 50px 0;
+            margin-bottom: 40px;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .code-block {
+            background-color: #f7f7f7;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #0d6efd;
+            font-family: monospace;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        .nav-pills .nav-link.active {
+            background-color: #0d6efd;
+        }
+        .nav-pills .nav-link {
+            color: #0d6efd;
+        }
+        .card {
+            margin-bottom: 20px;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        .toc {
+            position: sticky;
+            top: 80px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="#">Cookie21 Docs</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/documentation">Inicio</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/documentation/script-integration">Integración del Script</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/documentation/banner-customization">Personalización del Banner</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/documentation/compliance">Cumplimiento Normativo</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-8 offset-md-2 text-center">
+                    <h1>Documentación de Cookie21</h1>
+                    <p class="lead">Gestión profesional de cookies para tu sitio web</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="toc">
+                    <div class="list-group">
+                        <a href="#introduction" class="list-group-item list-group-item-action">Introducción</a>
+                        <a href="#getting-started" class="list-group-item list-group-item-action">Primeros pasos</a>
+                        <a href="#script-integration" class="list-group-item list-group-item-action">Integración del script</a>
+                        <a href="#banner-customization" class="list-group-item list-group-item-action">Personalización del banner</a>
+                        <a href="#compliance" class="list-group-item list-group-item-action">Cumplimiento normativo</a>
+                        <a href="#faq" class="list-group-item list-group-item-action">Preguntas frecuentes</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-9">
+                <section id="introduction" class="section">
+                    <h2>Introducción</h2>
+                    <p>Cookie21 es una plataforma completa para la gestión de cookies y el cumplimiento de normativas como RGPD, LOPD-GDD y ePrivacy. Nuestra solución facilita la implementación de banners de consentimiento personalizables, el escaneo de cookies, y la gestión eficiente del consentimiento de los usuarios.</p>
+                    
+                    <div class="card">
+                        <div class="card-header">Características principales</div>
+                        <div class="card-body">
+                            <ul>
+                                <li><strong>Banner de consentimiento personalizable</strong> - Personaliza completamente el aspecto y comportamiento del banner de cookies.</li>
+                                <li><strong>Escaneo automático de cookies</strong> - Identifica todas las cookies de tu sitio web y clasifícalas automáticamente.</li>
+                                <li><strong>Gestión del consentimiento</strong> - Almacena y gestiona el consentimiento del usuario de forma segura y conforme a las normativas.</li>
+                                <li><strong>Dashboard analítico</strong> - Obtén métricas sobre el comportamiento de los usuarios respecto al consentimiento.</li>
+                                <li><strong>Soporte para TCF 2.2</strong> - Compatible con el marco de transparencia y consentimiento de IAB.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="getting-started" class="section">
+                    <h2>Primeros pasos</h2>
+                    <p>Implementar Cookie21 en tu sitio web es un proceso sencillo que consta de tres pasos básicos:</p>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header">1. Registra tu dominio</div>
+                        <div class="card-body">
+                            <p>Añade tu dominio desde el panel de control de Cookie21, proporcionando la URL de tu sitio web.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header">2. Integra el script</div>
+                        <div class="card-body">
+                            <p>Copia el script de Cookie21 y añádelo a todas las páginas de tu sitio web, justo antes de la etiqueta <code>&lt;/head&gt;</code>.</p>
+                            <div class="code-block">
+<pre>&lt;script&gt;
+  (function(w,d,s,l,i){
+    w[l]=w[l]||[];
+    var f=d.getElementsByTagName(s)[0],j=d.createElement(s);
+    j.async=true;j.src=i;
+    f.parentNode.insertBefore(j,f);
+  })(window,document,'script','cmp','https://app.cookie21.com/api/v1/consent/script/YOUR_CLIENT_ID/embed.js');
+&lt;/script&gt;</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">3. Personaliza tu banner</div>
+                        <div class="card-body">
+                            <p>Utiliza nuestro editor visual para personalizar el aspecto y el contenido del banner de consentimiento según la identidad visual de tu marca.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="script-integration" class="section">
+                    <h2>Integración del script</h2>
+                    <p>El script de Cookie21 debe colocarse en todas las páginas de tu sitio web, justo antes del cierre de la etiqueta <code>&lt;/head&gt;</code>.</p>
+                    
+                    <h4 class="mt-4">Uso básico</h4>
+                    <div class="code-block">
+<pre>&lt;script&gt;
+  (function(w,d,s,l,i){
+    w[l]=w[l]||[];
+    var f=d.getElementsByTagName(s)[0],j=d.createElement(s);
+    j.async=true;j.src=i;
+    f.parentNode.insertBefore(j,f);
+  })(window,document,'script','cmp','https://app.cookie21.com/api/v1/consent/script/YOUR_CLIENT_ID/embed.js');
+&lt;/script&gt;</pre>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3">
+                        <strong>Nota:</strong> Reemplaza <code>YOUR_CLIENT_ID</code> con el ID de cliente único proporcionado en tu panel de Cookie21.
+                    </div>
+                    
+                    <p class="mt-4">Para obtener más detalles e información sobre opciones avanzadas, consulta la <a href="/documentation/script-integration">guía completa de integración del script</a>.</p>
+                </section>
+
+                <section id="banner-customization" class="section">
+                    <h2>Personalización del banner</h2>
+                    <p>Cookie21 permite personalizar completamente el aspecto y comportamiento del banner de consentimiento a través de un editor visual intuitivo.</p>
+                    
+                    <div class="row mt-4">
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header">Personalización de apariencia</div>
+                                <div class="card-body">
+                                    <ul>
+                                        <li>Colores y tipografía</li>
+                                        <li>Posición y tamaño</li>
+                                        <li>Imágenes y logos</li>
+                                        <li>Animaciones y efectos</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header">Personalización de contenido</div>
+                                <div class="card-body">
+                                    <ul>
+                                        <li>Textos y traducciones</li>
+                                        <li>Categorías de cookies</li>
+                                        <li>Botones y acciones</li>
+                                        <li>Panel de preferencias</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <p>Para obtener instrucciones detalladas sobre cómo personalizar tu banner, consulta la <a href="/documentation/banner-customization">guía completa de personalización</a>.</p>
+                </section>
+
+                <section id="compliance" class="section">
+                    <h2>Cumplimiento normativo</h2>
+                    <p>Cookie21 está diseñado para cumplir con las principales normativas de privacidad, incluyendo:</p>
+                    
+                    <ul class="mt-3">
+                        <li><strong>RGPD (Reglamento General de Protección de Datos)</strong></li>
+                        <li><strong>LOPD-GDD (Ley Orgánica de Protección de Datos y Garantía de los Derechos Digitales)</strong></li>
+                        <li><strong>Directiva ePrivacy</strong></li>
+                        <li><strong>Guía de Cookies 2023 de la AEPD (Agencia Española de Protección de Datos)</strong></li>
+                    </ul>
+                    
+                    <div class="alert alert-warning mt-4">
+                        <strong>Importante:</strong> Recuerda que el cumplimiento normativo es un proceso continuo. Mantén tu banner y política de cookies actualizados según los cambios en la legislación.
+                    </div>
+                    
+                    <p class="mt-4">Para obtener más información sobre cómo Cookie21 te ayuda a cumplir con estas normativas, consulta nuestra <a href="/documentation/compliance">guía de cumplimiento normativo</a>.</p>
+                </section>
+
+                <section id="faq" class="section">
+                    <h2>Preguntas frecuentes</h2>
+                    
+                    <div class="accordion" id="faqAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                                    ¿Cómo afecta Cookie21 al rendimiento de mi sitio web?
+                                </button>
+                            </h2>
+                            <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    Cookie21 está diseñado para tener un impacto mínimo en el rendimiento. El script se carga de forma asíncrona, lo que significa que no bloquea la carga del resto de la página. Además, utiliza técnicas de carga diferida para minimizar el impacto en los tiempos de carga.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                                    ¿Funciona Cookie21 con cualquier tipo de sitio web?
+                                </button>
+                            </h2>
+                            <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    Sí, Cookie21 es compatible con cualquier tipo de sitio web, independientemente de la tecnología utilizada. Funciona con sitios desarrollados en WordPress, Drupal, Joomla, Shopify, Wix, y con sitios personalizados desarrollados con cualquier framework o lenguaje.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                                    ¿Cómo puedo bloquear scripts hasta que el usuario dé su consentimiento?
+                                </button>
+                            </h2>
+                            <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    Puedes bloquear la ejecución de scripts hasta que el usuario dé su consentimiento utilizando el atributo <code>type="text/plain"</code> junto con una clase específica para la categoría de la cookie. Por ejemplo: <code>&lt;script type="text/plain" class="cmp-analytics"&gt;</code>. Cookie21 activará automáticamente estos scripts cuando el usuario dé su consentimiento para la categoría correspondiente.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                                    ¿Puedo personalizar el idioma del banner?
+                                </button>
+                            </h2>
+                            <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    Sí, Cookie21 detecta automáticamente el idioma del navegador del usuario y muestra el banner en el idioma correspondiente. Actualmente soportamos español, inglés, francés, alemán, italiano y portugués. Puedes editar todas las traducciones desde el panel de control.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <p>&copy; 2023 Cookie21. Todos los derechos reservados.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <a href="/politica-privacidad" class="text-decoration-none me-3">Política de Privacidad</a>
+                    <a href="/aviso-legal" class="text-decoration-none">Aviso Legal</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Active scrollspy
+        document.addEventListener('DOMContentLoaded', function() {
+            const sections = document.querySelectorAll('section');
+            const navLinks = document.querySelectorAll('.toc .list-group-item');
+            
+            window.addEventListener('scroll', function() {
+                let current = '';
+                
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    const sectionHeight = section.clientHeight;
+                    
+                    if (pageYOffset >= sectionTop - 200) {
+                        current = section.getAttribute('id');
+                    }
+                });
+                
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href').substring(1) === current) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

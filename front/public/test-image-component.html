@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Componente de Imagen</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h2 {
+            margin-top: 0;
+            font-size: 18px;
+        }
+        .image-container {
+            width: 200px;
+            height: 150px;
+            border: 2px dashed #aaa;
+            margin: 10px 0;
+            position: relative;
+        }
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .control-panel {
+            margin-top: 15px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .resize-handle {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 20px;
+            height: 20px;
+            background-color: rgba(0,0,0,0.5);
+            cursor: nwse-resize;
+        }
+        #log {
+            padding: 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Test de Componente de Imagen</h1>
+
+    <div class="test-section">
+        <h2>Carga básica de imagen</h2>
+        <p>Prueba la carga de una imagen y su redimensionamiento.</p>
+        
+        <div class="image-container" id="test-container-1">
+            <img id="test-image-1" alt="Imagen de prueba">
+            <div class="resize-handle" id="resize-handle-1"></div>
+        </div>
+        
+        <div class="control-panel">
+            <input type="file" id="file-input-1" accept="image/*">
+            <button id="load-button-1">Cargar Imagen</button>
+            <button id="reset-button-1">Reiniciar</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Prueba de Persistencia</h2>
+        <p>Verifica que la imagen mantiene su tamaño tras múltiples cargas.</p>
+        
+        <div class="image-container" id="test-container-2">
+            <img id="test-image-2" alt="Imagen de prueba persistencia">
+            <div class="resize-handle" id="resize-handle-2"></div>
+        </div>
+        
+        <div class="control-panel">
+            <input type="file" id="file-input-2" accept="image/*">
+            <button id="load-button-2">Cargar Imagen</button>
+            <button id="reload-button-2">Simular Reload</button>
+        </div>
+    </div>
+
+    <div id="log">
+        <div class="log-entry info">Esperando acciones...</div>
+    </div>
+
+    <script>
+        // Utilidades de logging
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = message;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        // Función para inicializar un contenedor de imagen redimensionable
+        function initImageContainer(containerId, imageId, handleId, fileInputId, loadButtonId) {
+            const container = document.getElementById(containerId);
+            const image = document.getElementById(imageId);
+            const handle = document.getElementById(handleId);
+            const fileInput = document.getElementById(fileInputId);
+            const loadButton = document.getElementById(loadButtonId);
+            
+            // Datos persistentes
+            container.dataset.width = container.offsetWidth;
+            container.dataset.height = container.offsetHeight;
+            
+            // Cargar imagen cuando se seleccione un archivo
+            loadButton.addEventListener('click', () => {
+                if (fileInput.files.length === 0) {
+                    log('Por favor selecciona una imagen primero', 'error');
+                    return;
+                }
+                
+                const file = fileInput.files[0];
+                log(`Cargando imagen ${file.name} (${Math.round(file.size/1024)}KB)`, 'info');
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    image.src = e.target.result;
+                    log(`Imagen cargada exitosamente`, 'success');
+                    
+                    // Guardar dimensiones naturales cuando la imagen se carga
+                    image.onload = () => {
+                        log(`Dimensiones naturales: ${image.naturalWidth}x${image.naturalHeight}`, 'info');
+                        updateDimensions(image, container);
+                    };
+                };
+                reader.onerror = () => {
+                    log('Error al leer el archivo', 'error');
+                };
+                reader.readAsDataURL(file);
+            });
+            
+            // Función para ajustar dimensiones basadas en imagen
+            function updateDimensions(img, cont) {
+                // Almacenar dimensiones originales
+                const oldWidth = parseInt(cont.dataset.width) || cont.offsetWidth;
+                const oldHeight = parseInt(cont.dataset.height) || cont.offsetHeight;
+                
+                // Solo actualizar si no hay dimensiones previas establecidas
+                if (!cont.dataset.dimensionsSet) {
+                    const aspectRatio = img.naturalWidth / img.naturalHeight;
+                    
+                    let finalWidth, finalHeight;
+                    
+                    if (img.naturalWidth > img.naturalHeight) {
+                        // Imagen horizontal
+                        finalWidth = Math.min(img.naturalWidth, 300);
+                        finalHeight = Math.round(finalWidth / aspectRatio);
+                    } else {
+                        // Imagen vertical o cuadrada
+                        finalHeight = Math.min(img.naturalHeight, 200);
+                        finalWidth = Math.round(finalHeight * aspectRatio);
+                    }
+                    
+                    cont.style.width = `${finalWidth}px`;
+                    cont.style.height = `${finalHeight}px`;
+                    
+                    cont.dataset.width = finalWidth;
+                    cont.dataset.height = finalHeight;
+                    cont.dataset.dimensionsSet = 'true';
+                    
+                    log(`Dimensiones actualizadas: ${finalWidth}x${finalHeight}`, 'success');
+                } else {
+                    log(`Usando dimensiones previas: ${oldWidth}x${oldHeight}`, 'info');
+                }
+            }
+            
+            // Implementar redimensionamiento con el handle
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                
+                const startX = e.clientX;
+                const startWidth = container.offsetWidth;
+                const startHeight = container.offsetHeight;
+                const aspectRatio = startWidth / startHeight;
+                
+                function onMouseMove(moveEvent) {
+                    const deltaX = moveEvent.clientX - startX;
+                    let newWidth = Math.max(50, startWidth + deltaX);
+                    let newHeight = Math.round(newWidth / aspectRatio);
+                    
+                    container.style.width = `${newWidth}px`;
+                    container.style.height = `${newHeight}px`;
+                    
+                    container.dataset.width = newWidth;
+                    container.dataset.height = newHeight;
+                    container.dataset.dimensionsSet = 'true';
+                }
+                
+                function onMouseUp() {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                    
+                    log(`Redimensionamiento completado: ${container.offsetWidth}x${container.offsetHeight}`, 'success');
+                }
+                
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        }
+        
+        // Inicializar los contenedores
+        initImageContainer('test-container-1', 'test-image-1', 'resize-handle-1', 'file-input-1', 'load-button-1');
+        initImageContainer('test-container-2', 'test-image-2', 'resize-handle-2', 'file-input-2', 'load-button-2');
+        
+        // Resetear el primer contenedor
+        document.getElementById('reset-button-1').addEventListener('click', () => {
+            const container = document.getElementById('test-container-1');
+            const image = document.getElementById('test-image-1');
+            
+            image.src = '';
+            container.style.width = '200px';
+            container.style.height = '150px';
+            container.dataset.width = 200;
+            container.dataset.height = 150;
+            delete container.dataset.dimensionsSet;
+            
+            log('Contenedor reiniciado', 'info');
+        });
+        
+        // Simular reload en el segundo contenedor
+        document.getElementById('reload-button-2').addEventListener('click', () => {
+            const container = document.getElementById('test-container-2');
+            const image = document.getElementById('test-image-2');
+            
+            // Guardar dimensiones actuales y src
+            const currentWidth = container.offsetWidth;
+            const currentHeight = container.offsetHeight;
+            const currentSrc = image.src;
+            
+            log(`Simulando recarga con dimensiones: ${currentWidth}x${currentHeight}`, 'info');
+            
+            // "Recargar" simulada - remover y volver a agregar
+            image.style.opacity = 0;
+            
+            setTimeout(() => {
+                // Verificar que se mantienen las dimensiones
+                container.style.width = `${currentWidth}px`;
+                container.style.height = `${currentHeight}px`;
+                
+                // Recargar la misma imagen
+                if (currentSrc) {
+                    image.src = currentSrc + '?t=' + Date.now();
+                }
+                
+                image.style.opacity = 1;
+                log('Simulación de recarga completada', 'success');
+            }, 500);
+        });
+    </script>
+</body>
+</html>

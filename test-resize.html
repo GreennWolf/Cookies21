@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Container Resize Functionality</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .test-container {
+            position: relative;
+            width: 300px;
+            height: 200px;
+            background-color: #e3f2fd;
+            border: 2px solid #1976d2;
+            margin: 20px 0;
+            overflow: visible;
+        }
+        
+        .resize-handle {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 20px;
+            height: 20px;
+            background-color: rgba(59, 130, 246, 0.7);
+            cursor: nwse-resize;
+            border-top-left-radius: 3px;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .resize-handle::after {
+            content: '';
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 0 0 8px 8px;
+            border-color: transparent transparent #ffffff transparent;
+        }
+        
+        .status {
+            background: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .success {
+            border-left-color: #4caf50;
+            background-color: #f1f8e9;
+        }
+        
+        .error {
+            border-left-color: #f44336;
+            background-color: #ffebee;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Test de Funcionalidad de Resize de Contenedores</h1>
+    
+    <div class="status" id="status">
+        ✅ Componentes cargados. Prueba arrastrar el handle de resize azul en la esquina inferior derecha.
+    </div>
+    
+    <h2>Contenedor de Prueba:</h2>
+    <div class="test-container" id="testContainer">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #666;">
+            Contenedor de Prueba<br>
+            <small>Arrastra la esquina inferior derecha para redimensionar</small>
+        </div>
+        
+        <div class="resize-handle" id="resizeHandle" title="Redimensionar contenedor"></div>
+    </div>
+    
+    <div id="info" style="background: #fff; padding: 15px; border-radius: 4px; margin-top: 20px;">
+        <h3>Información de Depuración:</h3>
+        <p><strong>Tamaño actual:</strong> <span id="currentSize">300px x 200px</span></p>
+        <p><strong>Eventos detectados:</strong> <span id="eventLog">Ninguno</span></p>
+    </div>
+
+    <script>
+        const container = document.getElementById('testContainer');
+        const resizeHandle = document.getElementById('resizeHandle');
+        const status = document.getElementById('status');
+        const currentSizeSpan = document.getElementById('currentSize');
+        const eventLog = document.getElementById('eventLog');
+        
+        let events = [];
+        
+        function updateSize() {
+            const rect = container.getBoundingClientRect();
+            currentSizeSpan.textContent = `${Math.round(rect.width)}px x ${Math.round(rect.height)}px`;
+        }
+        
+        function logEvent(event) {
+            events.push(event);
+            eventLog.textContent = events.slice(-3).join(', ');
+        }
+        
+        function handleResizeStart(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            logEvent('Resize iniciado');
+            status.textContent = '🔄 Redimensionando... Mueve el mouse para cambiar el tamaño.';
+            status.className = 'status';
+            
+            const startWidth = container.clientWidth;
+            const startHeight = container.clientHeight;
+            const startX = e.clientX;
+            const startY = e.clientY;
+            
+            function onMouseMove(moveEvent) {
+                const deltaX = moveEvent.clientX - startX;
+                const deltaY = moveEvent.clientY - startY;
+                
+                const newWidth = Math.max(100, startWidth + deltaX);
+                const newHeight = Math.max(50, startHeight + deltaY);
+                
+                container.style.width = `${newWidth}px`;
+                container.style.height = `${newHeight}px`;
+                
+                updateSize();
+                logEvent('Redimensionando');
+            }
+            
+            function onMouseUp() {
+                logEvent('Resize completado');
+                status.textContent = '✅ Redimensionamiento completado exitosamente.';
+                status.className = 'status success';
+                
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            }
+            
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        }
+        
+        // Eventos de prueba
+        resizeHandle.addEventListener('mousedown', handleResizeStart);
+        resizeHandle.addEventListener('dragstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        
+        // Eventos para detectar conflictos
+        container.addEventListener('dragstart', (e) => {
+            if (e.target.closest('.resize-handle')) {
+                e.preventDefault();
+                e.stopPropagation();
+                logEvent('Drag bloqueado en handle');
+                return false;
+            }
+            logEvent('Drag del contenedor');
+        });
+        
+        // Inicializar
+        updateSize();
+        
+        console.log('🔧 Test de resize inicializado');
+        console.log('- Arrastra el handle azul para probar el resize');
+        console.log('- Comprueba que no haya conflictos de eventos');
+    </script>
+</body>
+</html>

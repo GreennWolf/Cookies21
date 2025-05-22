@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Drop to Container</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .sidebar {
+            position: fixed;
+            left: 20px;
+            top: 100px;
+            width: 200px;
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .component-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin: 8px 0;
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            cursor: grab;
+            transition: all 0.2s;
+        }
+        
+        .component-item:hover {
+            background: #e3f2fd;
+            border-color: #2196f3;
+            transform: translateY(-1px);
+        }
+        
+        .component-item:active {
+            cursor: grabbing;
+        }
+        
+        .main-area {
+            margin-left: 250px;
+            padding: 20px;
+        }
+        
+        .container {
+            position: relative;
+            width: 400px;
+            height: 300px;
+            background-color: #e3f2fd;
+            border: 2px solid #1976d2;
+            border-radius: 8px;
+            margin: 20px 0;
+            overflow: visible;
+            padding: 10px;
+            transition: all 0.2s;
+        }
+        
+        .container.drag-over {
+            outline: 2px dashed #3b82f6;
+            background-color: rgba(59, 130, 246, 0.1);
+            border-color: #3b82f6;
+        }
+        
+        .container-placeholder {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #999;
+            font-size: 14px;
+            text-align: center;
+            pointer-events: none;
+            user-select: none;
+        }
+        
+        .child-component {
+            position: absolute;
+            background-color: #fff3e0;
+            border: 2px solid #ff9800;
+            border-radius: 4px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: box-shadow 0.2s;
+        }
+        
+        .child-component:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .status {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196f3;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .success {
+            border-left-color: #4caf50;
+            background-color: #f1f8e9;
+        }
+        
+        .error {
+            border-left-color: #f44336;
+            background-color: #ffebee;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎯 Test de Drop a Contenedor</h1>
+    
+    <div class="sidebar">
+        <h3>Componentes</h3>
+        <div class="component-item" draggable="true" data-type="text">
+            📝 Texto
+        </div>
+        <div class="component-item" draggable="true" data-type="button">
+            🔘 Botón
+        </div>
+        <div class="component-item" draggable="true" data-type="image">
+            🖼️ Imagen
+        </div>
+        <div class="component-item" draggable="true" data-type="container">
+            📦 Contenedor
+        </div>
+    </div>
+    
+    <div class="main-area">
+        <div class="status" id="status">
+            ✅ Sistema listo. Arrastra componentes de la izquierda al contenedor azul.
+        </div>
+        
+        <h2>Contenedor de Destino:</h2>
+        <div class="container" id="container">
+            <div class="container-placeholder" id="placeholder">
+                Contenedor vacío<br>
+                <span style="font-size: 12px;">Arrastra componentes aquí</span>
+            </div>
+        </div>
+        
+        <div id="info" style="background: white; padding: 15px; border-radius: 6px; margin-top: 20px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);">
+            <h3>Información de Depuración:</h3>
+            <p><strong>Componentes en contenedor:</strong> <span id="childCount">0</span></p>
+            <p><strong>Últimos eventos:</strong> <span id="eventLog">Ninguno</span></p>
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('container');
+        const placeholder = document.getElementById('placeholder');
+        const status = document.getElementById('status');
+        const childCountSpan = document.getElementById('childCount');
+        const eventLog = document.getElementById('eventLog');
+        const componentItems = document.querySelectorAll('.component-item');
+        
+        let events = [];
+        let childComponents = [];
+        let nextId = 1;
+        
+        function logEvent(event) {
+            events.push(event);
+            eventLog.textContent = events.slice(-3).join(', ');
+            console.log('📝 Event:', event);
+        }
+        
+        function updateChildCount() {
+            childCountSpan.textContent = childComponents.length;
+            placeholder.style.display = childComponents.length > 0 ? 'none' : 'block';
+        }
+        
+        function createChildComponent(type, x, y) {
+            const childId = `child-${nextId++}`;
+            const childData = {
+                id: childId,
+                type: type,
+                left: (x / container.clientWidth) * 100,
+                top: (y / container.clientHeight) * 100
+            };
+            
+            childComponents.push(childData);
+            
+            const childElement = document.createElement('div');
+            childElement.className = 'child-component';
+            childElement.id = childId;
+            childElement.style.left = `${childData.left}%`;
+            childElement.style.top = `${childData.top}%`;
+            
+            let emoji = '';
+            switch(type) {
+                case 'text': emoji = '📝'; break;
+                case 'button': emoji = '🔘'; break;
+                case 'image': emoji = '🖼️'; break;
+                case 'container': emoji = '📦'; break;
+            }
+            
+            childElement.textContent = `${emoji} ${type} ${childData.id}`;
+            container.appendChild(childElement);
+            
+            updateChildCount();
+            logEvent(`Created ${type}`);
+            
+            return childData;
+        }
+        
+        // Setup drag for sidebar components
+        componentItems.forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                const componentType = item.dataset.type;
+                const componentData = {
+                    type: componentType,
+                    id: `temp-${Date.now()}`,
+                    content: `Nuevo ${componentType}`
+                };
+                
+                e.dataTransfer.setData('application/json', JSON.stringify(componentData));
+                e.dataTransfer.effectAllowed = 'copy';
+                
+                logEvent(`Drag start: ${componentType}`);
+                status.textContent = `🔄 Arrastrando ${componentType}...`;
+            });
+            
+            item.addEventListener('dragend', (e) => {
+                logEvent('Drag end');
+                status.textContent = '✅ Sistema listo para siguiente operación.';
+            });
+        });
+        
+        // Setup drop zone for container
+        container.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            
+            container.classList.add('drag-over');
+            logEvent('Drag over container');
+        });
+        
+        container.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            container.classList.add('drag-over');
+            logEvent('Drag enter container');
+        });
+        
+        container.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            // Solo quitar el efecto si realmente salimos del contenedor
+            if (!container.contains(e.relatedTarget)) {
+                container.classList.remove('drag-over');
+                logEvent('Drag leave container');
+            }
+        });
+        
+        container.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            container.classList.remove('drag-over');
+            
+            try {
+                const jsonData = e.dataTransfer.getData('application/json');
+                console.log('📦 Drop data received:', jsonData);
+                
+                if (jsonData) {
+                    const componentData = JSON.parse(jsonData);
+                    console.log('📦 Parsed component:', componentData);
+                    
+                    // Calcular posición dentro del contenedor
+                    const rect = container.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    
+                    // Validación simple
+                    if (componentData.type === 'container' && childComponents.length >= 3) {
+                        status.textContent = '❌ Máximo 3 contenedores anidados';
+                        status.className = 'status error';
+                        logEvent('Drop rejected: max nesting');
+                        
+                        setTimeout(() => {
+                            status.textContent = '✅ Sistema listo.';
+                            status.className = 'status';
+                        }, 3000);
+                        return;
+                    }
+                    
+                    // Crear componente
+                    const newChild = createChildComponent(componentData.type, x, y);
+                    
+                    status.textContent = `✅ ${componentData.type} agregado exitosamente al contenedor.`;
+                    status.className = 'status success';
+                    logEvent(`Drop success: ${componentData.type}`);
+                    
+                    setTimeout(() => {
+                        status.textContent = '✅ Sistema listo.';
+                        status.className = 'status';
+                    }, 2000);
+                } else {
+                    console.warn('No JSON data received');
+                    logEvent('Drop failed: no data');
+                }
+            } catch (error) {
+                console.error('Error processing drop:', error);
+                status.textContent = '❌ Error al procesar el drop';
+                status.className = 'status error';
+                logEvent('Drop error');
+                
+                setTimeout(() => {
+                    status.textContent = '✅ Sistema listo.';
+                    status.className = 'status';
+                }, 3000);
+            }
+        });
+        
+        // Initialize
+        updateChildCount();
+        
+        console.log('🎯 Test de drop a contenedor inicializado');
+        console.log('- Arrastra componentes desde el sidebar al contenedor azul');
+        console.log('- Los contenedores anidados están permitidos (máximo 3)');
+    </script>
+</body>
+</html>
