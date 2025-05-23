@@ -352,10 +352,29 @@ class BannerGeneratorService {
             </label>
           `;
         case 'container':
+          // Determinar el displayMode desde containerConfig (responsivo) o la propiedad legacy
+          const desktopConfig = c.containerConfig?.desktop || {};
+          const displayMode = desktopConfig.displayMode || c.displayMode || 'libre';
+          
+          const containerClasses = ['cmp-container'];
+          containerClasses.push(`cmp-container--${displayMode}`);
+          if (c.locked) containerClasses.push('cmp-locked');
+          
+          // Añadir clases específicas para flex y grid
+          if (displayMode === 'flex') {
+            containerClasses.push('cmp-flex-container');
+          } else if (displayMode === 'grid') {
+            containerClasses.push('cmp-grid-container');
+          }
+          
           return `
             <div 
-              class="cmp-container${lockedClass}"
+              class="${containerClasses.join(' ')}"
               data-component-id="${c.id}"
+              data-display-mode="${displayMode}"
+              data-nesting-level="${desktopConfig.nestingLevel || 0}"
+              ${desktopConfig.allowDrops ? 'data-allow-drops="true"' : ''}
+              data-container-type="container"
             >
               ${c.children ? this._generateComponentsHTML(c.children) : ''}
             </div>
@@ -500,8 +519,77 @@ class BannerGeneratorService {
       
       /* Contenedores */
       .cmp-container {
-        width: 100%;
-        margin: 5px 0;
+        position: relative;
+        box-sizing: border-box;
+        min-height: 40px;
+      }
+      
+      .cmp-container--libre {
+        position: relative;
+      }
+      
+      .cmp-container--flex {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: flex-start;
+        justify-content: flex-start;
+      }
+      
+      .cmp-container--grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 10px;
+        align-items: start;
+        justify-items: start;
+      }
+      
+      /* Flex container específico */
+      .cmp-flex-container {
+        display: flex;
+      }
+      
+      /* Grid container específico */
+      .cmp-grid-container {
+        display: grid;
+      }
+      
+      /* Componentes hijos en contenedores flex/grid */
+      .cmp-container--flex > *,
+      .cmp-flex-container > * {
+        position: relative;
+        flex-shrink: 0;
+      }
+      
+      .cmp-container--grid > *,
+      .cmp-grid-container > * {
+        position: relative;
+      }
+      
+      /* Componentes hijos en modo libre mantienen posición absoluta */
+      .cmp-container--libre > * {
+        position: absolute;
+      }
+      
+      /* Estilos de depuración (solo en desarrollo) */
+      .cmp-container[data-nesting-level="0"] {
+        /* Sin borde para contenedores raíz */
+      }
+      
+      .cmp-container[data-nesting-level="1"] {
+        /* border: 1px dashed rgba(0, 100, 200, 0.2); */
+      }
+      
+      .cmp-container[data-nesting-level="2"] {
+        /* border: 1px dashed rgba(0, 150, 100, 0.2); */
+      }
+      
+      .cmp-container[data-nesting-level="3"] {
+        /* border: 1px dashed rgba(200, 100, 0, 0.2); */
+      }
+      
+      .cmp-container[data-nesting-level="4"] {
+        /* border: 1px dashed rgba(200, 0, 100, 0.2); */
       }
       
       /* Paneles */
@@ -781,14 +869,90 @@ class BannerGeneratorService {
       
       // Añadir la posición del componente (desde position)
       if (c.position?.desktop) {
+        const pos = c.position.desktop;
+        let positionCSS = '';
+        
+        // Determinar el tipo de posicionamiento basado en el contexto
+        if (c.parentId) {
+          // Es un componente hijo - determinar si el padre es contenedor y su modo
+          const parentContainer = this._findParentContainer(c.parentId, components);
+          if (parentContainer) {
+            const parentConfig = parentContainer.containerConfig?.desktop || {};
+            const displayMode = parentConfig.displayMode || 'libre';
+            
+            if (displayMode === 'libre') {
+              // En modo libre, usar posición absoluta
+              positionCSS += 'position: absolute;';
+            } else {
+              // En flex/grid, usar posición relativa
+              positionCSS += 'position: relative;';
+            }
+          } else {
+            // Si no encontramos el padre, usar relativa por defecto
+            positionCSS += 'position: relative;';
+          }
+        } else {
+          // Para componentes raíz, usar absolute
+          positionCSS += 'position: absolute;';
+        }
+        
+        // Aplicar transformaciones si existen
+        let transformCSS = '';
+        if (pos.transformX === 'center' && pos.transformY === 'center') {
+          transformCSS = 'transform: translate(-50%, -50%);';
+        } else if (pos.transformX === 'center') {
+          transformCSS = 'transform: translateX(-50%);';
+        } else if (pos.transformY === 'center') {
+          transformCSS = 'transform: translateY(-50%);';
+        }
+        
+        // Solo aplicar top/left si no está en un contenedor flex/grid
+        let positionValues = '';
+        if (!c.parentId || positionCSS.includes('absolute')) {
+          positionValues = `
+            ${pos.top ? `top: ${pos.top};` : ''}
+            ${pos.left ? `left: ${pos.left};` : ''}
+            ${pos.right ? `right: ${pos.right};` : ''}
+            ${pos.bottom ? `bottom: ${pos.bottom};` : ''}
+          `;
+        }
+        
         css += `${selector} {
-          position: absolute;
-          ${c.position.desktop.top ? `top: ${c.position.desktop.top};` : ''}
-          ${c.position.desktop.left ? `left: ${c.position.desktop.left};` : ''}
-          ${c.position.desktop.right ? `right: ${c.position.desktop.right};` : ''}
-          ${c.position.desktop.bottom ? `bottom: ${c.position.desktop.bottom};` : ''}
-          transition: top 0.3s ease, left 0.3s ease, right 0.3s ease, bottom 0.3s ease;
+          ${positionCSS}
+          ${positionValues}
+          ${transformCSS}
+          transition: top 0.3s ease, left 0.3s ease, right 0.3s ease, bottom 0.3s ease, transform 0.3s ease;
         }`;
+      }
+      
+      // Estilos específicos para contenedores
+      if (c.type === 'container' && c.containerConfig?.desktop) {
+        const containerConfig = c.containerConfig.desktop;
+        const displayMode = containerConfig.displayMode || 'libre';
+        
+        // Aplicar configuración de flexbox
+        if (displayMode === 'flex') {
+          css += `${selector} {
+            display: flex;
+            ${containerConfig.flexDirection ? `flex-direction: ${containerConfig.flexDirection};` : ''}
+            ${containerConfig.justifyContent ? `justify-content: ${containerConfig.justifyContent};` : ''}
+            ${containerConfig.alignItems ? `align-items: ${containerConfig.alignItems};` : ''}
+            ${containerConfig.flexWrap ? `flex-wrap: ${containerConfig.flexWrap};` : ''}
+            ${containerConfig.gap ? `gap: ${containerConfig.gap};` : ''}
+          }`;
+        }
+        
+        // Aplicar configuración de grid
+        if (displayMode === 'grid') {
+          css += `${selector} {
+            display: grid;
+            ${containerConfig.gridTemplateColumns ? `grid-template-columns: ${containerConfig.gridTemplateColumns};` : ''}
+            ${containerConfig.gridTemplateRows ? `grid-template-rows: ${containerConfig.gridTemplateRows};` : ''}
+            ${containerConfig.justifyItems ? `justify-items: ${containerConfig.justifyItems};` : ''}
+            ${containerConfig.alignItems ? `align-items: ${containerConfig.alignItems};` : ''}
+            ${containerConfig.gap ? `gap: ${containerConfig.gap};` : ''}
+          }`;
+        }
       }
       
       // TABLET STYLES (media query)
@@ -1017,6 +1181,36 @@ class BannerGeneratorService {
     }
     if (style.transform) {
       str += `transform: ${style.transform};`;
+    }
+    if (style.transformOrigin) {
+      str += `transform-origin: ${style.transformOrigin};`;
+    }
+    
+    // Filtros
+    if (style.filter) {
+      str += `filter: ${style.filter};`;
+    }
+    if (style.backdropFilter) {
+      str += `backdrop-filter: ${style.backdropFilter};`;
+    }
+    
+    // Propiedades de desbordamiento
+    if (style.overflow) {
+      str += `overflow: ${style.overflow};`;
+    }
+    if (style.overflowX) {
+      str += `overflow-x: ${style.overflowX};`;
+    }
+    if (style.overflowY) {
+      str += `overflow-y: ${style.overflowY};`;
+    }
+    
+    // Propiedades de interacción
+    if (style.pointerEvents) {
+      str += `pointer-events: ${style.pointerEvents};`;
+    }
+    if (style.userSelect) {
+      str += `user-select: ${style.userSelect};`;
     }
     
     // Cursor
@@ -1268,6 +1462,26 @@ class BannerGeneratorService {
       .trim();
   }
   
+  /**
+   * Encuentra un contenedor padre por su ID
+   */
+  _findParentContainer(parentId, components) {
+    const findInComponents = (comps) => {
+      for (const comp of comps) {
+        if (comp.id === parentId) {
+          return comp;
+        }
+        if (comp.children && comp.children.length > 0) {
+          const found = findInComponents(comp.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    return findInComponents(components);
+  }
+
   /**
    * Ajusta un color (aclarar/oscurecer)
    * @param {string} color - Color en formato hex (#RRGGBB)

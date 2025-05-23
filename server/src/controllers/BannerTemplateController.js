@@ -14,6 +14,7 @@ const fsSync = require('fs');
 const path = require('path');
 const { bannerUpload, ensureDirectoryExists } = require('../utils/multerConfig');
 const bannerExportService = require('../services/bannerExport.service');
+const componentProcessor = require('../services/componentProcessor.service');
 const { getBaseUrl } = require('../config/urls');
 
 const moveFromTempToBannerFolder = async (tempFilePath, bannerId, filename) => {
@@ -1267,7 +1268,29 @@ uploadBase64Image = async (req, res) => {
         templateData.components = processComponents(templateData.components);
       }
       
-      // 6. Guardar la plantilla en la base de datos
+      // 6. Procesar y validar componentes
+      console.log('🔧 Procesando componentes del template');
+      
+      // Validar estructura del banner antes de procesarlo
+      const validationResult = componentProcessor.validateBannerStructure(templateData);
+      if (!validationResult.isValid) {
+        console.error('❌ Errores de validación:', validationResult.errors);
+        return res.status(400).json({
+          status: 'error',
+          message: 'Banner structure validation failed',
+          errors: validationResult.errors,
+          warnings: validationResult.warnings
+        });
+      }
+      
+      // Procesar componentes para optimizar estructura y anidamiento
+      if (templateData.components && Array.isArray(templateData.components)) {
+        const processedComponents = componentProcessor.processComponents(templateData.components);
+        templateData.components = processedComponents;
+        console.log(`✅ Procesados ${processedComponents.length} componentes`);
+      }
+      
+      // 7. Guardar la plantilla en la base de datos
       console.log('💾 Guardando template en la base de datos');
       
       // Establecer metadata
@@ -1287,7 +1310,7 @@ uploadBase64Image = async (req, res) => {
       const createdTemplate = await BannerTemplate.create(templateWithMetadata);
       console.log(`✅ Template creado con ID: ${createdTemplate._id}`);
       
-      // 7. Eliminar archivos temporales
+      // 8. Eliminar archivos temporales
       if (uploadedFiles.length > 0) {
         for (const file of uploadedFiles) {
           try {
@@ -1530,8 +1553,22 @@ uploadBase64Image = async (req, res) => {
         });
       });
       
-      // 5. Procesar componentes y archivos
+      // 5. Procesar y validar componentes
+      console.log('🔧 Procesando componentes del template para actualización');
+      
       if (updates.components && Array.isArray(updates.components)) {
+        // Validar estructura del banner antes de procesarlo
+        const validationResult = componentProcessor.validateBannerStructure(updates);
+        if (!validationResult.isValid) {
+          console.error('❌ Errores de validación:', validationResult.errors);
+          return res.status(400).json({
+            status: 'error',
+            message: 'Banner structure validation failed',
+            errors: validationResult.errors,
+            warnings: validationResult.warnings
+          });
+        }
+        
         // Normalizar posiciones a porcentajes
         updates.components = bannerValidator.normalizePositions(updates.components);
         
@@ -1709,6 +1746,11 @@ uploadBase64Image = async (req, res) => {
             }
           }
         }
+        
+        // Procesar componentes para optimizar estructura y anidamiento
+        const processedComponents = componentProcessor.processComponents(updates.components);
+        updates.components = processedComponents;
+        console.log(`✅ Procesados ${processedComponents.length} componentes`);
       }
       
       // 6. Actualizar la plantilla en la base de datos
@@ -1747,6 +1789,32 @@ uploadBase64Image = async (req, res) => {
       } else {
         // Para plantillas normales, no permitir cambiar el tipo
         delete updateData.type;
+      }
+      
+      // 6. Procesar y validar componentes actualizados
+      if (updateData.components && Array.isArray(updateData.components)) {
+        console.log('🔧 Procesando componentes actualizados del template');
+        
+        // Validar estructura del banner
+        const validationResult = componentProcessor.validateBannerStructure({
+          ...existingTemplate.toObject(),
+          ...updateData
+        });
+        
+        if (!validationResult.isValid) {
+          console.error('❌ Errores de validación en actualización:', validationResult.errors);
+          return res.status(400).json({
+            status: 'error',
+            message: 'Banner structure validation failed',
+            errors: validationResult.errors,
+            warnings: validationResult.warnings
+          });
+        }
+        
+        // Procesar componentes para optimizar estructura y anidamiento
+        const processedComponents = componentProcessor.processComponents(updateData.components);
+        updateData.components = processedComponents;
+        console.log(`✅ Procesados ${processedComponents.length} componentes en actualización`);
       }
       
       const updatedTemplate = await BannerTemplate.findByIdAndUpdate(
