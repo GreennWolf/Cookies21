@@ -105,9 +105,9 @@ class ComponentProcessorService {
     const componentMap = new Map();
     const rootComponents = [];
 
-    // Crear mapa de componentes
+    // Crear mapa de componentes - MANTENER children existentes
     components.forEach(comp => {
-      componentMap.set(comp.id, { ...comp, children: [] });
+      componentMap.set(comp.id, { ...comp, children: comp.children || [] });
     });
 
     // Construir jerarquía
@@ -195,8 +195,9 @@ class ComponentProcessorService {
       optimizedPosition.left = '0%';
     }
 
-    // Configurar transformaciones para centrado
-    if (component.centered) {
+    // Configurar transformaciones para centrado - NOTA: Solo para componentes marcados como centered
+    // NO modificar automáticamente componentes que no están explícitamente marcados como centered
+    if (component.centered === true) {
       if (optimizedPosition.left === '50%' && !optimizedPosition.transformX) {
         optimizedPosition.transformX = 'center';
       }
@@ -279,7 +280,7 @@ class ComponentProcessorService {
     
     // Patrones básicos para valores CSS válidos
     const validPatterns = [
-      /^\d+(%|px|em|rem|vh|vw)$/, // Números con unidades
+      /^\d*\.?\d+(%|px|em|rem|vh|vw)$/, // Números enteros y decimales con unidades
       /^auto$/, // auto
       /^inherit$/, // inherit
       /^initial$/, // initial

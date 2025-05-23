@@ -1791,31 +1791,7 @@ uploadBase64Image = async (req, res) => {
         delete updateData.type;
       }
       
-      // 6. Procesar y validar componentes actualizados
-      if (updateData.components && Array.isArray(updateData.components)) {
-        console.log('🔧 Procesando componentes actualizados del template');
-        
-        // Validar estructura del banner
-        const validationResult = componentProcessor.validateBannerStructure({
-          ...existingTemplate.toObject(),
-          ...updateData
-        });
-        
-        if (!validationResult.isValid) {
-          console.error('❌ Errores de validación en actualización:', validationResult.errors);
-          return res.status(400).json({
-            status: 'error',
-            message: 'Banner structure validation failed',
-            errors: validationResult.errors,
-            warnings: validationResult.warnings
-          });
-        }
-        
-        // Procesar componentes para optimizar estructura y anidamiento
-        const processedComponents = componentProcessor.processComponents(updateData.components);
-        updateData.components = processedComponents;
-        console.log(`✅ Procesados ${processedComponents.length} componentes en actualización`);
-      }
+      // NOTA: Los componentes ya fueron procesados anteriormente, no procesarlos de nuevo
       
       const updatedTemplate = await BannerTemplate.findByIdAndUpdate(
         id,
