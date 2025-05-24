@@ -42,12 +42,38 @@ const ComponentStyleSchema = new mongoose.Schema({
   borderStyle: String,
   borderRadius: String,
   
+  // Flexbox
+  flexDirection: String,
+  justifyContent: String,
+  alignItems: String,
+  flexWrap: String,
+  flex: String,
+  gap: String,
+  
+  // Transformaciones
+  transform: String,
+  transformOrigin: String,
+  
+  // Transiciones
+  transition: String,
+  
+  // Filtros
+  filter: String,
+  backdropFilter: String,
+  
   // Otros
   opacity: Number,
   boxShadow: String,
   zIndex: Number,
   cursor: String,
   display: String,
+  overflow: String,
+  pointerEvents: String,
+  userSelect: String,
+  
+  // Metadatos para vista previa de imágenes
+  _previewUrl: String,
+  _aspectRatio: Number,
   
   // Permitimos cualquier otro estilo que no esté definido explícitamente
 }, { _id: false, strict: false });
@@ -130,6 +156,73 @@ const DevicePositionsSchema = new mongoose.Schema({
   desktop: ComponentPositionSchema,
   tablet: ComponentPositionSchema,
   mobile: ComponentPositionSchema
+}, { _id: false });
+
+/**
+ * Schema para configuración de contenedores por dispositivo
+ */
+const ContainerDeviceConfigSchema = new mongoose.Schema({
+  displayMode: {
+    type: String,
+    enum: ['libre', 'flex', 'grid'],
+    default: 'libre'
+  },
+  allowDrops: {
+    type: Boolean,
+    default: true
+  },
+  nestingLevel: {
+    type: Number,
+    default: 0,
+    max: 5
+  },
+  maxChildren: {
+    type: Number,
+    default: 50
+  },
+  // Configuraciones específicas de flexbox
+  flexDirection: {
+    type: String,
+    enum: ['row', 'column', 'row-reverse', 'column-reverse'],
+    default: 'row'
+  },
+  justifyContent: {
+    type: String,
+    enum: ['flex-start', 'flex-end', 'center', 'space-between', 'space-around', 'space-evenly'],
+    default: 'flex-start'
+  },
+  alignItems: {
+    type: String,
+    enum: ['flex-start', 'flex-end', 'center', 'stretch', 'baseline'],
+    default: 'flex-start'
+  },
+  gap: {
+    type: String,
+    default: '0px'
+  },
+  flexWrap: {
+    type: String,
+    enum: ['nowrap', 'wrap', 'wrap-reverse'],
+    default: 'nowrap'
+  },
+  // Configuraciones específicas de grid
+  gridTemplateColumns: String,
+  gridTemplateRows: String,
+  gridGap: String,
+  gridAutoFlow: {
+    type: String,
+    enum: ['row', 'column', 'dense', 'row dense', 'column dense'],
+    default: 'row'
+  }
+}, { _id: false });
+
+/**
+ * Schema para configuración responsiva de contenedores
+ */
+const ResponsiveContainerConfigSchema = new mongoose.Schema({
+  desktop: ContainerDeviceConfigSchema,
+  tablet: ContainerDeviceConfigSchema,
+  mobile: ContainerDeviceConfigSchema
 }, { _id: false });
 
 /**
@@ -302,8 +395,18 @@ const ComponentSchema = new mongoose.Schema({
     default: () => ({})
   },
   children: [{
-    type: mongoose.Schema.Types.Mixed
+    type: mongoose.Schema.Types.Mixed,
+    ref: 'ComponentSchema'
   }],
+  parentId: {
+    type: String,
+    default: null
+  },
+  displayMode: {
+    type: String,
+    enum: ['libre', 'flex', 'grid'],
+    default: 'libre'
+  },
   locked: {
     type: Boolean,
     default: false
@@ -336,6 +439,20 @@ const ComponentSchema = new mongoose.Schema({
       type: Number,
       default: 0
     }
+  },
+  // Propiedades para el sistema de drag & drop
+  draggable: {
+    type: Boolean,
+    default: true
+  },
+  resizable: {
+    type: Boolean,
+    default: true
+  },
+  // Configuración específica del contenedor
+  containerConfig: {
+    type: ResponsiveContainerConfigSchema,
+    default: () => ({})
   }
 }, { _id: false });
 

@@ -955,6 +955,68 @@ class BannerGeneratorService {
         }
       }
       
+      // ESTILOS RESPONSIVOS DE CONTENEDOR (TABLET)
+      if (c.type === 'container' && c.containerConfig?.tablet) {
+        const tabletConfig = c.containerConfig.tablet;
+        const displayMode = tabletConfig.displayMode;
+        
+        css += `
+          @media (max-width: 1024px) and (min-width: 769px) {
+            ${selector} {`;
+        
+        if (displayMode === 'flex') {
+          css += `
+              display: flex;
+              ${tabletConfig.flexDirection ? `flex-direction: ${tabletConfig.flexDirection};` : ''}
+              ${tabletConfig.justifyContent ? `justify-content: ${tabletConfig.justifyContent};` : ''}
+              ${tabletConfig.alignItems ? `align-items: ${tabletConfig.alignItems};` : ''}
+              ${tabletConfig.flexWrap ? `flex-wrap: ${tabletConfig.flexWrap};` : ''}
+              ${tabletConfig.gap ? `gap: ${tabletConfig.gap};` : ''}`;
+        } else if (displayMode === 'grid') {
+          css += `
+              display: grid;
+              ${tabletConfig.gridTemplateColumns ? `grid-template-columns: ${tabletConfig.gridTemplateColumns};` : ''}
+              ${tabletConfig.gridTemplateRows ? `grid-template-rows: ${tabletConfig.gridTemplateRows};` : ''}
+              ${tabletConfig.alignItems ? `align-items: ${tabletConfig.alignItems};` : ''}
+              ${tabletConfig.gridGap ? `gap: ${tabletConfig.gridGap};` : ''}`;
+        }
+        
+        css += `
+            }
+          }`;
+      }
+      
+      // ESTILOS RESPONSIVOS DE CONTENEDOR (MOBILE)
+      if (c.type === 'container' && c.containerConfig?.mobile) {
+        const mobileConfig = c.containerConfig.mobile;
+        const displayMode = mobileConfig.displayMode;
+        
+        css += `
+          @media (max-width: 768px) {
+            ${selector} {`;
+        
+        if (displayMode === 'flex') {
+          css += `
+              display: flex;
+              ${mobileConfig.flexDirection ? `flex-direction: ${mobileConfig.flexDirection};` : ''}
+              ${mobileConfig.justifyContent ? `justify-content: ${mobileConfig.justifyContent};` : ''}
+              ${mobileConfig.alignItems ? `align-items: ${mobileConfig.alignItems};` : ''}
+              ${mobileConfig.flexWrap ? `flex-wrap: ${mobileConfig.flexWrap};` : ''}
+              ${mobileConfig.gap ? `gap: ${mobileConfig.gap};` : ''}`;
+        } else if (displayMode === 'grid') {
+          css += `
+              display: grid;
+              ${mobileConfig.gridTemplateColumns ? `grid-template-columns: ${mobileConfig.gridTemplateColumns};` : ''}
+              ${mobileConfig.gridTemplateRows ? `grid-template-rows: ${mobileConfig.gridTemplateRows};` : ''}
+              ${mobileConfig.alignItems ? `align-items: ${mobileConfig.alignItems};` : ''}
+              ${mobileConfig.gridGap ? `gap: ${mobileConfig.gridGap};` : ''}`;
+        }
+        
+        css += `
+            }
+          }`;
+      }
+      
       // TABLET STYLES (media query)
       if (c.style?.tablet || c.position?.tablet) {
         css += `

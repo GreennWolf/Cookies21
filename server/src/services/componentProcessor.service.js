@@ -71,15 +71,57 @@ class ComponentProcessorService {
           component.containerConfig = {};
         }
         
-        // Configurar para cada dispositivo
+        // Configurar para cada dispositivo preservando valores existentes
         ['desktop', 'tablet', 'mobile'].forEach(device => {
           if (!component.containerConfig[device]) {
-            component.containerConfig[device] = {
-              displayMode: 'libre',
-              allowDrops: true,
-              nestingLevel: 0,
-              maxChildren: 50
-            };
+            component.containerConfig[device] = {};
+          }
+          
+          // Para tablet y mobile, heredar configuración de desktop si no se especifica
+          const deviceConfig = component.containerConfig[device];
+          const desktopConfig = component.containerConfig.desktop || {};
+          
+          // Configurar valores por defecto o heredados
+          if (deviceConfig.displayMode === undefined) {
+            deviceConfig.displayMode = device === 'desktop' ? 'libre' : (desktopConfig.displayMode || 'libre');
+          }
+          if (deviceConfig.allowDrops === undefined) deviceConfig.allowDrops = true;
+          if (deviceConfig.nestingLevel === undefined) deviceConfig.nestingLevel = 0;
+          if (deviceConfig.maxChildren === undefined) deviceConfig.maxChildren = desktopConfig.maxChildren || 50;
+          
+          // Configuraciones de flexbox con valores por defecto o heredados
+          if (deviceConfig.displayMode === 'flex') {
+            if (deviceConfig.flexDirection === undefined) {
+              deviceConfig.flexDirection = device === 'desktop' ? 'row' : (desktopConfig.flexDirection || 'row');
+            }
+            if (deviceConfig.justifyContent === undefined) {
+              deviceConfig.justifyContent = device === 'desktop' ? 'flex-start' : (desktopConfig.justifyContent || 'flex-start');
+            }
+            if (deviceConfig.alignItems === undefined) {
+              deviceConfig.alignItems = device === 'desktop' ? 'flex-start' : (desktopConfig.alignItems || 'flex-start');
+            }
+            if (deviceConfig.gap === undefined) {
+              deviceConfig.gap = device === 'desktop' ? '0px' : (desktopConfig.gap || '0px');
+            }
+            if (deviceConfig.flexWrap === undefined) {
+              deviceConfig.flexWrap = device === 'desktop' ? 'nowrap' : (desktopConfig.flexWrap || 'nowrap');
+            }
+          }
+          
+          // Configuraciones de grid con valores por defecto o heredados
+          if (deviceConfig.displayMode === 'grid') {
+            if (deviceConfig.gridTemplateColumns === undefined) {
+              deviceConfig.gridTemplateColumns = device === 'desktop' ? 'repeat(auto-fit, minmax(200px, 1fr))' : (desktopConfig.gridTemplateColumns || 'repeat(auto-fit, minmax(200px, 1fr))');
+            }
+            if (deviceConfig.gridTemplateRows === undefined) {
+              deviceConfig.gridTemplateRows = device === 'desktop' ? 'auto' : (desktopConfig.gridTemplateRows || 'auto');
+            }
+            if (deviceConfig.gridGap === undefined) {
+              deviceConfig.gridGap = device === 'desktop' ? '0px' : (desktopConfig.gridGap || '0px');
+            }
+            if (deviceConfig.gridAutoFlow === undefined) {
+              deviceConfig.gridAutoFlow = device === 'desktop' ? 'row' : (desktopConfig.gridAutoFlow || 'row');
+            }
           }
         });
         

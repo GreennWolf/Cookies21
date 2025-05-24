@@ -348,6 +348,17 @@ export function useBannerEditor() {
   // Posición por defecto
   const defaultPosition = { top: '10%', left: '10%' };
 
+  // Función para calcular posición automática de botones obligatorios
+  const calculateAutoPosition = (actionType, existingComponents) => {
+    const buttonPositions = {
+      'reject_all': { left: '10%', top: '80%' },    // Izquierda
+      'show_preferences': { left: '45%', top: '80%' }, // Centro
+      'accept_all': { left: '80%', top: '80%' }     // Derecha
+    };
+    
+    return buttonPositions[actionType] || { left: '50%', top: '50%' };
+  };
+
   // Agregar un nuevo componente con soporte para datos iniciales
   const addComponent = useCallback((componentType, position, initialData = {}) => {
     console.log('🎯 addComponent called!', { componentType, position, initialData });
@@ -358,10 +369,32 @@ export function useBannerEditor() {
     // Estilos predeterminados para el nuevo componente
     const newStyles = getDefaultStylesForNewComponent(componentType);
     
+    // Determinar si el componente debe estar bloqueado (botones obligatorios)
+    const shouldBeLocked = componentType === 'button' && initialData.action && 
+      ['accept_all', 'reject_all', 'show_preferences'].includes(initialData.action.type);
+    
+    console.log('🔒 Component locking check:', {
+      componentType,
+      hasAction: !!initialData.action,
+      actionType: initialData.action?.type,
+      shouldBeLocked,
+      initialData
+    });
+    
+    // Para botones obligatorios, usar posición automática si no se especifica una posición precisa
+    let finalPosition = position;
+    if (shouldBeLocked && initialData.action) {
+      const autoPos = calculateAutoPosition(initialData.action.type, []);
+      finalPosition = {
+        top: autoPos.top,
+        left: autoPos.left
+      };
+    }
+    
     // Asegurar que la posición esté en porcentajes
     const posWithPercentage = {
-      top: ensurePercentage(position?.top || defaultPosition.top),
-      left: ensurePercentage(position?.left || defaultPosition.left)
+      top: ensurePercentage(finalPosition?.top || defaultPosition.top),
+      left: ensurePercentage(finalPosition?.left || defaultPosition.left)
     };
     
     // Determinar el contenido inicial (puede venir preestablecido)
@@ -372,13 +405,21 @@ export function useBannerEditor() {
       initialContent = getDefaultContent(componentType);
     }
     
+    // Aplicar estilos específicos para botones obligatorios
+    if (shouldBeLocked && initialData.style) {
+      ['desktop', 'tablet', 'mobile'].forEach(device => {
+        if (!newStyles[device]) newStyles[device] = {};
+        Object.assign(newStyles[device], initialData.style);
+      });
+    }
+    
     // Crear el nuevo componente
     const newComponent = {
       id: newId,
       type: componentType,
       content: initialContent,
       style: JSON.parse(JSON.stringify(newStyles)), // Copia profunda para evitar referencias compartidas
-      locked: false,
+      locked: shouldBeLocked,
       position: {
         desktop: { ...posWithPercentage },
         tablet: { ...posWithPercentage },
@@ -425,7 +466,7 @@ export function useBannerEditor() {
           }
         }
       }),
-      // Añadir cualquier propiedad adicional del initialData
+      // Añadir cualquier propiedad adicional del initialData (incluyendo action)
       ...Object.fromEntries(
         Object.entries(initialData).filter(([key]) => key !== 'content')
       )
@@ -443,27 +484,110 @@ export function useBannerEditor() {
     return newId; // Retornar el ID para uso futuro
   }, [ensurePercentage]);
 
+  // Función para validar que existen todos los botones obligatorios
+  const validateRequiredButtons = useCallback(() => {
+    const requiredActions = ['accept_all', 'reject_all', 'show_preferences'];
+    const existingActions = new Set();
+    
+    // Buscar en componentes principales
+    bannerConfig.components?.forEach(component => {
+      if (component.type === 'button' && component.action?.type) {
+        existingActions.add(component.action.type);
+      }
+      
+      // Buscar también en hijos de contenedores
+      if (component.children) {
+        component.children.forEach(child => {
+          if (child.type === 'button' && child.action?.type) {
+            existingActions.add(child.action.type);
+          }
+        });
+      }
+    });
+    
+    const missingActions = requiredActions.filter(action => !existingActions.has(action));
+    
+    return {
+      isValid: missingActions.length === 0,
+      missingActions,
+      existingActions: Array.from(existingActions)
+    };
+  }, [bannerConfig.components]);
+
+  // Función para obtener nombres legibles de las acciones
+  const getActionDisplayName = (actionType) => {
+    const names = {
+      'accept_all': 'Aceptar Todo',
+      'reject_all': 'Rechazar Todo',
+      'show_preferences': 'Preferencias'
+    };
+    return names[actionType] || actionType;
+  };
+
   // Eliminar un componente
   const deleteComponent = useCallback((componentId) => {
-    // Verificar si el componente existe y si está bloqueado antes de intentar eliminarlo
     setBannerConfig(prev => {
       const componentToDelete = prev.components.find(comp => comp.id === componentId);
       
-      // Si el componente no existe o está bloqueado y tiene acción de tipo accept_all, reject_all o show_preferences, no eliminarlo
+      // Si el componente no existe, no hacer nada
       if (!componentToDelete) return prev;
+      
+      // Verificar si es un componente esencial que no se puede eliminar
+      console.log('🗑️ Delete component check:', {
+        componentId,
+        locked: componentToDelete.locked,
+        action: componentToDelete.action,
+        actionType: componentToDelete.action?.type,
+        component: componentToDelete
+      });
       
       const isEssentialComponent = componentToDelete.locked && 
         componentToDelete.action && 
         ['accept_all', 'reject_all', 'show_preferences'].includes(componentToDelete.action.type);
       
+      console.log('🔒 Is essential component:', isEssentialComponent);
+      
       if (isEssentialComponent) {
-        console.log(`⚠️ No se puede eliminar el componente esencial ${componentId}`);
+        console.log(`⚠️ No se puede eliminar el componente esencial ${componentId}`, componentToDelete);
         return prev;
       }
       
+      // Si es un contenedor que se va a eliminar, extraer componentes obligatorios
+      let newComponents = [...prev.components];
+      let extractedComponents = [];
+      
+      if (componentToDelete.type === 'container' && componentToDelete.children) {
+        // Buscar componentes obligatorios en los hijos
+        const essentialChildren = componentToDelete.children.filter(child => 
+          child.locked && child.action && 
+          ['accept_all', 'reject_all', 'show_preferences'].includes(child.action.type)
+        );
+        
+        if (essentialChildren.length > 0) {
+          console.log(`🔄 Extrayendo ${essentialChildren.length} componentes obligatorios del contenedor`);
+          
+          // Convertir hijos obligatorios en componentes principales
+          extractedComponents = essentialChildren.map(child => ({
+            ...child,
+            // Posición por defecto cuando se extraen
+            position: {
+              desktop: { top: '20%', left: '20%' },
+              tablet: { top: '20%', left: '20%' },
+              mobile: { top: '20%', left: '20%' }
+            }
+          }));
+          
+          // Agregar los componentes extraídos a la lista principal
+          newComponents = [...newComponents, ...extractedComponents];
+        }
+      }
+      
+      // Eliminar el componente original
+      newComponents = newComponents.filter(comp => comp.id !== componentId);
+      
       return {
         ...prev,
-        components: prev.components.filter(comp => comp.id !== componentId)
+        components: newComponents
       };
     });
     
@@ -635,8 +759,31 @@ export function useBannerEditor() {
   }, []);
 
   // NUEVO: Agregar hijo a contenedor - FASE 4 con validación robusta
-  const addChildToContainer = useCallback((parentId, childComponent) => {
-    console.log(`🎯 EDITOR: Agregando hijo a contenedor ${parentId}:`, childComponent);
+  const addChildToContainer = useCallback((parentId, childComponentOrType, position = null) => {
+    console.log(`🎯 EDITOR: Agregando hijo a contenedor ${parentId}:`, childComponentOrType);
+    
+    // Si es un string, crear el componente completo
+    let childComponent;
+    if (typeof childComponentOrType === 'string') {
+      const componentType = childComponentOrType;
+      childComponent = {
+        id: `${componentType}_${Date.now()}`,
+        type: componentType,
+        content: getDefaultContent(componentType),
+        style: getDefaultStylesForNewComponent(componentType),
+        locked: false,
+        ...(position && {
+          position: {
+            [deviceView]: position,
+            desktop: position,
+            tablet: position,
+            mobile: position
+          }
+        })
+      };
+    } else {
+      childComponent = childComponentOrType;
+    }
     
     setBannerConfig(prev => {
       // Función recursiva para buscar contenedores en toda la estructura
@@ -710,6 +857,163 @@ export function useBannerEditor() {
       };
     });
   }, []);
+
+  // 🎯 NUEVA FUNCIÓN: Adjuntar componente a contenedor de forma simple
+  const attachToContainer = useCallback((componentId, containerId, position) => {
+    // 🛡️ VALIDACIÓN: Prevenir auto-contenimiento
+    if (componentId === containerId) {
+      console.log('❌ ERROR: No se puede adjuntar un componente a sí mismo:', { componentId, containerId });
+      return;
+    }
+
+    console.log(`🔗 ATTACH: Adjuntando componente ${componentId} al contenedor ${containerId}`, position);
+
+    setBannerConfig(prev => {
+      const newConfig = { ...prev };
+      let componentToAttach = null;
+
+      // 1. BUSCAR Y REMOVER el componente de su ubicación actual
+      const removeFromComponents = (componentsList) => {
+        return componentsList.filter(comp => {
+          if (comp.id === componentId) {
+            componentToAttach = { ...comp };
+            return false; // Remover de la lista
+          }
+          // Si tiene hijos, buscar recursivamente
+          if (comp.children && comp.children.length > 0) {
+            comp.children = removeFromComponents(comp.children);
+          }
+          return true;
+        });
+      };
+
+      // Remover de la lista principal de componentes
+      newConfig.components = removeFromComponents(newConfig.components);
+
+      if (!componentToAttach) {
+        console.log('❌ Componente a adjuntar no encontrado:', componentId);
+        return prev;
+      }
+
+      // 2. AÑADIR al contenedor destino
+      const addToContainer = (componentsList) => {
+        return componentsList.map(comp => {
+          if (comp.id === containerId) {
+            // Configurar el componente como hijo
+            const childComponent = {
+              ...componentToAttach,
+              parentId: containerId,
+              position: {
+                ...componentToAttach.position,
+                [deviceView]: position
+              }
+            };
+
+            return {
+              ...comp,
+              children: [...(comp.children || []), childComponent]
+            };
+          }
+          // Buscar recursivamente en hijos
+          if (comp.children && comp.children.length > 0) {
+            comp.children = addToContainer(comp.children);
+          }
+          return comp;
+        });
+      };
+
+      newConfig.components = addToContainer(newConfig.components);
+
+      console.log('✅ Componente adjuntado exitosamente');
+      return newConfig;
+    });
+  }, [deviceView]);
+
+  // NUEVO: Mover componente existente a contenedor (LEGACY - mantener por compatibilidad)
+  const moveComponentToContainer = useCallback((componentId, parentId, position) => {
+    // 🛡️ VALIDACIÓN: Prevenir que un componente se mueva dentro de sí mismo
+    if (componentId === parentId) {
+      console.log('❌ ERROR: No se puede mover un componente dentro de sí mismo:', {
+        componentId,
+        parentId
+      });
+      return;
+    }
+    
+    // Usar la nueva función attachToContainer
+    return attachToContainer(componentId, parentId, position);
+  }, [attachToContainer]);
+
+  const moveComponentToContainerOLD = useCallback((componentId, parentId, position) => {
+    console.log(`🚀 EDITOR: Moviendo componente ${componentId} a contenedor ${parentId} en posición:`, position);
+    
+    setBannerConfig(prev => {
+      let componentToMove = null;
+      
+      // Función para buscar y remover el componente de su ubicación actual
+      const removeComponent = (components) => {
+        const filtered = [];
+        for (const comp of components) {
+          if (comp.id === componentId) {
+            // Encontramos el componente a mover
+            componentToMove = { ...comp };
+          } else if (comp.children && comp.children.length > 0) {
+            // Buscar recursivamente en hijos
+            const updatedChildren = removeComponent(comp.children);
+            filtered.push({
+              ...comp,
+              children: updatedChildren
+            });
+          } else {
+            filtered.push(comp);
+          }
+        }
+        return filtered;
+      };
+      
+      // Función para agregar el componente al contenedor destino
+      const addToContainer = (components) => {
+        return components.map(comp => {
+          if (comp.id === parentId && comp.type === 'container') {
+            // Preparar el componente para ser hijo
+            const childComponent = {
+              ...componentToMove,
+              parentId: parentId,
+              position: {
+                ...componentToMove.position,
+                [deviceView]: position
+              }
+            };
+            
+            return {
+              ...comp,
+              children: [...(comp.children || []), childComponent]
+            };
+          } else if (comp.children && comp.children.length > 0) {
+            return {
+              ...comp,
+              children: addToContainer(comp.children)
+            };
+          }
+          return comp;
+        });
+      };
+      
+      if (!componentToMove) {
+        console.warn(`Componente ${componentId} no encontrado`);
+        return prev;
+      }
+      
+      // Primero remover, luego agregar
+      const componentsWithoutMoved = removeComponent(prev.components);
+      const finalComponents = addToContainer(componentsWithoutMoved);
+      
+      return {
+        ...prev,
+        components: finalComponents
+      };
+    });
+  }, [deviceView]);
 
   // NUEVO: Función para encontrar y actualizar un componente hijo
   const findAndUpdateChild = useCallback((componentId, updateFn) => {
@@ -882,6 +1186,82 @@ export function useBannerEditor() {
     });
   }, []);
 
+  // NUEVA FUNCIÓN: Actualizar componente hijo con una imagen y archivo temporal
+  const updateChildImageWithFile = useCallback((componentId, imageRef, file) => {
+    console.log(`🖼️ Actualizando componente hijo ${componentId} con imagen temporal: ${imageRef}`);
+    
+    // Verificar que file es un objeto File válido
+    if (!(file instanceof File || file instanceof Blob)) {
+      console.error("⚠️ El archivo no es válido:", file);
+      return;
+    }
+    
+    // IMPORTANTE: Guardar en el almacenamiento global
+    window._imageFiles = window._imageFiles || {};
+    window._imageFiles[imageRef] = file;
+    console.log(`💾 Imagen guardada en almacenamiento global: ${imageRef} => ${file.name}, ${file.size} bytes`);
+    
+    findAndUpdateChild(componentId, (component) => {
+      // Crear una copia del componente hijo
+      const updatedComponent = { ...component };
+      
+      // Actualizar el contenido con la referencia temporal
+      updatedComponent.content = imageRef;
+      
+      // Adjuntar el archivo para usarlo al enviar el formulario
+      updatedComponent._imageFile = file;
+      updatedComponent._tempFile = file;
+      
+      // Asegurar que también está disponible en estilos si los componentes buscan ahí
+      if (updatedComponent.style) {
+        const updatedStyle = {};
+        
+        // Copiar los estilos para todos los dispositivos
+        Object.keys(updatedComponent.style).forEach(device => {
+          updatedStyle[device] = {
+            ...updatedComponent.style[device],
+            // Solo añadir referencias de archivo a desktop
+            ...(device === 'desktop' ? {
+              _tempFile: file,
+              _previewUrl: URL.createObjectURL(file)
+            } : {})
+          };
+        });
+        
+        updatedComponent.style = updatedStyle;
+      }
+      
+      return updatedComponent;
+    });
+    
+    // Actualizar también el componente seleccionado si es el mismo hijo
+    setSelectedComponent(prev => {
+      if (!prev || prev.id !== componentId) return prev;
+      
+      const updated = { ...prev };
+      updated.content = imageRef;
+      updated._imageFile = file;
+      updated._tempFile = file;
+      
+      // Asegurar que también está disponible en estilos
+      if (updated.style) {
+        // Solo modificar 'desktop' para evitar duplicación
+        if (updated.style.desktop) {
+          updated.style = {
+            ...updated.style,
+            desktop: {
+              ...updated.style.desktop,
+              _tempFile: file,
+              _previewUrl: URL.createObjectURL(file)
+            }
+          };
+        }
+      }
+      
+      return updated;
+    });
+  }, []);
+
   // NUEVO: Actualizar contenido de componente hijo
   const updateChildContent = useCallback((componentId, content) => {
     console.log(`📝 EDITOR: Actualizando contenido del componente hijo ${componentId}:`, content);
@@ -953,7 +1333,11 @@ export function useBannerEditor() {
 
   // NUEVO: Actualizar estilo de componente hijo
   const updateChildStyleForDevice = useCallback((componentId, device, newStyle) => {
-    console.log(`🎨 EDITOR: Actualizando estilo del componente hijo ${componentId} para ${device}:`, newStyle);
+    console.group(`🎨 EDITOR: updateChildStyleForDevice`);
+    console.log('📝 Params:', { componentId, device, newStyle });
+    console.log('🔍 newStyle detailed:', Object.entries(newStyle).map(([key, value]) => 
+      `${key}: "${value}" (${typeof value})`
+    ).join(', '));
     
     findAndUpdateChild(componentId, (component) => {
       // Crear una copia profunda del componente para evitar mutaciones
@@ -973,6 +1357,10 @@ export function useBannerEditor() {
       };
       
       console.log(`✅ EDITOR: Estilo hijo actualizado para ${componentId} (${device}):`, updatedComponent.style[device]);
+      console.log('🔍 Final style detailed:', Object.entries(updatedComponent.style[device]).map(([key, value]) => 
+        `${key}: "${value}" (${typeof value})`
+      ).join(', '));
+      console.groupEnd();
       
       return updatedComponent;
     });
@@ -1156,7 +1544,11 @@ export function useBannerEditor() {
 
   // Actualizar estilos - versión mejorada con validación de dimensiones para imágenes
   const updateComponentStyleForDevice = useCallback((componentId, device, newStyle) => {
-    console.log(`📝 EDITOR: Actualizando estilo del componente ${componentId} para ${device}:`, newStyle);
+    console.group(`📝 EDITOR: updateComponentStyleForDevice`);
+    console.log('📝 Params:', { componentId, device, newStyle });
+    console.log('🔍 newStyle detailed:', Object.entries(newStyle).map(([key, value]) => 
+      `${key}: "${value}" (${typeof value})`
+    ).join(', '));
     
     setBannerConfig(prev => {
       // Encontrar el componente a actualizar
@@ -1253,6 +1645,10 @@ export function useBannerEditor() {
       }
       
       console.log(`✅ EDITOR: Estilo actualizado para ${componentId} (${device}):`, updatedComponent.style[device]);
+      console.log('🔍 Final style detailed:', Object.entries(updatedComponent.style[device]).map(([key, value]) => 
+        `${key}: "${value}" (${typeof value})`
+      ).join(', '));
+      console.groupEnd();
       
       // Crear una copia del array de componentes
       const updatedComponents = [...prev.components];
@@ -1393,7 +1789,52 @@ export function useBannerEditor() {
     }
   }, []);
 
-  // Actualizar posición - Mejorado para manejar actualizaciones parciales correctamente
+  // 🛡️ VALIDACIÓN: Función para validar que una posición esté dentro de los límites
+  const validateComponentPosition = useCallback((component, device, newPosition) => {
+    // No validar si no hay posición nueva
+    if (!newPosition || (!newPosition.top && !newPosition.left)) {
+      return newPosition;
+    }
+    
+    const isChildComponent = !!component.parentId;
+    let validatedPosition = { ...newPosition };
+    
+    // Para componentes hijos, necesitamos validar contra su contenedor padre
+    if (isChildComponent) {
+      console.log(`🛡️ Validando posición de componente hijo ${component.id} en contenedor ${component.parentId}`);
+      
+      // Por ahora, permitir cualquier posición para componentes hijos
+      // La validación real se hará en el ComponentRenderer usando getBoundingClientRect
+      // porque necesitamos las dimensiones reales del DOM
+      return validatedPosition;
+    }
+    
+    // Para componentes principales, validar contra el banner (100%)
+    if (validatedPosition.left) {
+      const leftPercent = parseFloat(validatedPosition.left);
+      if (!isNaN(leftPercent)) {
+        validatedPosition.left = `${Math.max(0, Math.min(90, leftPercent))}%`;
+      }
+    }
+    
+    if (validatedPosition.top) {
+      const topPercent = parseFloat(validatedPosition.top);
+      if (!isNaN(topPercent)) {
+        validatedPosition.top = `${Math.max(0, Math.min(90, topPercent))}%`;
+      }
+    }
+    
+    if (validatedPosition.left !== newPosition.left || validatedPosition.top !== newPosition.top) {
+      console.log(`🛡️ Posición ajustada para ${component.id}:`, {
+        original: newPosition,
+        validada: validatedPosition
+      });
+    }
+    
+    return validatedPosition;
+  }, []);
+
+  // Actualizar posición - Mejorado para manejar actualizaciones parciales correctamente Y validar límites
   const updateComponentPositionForDevice = useCallback((componentId, device, newPosition) => {
     console.log(`📍 Actualizando posición del componente ${componentId} para ${device}:`, newPosition);
     
@@ -1417,6 +1858,9 @@ export function useBannerEditor() {
       // Crear una copia profunda del componente para evitar mutaciones
       const updatedComponent = JSON.parse(JSON.stringify(prev.components[componentIndex]));
       
+      // 🛡️ VALIDAR POSICIÓN antes de aplicarla
+      const validatedPosition = validateComponentPosition(updatedComponent, device, processedPosition);
+      
       // Asegurar que existe la estructura de posiciones
       if (!updatedComponent.position) updatedComponent.position = { desktop: {}, tablet: {}, mobile: {} };
       if (!updatedComponent.position[device]) updatedComponent.position[device] = {};
@@ -1425,7 +1869,7 @@ export function useBannerEditor() {
       // manteniendo los valores existentes para propiedades no especificadas
       updatedComponent.position[device] = {
         ...updatedComponent.position[device],
-        ...processedPosition
+        ...validatedPosition
       };
       
       // Log para debugging de posiciones
@@ -1876,22 +2320,43 @@ const handleUpdate = useCallback(async (bannerId, customConfig = null) => {
 
   
 
-  // Procesar imágenes en componentes
+  // Procesar imágenes en componentes (principales y dentro de contenedores)
   const processImages = useCallback(async (bannerId) => {
     try {
-      // console.log(`🖼️ Procesando imágenes para banner ${bannerId}...`);
+      console.log(`🖼️ Procesando imágenes para banner ${bannerId}...`);
+      
+      // Buscar imágenes en componentes principales
       const componentsWithImages = bannerConfig.components.filter(
         comp => comp.type === 'image' && 
                typeof comp.content === 'string' && 
                comp.content.startsWith('data:image')
       );
       
-      if (componentsWithImages.length === 0) {
-        // console.log('ℹ️ No hay imágenes para procesar');
+      // Buscar imágenes dentro de contenedores (componentes hijos)
+      const childImagesWithContainer = [];
+      bannerConfig.components.forEach(component => {
+        if (component.type === 'container' && component.children) {
+          component.children.forEach(child => {
+            if (child.type === 'image' && 
+                typeof child.content === 'string' && 
+                child.content.startsWith('data:image')) {
+              childImagesWithContainer.push({
+                child: child,
+                parentId: component.id
+              });
+            }
+          });
+        }
+      });
+      
+      console.log(`📊 Imágenes encontradas: ${componentsWithImages.length} principales, ${childImagesWithContainer.length} en contenedores`);
+      
+      if (componentsWithImages.length === 0 && childImagesWithContainer.length === 0) {
+        console.log('ℹ️ No hay imágenes para procesar');
         return;
       }
       
-      // Procesar cada imagen usando apiClient
+      // Procesar imágenes principales
       for (const component of componentsWithImages) {
         try {
           const response = await axios.post(`/api/v1/banner-templates/${bannerId}/images`, {
@@ -1901,9 +2366,26 @@ const handleUpdate = useCallback(async (bannerId, customConfig = null) => {
           
           // Actualizar el contenido con la URL
           updateComponentContent(component.id, response.data.data.url);
-          // console.log(`✅ Imagen procesada para componente ${component.id}`);
+          console.log(`✅ Imagen principal procesada para componente ${component.id}`);
         } catch (error) {
-          console.error(`❌ Error procesando imagen para componente ${component.id}:`, error);
+          console.error(`❌ Error procesando imagen principal para componente ${component.id}:`, error);
+        }
+      }
+      
+      // Procesar imágenes dentro de contenedores
+      for (const { child, parentId } of childImagesWithContainer) {
+        try {
+          const response = await axios.post(`/api/v1/banner-templates/${bannerId}/images`, {
+            imageData: child.content,
+            componentId: child.id,
+            parentId: parentId // Incluir el ID del contenedor padre
+          });
+          
+          // Actualizar el contenido del hijo con la URL
+          updateChildContent(child.id, response.data.data.url);
+          console.log(`✅ Imagen de hijo procesada para componente ${child.id} en contenedor ${parentId}`);
+        } catch (error) {
+          console.error(`❌ Error procesando imagen de hijo para componente ${child.id}:`, error);
         }
       }
     } catch (error) {
@@ -2248,8 +2730,20 @@ const handleImageUpload = async (componentId, file) => {
     // 4. Actualizar el componente con la URL devuelta por el servidor
     if (response.data && response.data.data && response.data.data.url) {
       const imageUrl = response.data.data.url;
-      updateComponentContent(componentId, imageUrl);
-      // console.log(`✅ Imagen subida y componente actualizado con URL: ${imageUrl}`);
+      
+      // 🔧 ARREGLO: Detectar si es componente hijo y usar la función correcta
+      const allComponents = getAllComponentsFlattened();
+      const component = allComponents.find(comp => comp.id === componentId);
+      const isChild = component && !!component.parentId;
+      
+      if (isChild) {
+        console.log(`🖼️ Actualizando imagen de componente HIJO ${componentId} con URL: ${imageUrl}`);
+        updateChildContent(componentId, imageUrl);
+      } else {
+        console.log(`🖼️ Actualizando imagen de componente RAÍZ ${componentId} con URL: ${imageUrl}`);
+        updateComponentContent(componentId, imageUrl);
+      }
+      
       return imageUrl;
     }
     
@@ -2281,8 +2775,18 @@ const handleImageUpload = async (componentId, file) => {
       
       const imageUrl = response.data.data.url;
       
-      // Actualizar el contenido del componente
-      updateComponentContent(componentId, imageUrl);
+      // 🔧 ARREGLO: Detectar si es componente hijo y usar la función correcta
+      const allComponents = getAllComponentsFlattened();
+      const component = allComponents.find(comp => comp.id === componentId);
+      const isChild = component && !!component.parentId;
+      
+      if (isChild) {
+        console.log(`🖼️ Actualizando imagen base64 de componente HIJO ${componentId} con URL: ${imageUrl}`);
+        updateChildContent(componentId, imageUrl);
+      } else {
+        console.log(`🖼️ Actualizando imagen base64 de componente RAÍZ ${componentId} con URL: ${imageUrl}`);
+        updateComponentContent(componentId, imageUrl);
+      }
       
       return imageUrl;
     } catch (error) {
@@ -2458,6 +2962,8 @@ const handleImageUpload = async (componentId, file) => {
     updateComponentPositionForDevice,
     updateContainerConfig, // NUEVA FUNCIÓN - FASE 2: Actualizar configuración de contenedor
     addChildToContainer, // NUEVA FUNCIÓN - FASE 4: Agregar hijo a contenedor
+    moveComponentToContainer, // NUEVA FUNCIÓN - FASE 4: Mover componente existente a contenedor
+    attachToContainer, // 🎯 NUEVA FUNCIÓN: Adjuntar componente a contenedor de forma simple
     reorderContainerChildren, // NUEVA FUNCIÓN - FASE 4: Reordenar hijos de contenedor
     // NUEVAS FUNCIONES para componentes hijos
     deleteChildComponent, // Eliminar componente hijo
@@ -2479,6 +2985,9 @@ const handleImageUpload = async (componentId, file) => {
     setDeviceView,
     showPreview,
     setShowPreview,
+    // Nuevas funciones de validación
+    validateRequiredButtons,
+    getActionDisplayName,
     generateLocalPreview,
     processImages,
     handleImageUpload,
