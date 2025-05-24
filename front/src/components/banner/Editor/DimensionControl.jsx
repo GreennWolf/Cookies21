@@ -253,12 +253,24 @@ const DimensionControl = ({
   
   // Manejar cambio de unidad - versión mejorada
   const handleUnitChange = (e) => {
+    console.group('🔄 DimensionControl.handleUnitChange');
     const newUnit = e.target.value;
     const oldUnit = unit;
     
+    console.log('📊 Datos de entrada:', {
+      property,
+      numValue,
+      oldUnit,
+      newUnit,
+      containerSize,
+      componentId
+    });
+    
     // Convertir valor solo si es un número válido
     if (numValue === '' || isNaN(parseFloat(numValue))) {
+      console.log('⚠️ Valor vacío o inválido, solo cambiando unidad');
       setUnit(newUnit);
+      console.groupEnd();
       return;
     }
     
@@ -269,24 +281,28 @@ const DimensionControl = ({
       if (oldUnit === 'px' && newUnit === '%') {
         // Porcentaje relativo al canvas completo
         convertedValue = (parseFloat(numValue) / containerSize) * 100;
-        console.log(`Convirtiendo ${numValue}px a ${convertedValue.toFixed(2)}% (${containerSize}px = 100%)`);
+        console.log(`🔄 Convirtiendo ${numValue}px a ${convertedValue.toFixed(2)}% (${containerSize}px = 100%)`);
       } 
       // De % a px
       else if (oldUnit === '%' && newUnit === 'px') {
         // Píxeles basados en % del canvas
         convertedValue = (parseFloat(numValue) * containerSize) / 100;
-        console.log(`Convirtiendo ${numValue}% a ${convertedValue.toFixed(0)}px (${containerSize}px = 100%)`);
+        console.log(`🔄 Convirtiendo ${numValue}% a ${convertedValue.toFixed(0)}px (${containerSize}px = 100%)`);
       }
       else {
         convertedValue = parseFloat(numValue);
+        console.log(`➡️ Sin conversión necesaria: ${convertedValue}`);
       }
     } else {
       convertedValue = parseFloat(numValue);
-      console.warn('No se pudo convertir correctamente: tamaño del contenedor desconocido');
+      console.warn('⚠️ No se pudo convertir correctamente: tamaño del contenedor desconocido');
     }
+    
+    console.log('🎯 Valor convertido:', convertedValue);
     
     // Validar y aplicar límites a la conversión
     const validatedValue = validateValue(convertedValue, newUnit);
+    console.log('✅ Valor validado:', validatedValue);
     
     // Actualizar estado local
     setUnit(newUnit);
@@ -294,7 +310,10 @@ const DimensionControl = ({
     
     // Notificar cambio
     const formattedValue = styleUtils.formatStyleValue(validatedValue, newUnit);
+    console.log('📤 Enviando valor formateado:', formattedValue);
+    
     onChange(property, formattedValue);
+    console.groupEnd();
   };
   
   // Función mejorada para obtener dimensiones del componente

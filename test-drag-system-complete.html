@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba Sistema Drag Completo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        
+        .instructions {
+            max-width: 900px;
+            margin: 0 auto 20px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        
+        .banner-container {
+            width: 900px;
+            height: 600px;
+            background-color: white;
+            border: 2px solid #3b82f6;
+            position: relative;
+            margin: 20px auto;
+            overflow: hidden;
+        }
+        
+        /* Componentes raíz */
+        .root-component {
+            position: absolute;
+            background-color: #fef3c7;
+            border: 2px solid #f59e0b;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: move;
+            user-select: none;
+            min-width: 100px;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .root-component:hover {
+            background-color: #fde68a;
+        }
+        
+        .root-component.dragging {
+            opacity: 0.5;
+            z-index: 1000;
+        }
+        
+        /* Contenedores */
+        .container {
+            position: absolute;
+            background-color: rgba(33, 150, 243, 0.1);
+            border: 2px dashed #2196f3;
+            padding: 15px;
+            border-radius: 8px;
+            min-height: 150px;
+        }
+        
+        .container[data-container-id]:hover {
+            background-color: rgba(33, 150, 243, 0.2);
+            border-color: #1976d2;
+        }
+        
+        .container.drag-over {
+            background-color: rgba(76, 175, 80, 0.2) !important;
+            border-color: #4caf50 !important;
+            border-style: solid !important;
+        }
+        
+        /* Componentes hijos */
+        .child-component {
+            position: absolute;
+            background-color: #e3f2fd;
+            border: 2px solid #2196f3;
+            padding: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            user-select: none;
+            min-width: 80px;
+            min-height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .child-component:hover {
+            background-color: #bbdefb;
+        }
+        
+        .child-component.dragging {
+            opacity: 0.8;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Handles de drag */
+        .child-drag-handle {
+            position: absolute;
+            top: -6px;
+            left: -6px;
+            width: 18px;
+            height: 18px;
+            background-color: #1976d2;
+            cursor: grab;
+            border-radius: 3px;
+            z-index: 1002;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.8;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+            transition: all 0.15s ease;
+        }
+        
+        .child-drag-handle:hover {
+            transform: scale(1.05);
+            opacity: 1;
+            background-color: #1e88e5;
+        }
+        
+        .child-drag-handle:active {
+            cursor: grabbing;
+            background-color: #1565c0;
+        }
+        
+        .child-drag-handle::before {
+            content: '⋮⋮';
+            color: white;
+            font-size: 8px;
+            line-height: 1;
+            letter-spacing: -1px;
+        }
+        
+        /* Controles (botón azul) */
+        .controls {
+            position: absolute;
+            top: -10px;
+            right: 10px;
+            transform: translate(50%, -50%);
+            display: flex;
+            gap: 4px;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: auto;
+        }
+        
+        .component:hover .controls,
+        .root-component:hover .controls,
+        .child-component:hover .controls {
+            opacity: 1;
+        }
+        
+        .blue-button {
+            padding: 4px;
+            border-radius: 4px;
+            background-color: #2196f3;
+            color: white;
+            font-size: 12px;
+            cursor: move;
+            border: none;
+            outline: none;
+        }
+        
+        .blue-button:hover {
+            background-color: #1976d2;
+        }
+        
+        .delete-btn {
+            padding: 4px;
+            border-radius: 4px;
+            background-color: #f44336;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            border: none;
+            outline: none;
+        }
+        
+        .delete-btn:hover {
+            background-color: #d32f2f;
+        }
+        
+        /* Placeholder para contenedores vacíos */
+        .container-placeholder {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #999;
+            fontSize: 14px;
+            text-align: center;
+            pointer-events: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="instructions">
+        <h2>🧪 Prueba Completa del Sistema de Drag</h2>
+        <p><strong>Funcionalidades a probar:</strong></p>
+        
+        <h3>1. 🎯 Drag de Componentes Raíz (Amarillos)</h3>
+        <ul>
+            <li><strong>Método A:</strong> Arrastrar directamente el componente</li>
+            <li><strong>Método B:</strong> Usar el botón azul ⛶ (hover)</li>
+            <li><strong>Resultado:</strong> Debe moverse libremente por el banner</li>
+            <li><strong>Attach:</strong> Si se suelta sobre el contenedor azul, debe attacharse como hijo</li>
+        </ul>
+        
+        <h3>2. 📦 Drag en Contenedores (Azules)</h3>
+        <ul>
+            <li><strong>Handle pequeño:</strong> Usar el handle azul en la esquina</li>
+            <li><strong>Botón azul:</strong> Debe activar el handle automáticamente</li>
+            <li><strong>Límites:</strong> Los hijos se mantienen dentro del contenedor</li>
+        </ul>
+        
+        <h3>3. 🔄 Sistema de Attach/Detach</h3>
+        <ul>
+            <li><strong>Attach:</strong> Arrastrar componente raíz sobre contenedor</li>
+            <li><strong>Detach:</strong> Arrastrar hijo fuera del contenedor</li>
+            <li><strong>Visual:</strong> Feedback de drag over en contenedores</li>
+        </ul>
+    </div>
+
+    <div class="banner-container" id="banner">
+        <!-- Componentes raíz (libres) -->
+        <div class="root-component" id="root1" style="top: 20px; left: 50px;" draggable="true">
+            <div>Botón Libre 1</div>
+            <div class="controls">
+                <button class="blue-button" title="Mover">⛶</button>
+                <button class="delete-btn" title="Eliminar">×</button>
+            </div>
+        </div>
+        
+        <div class="root-component" id="root2" style="top: 80px; left: 200px;" draggable="true">
+            <div>Texto Libre 1</div>
+            <div class="controls">
+                <button class="blue-button" title="Mover">⛶</button>
+                <button class="delete-btn" title="Eliminar">×</button>
+            </div>
+        </div>
+        
+        <!-- Contenedor principal -->
+        <div class="container" id="main-container" data-container-id="main-container" 
+             style="top: 200px; left: 100px; width: 400px; height: 250px;">
+            
+            <div class="container-placeholder">
+                Contenedor Principal<br/>
+                <span style="font-size: 12px;">Arrastra componentes aquí</span>
+            </div>
+            
+            <!-- Componentes hijos del contenedor -->
+            <div class="child-component" id="child1" style="top: 30px; left: 30px;">
+                <div class="child-drag-handle"></div>
+                <div>Hijo 1</div>
+                <div class="controls">
+                    <button class="blue-button" title="Mover">⛶</button>
+                    <button class="delete-btn" title="Eliminar">×</button>
+                </div>
+            </div>
+            
+            <div class="child-component" id="child2" style="top: 80px; left: 150px;">
+                <div class="child-drag-handle"></div>
+                <div>Hijo 2</div>
+                <div class="controls">
+                    <button class="blue-button" title="Mover">⛶</button>
+                    <button class="delete-btn" title="Eliminar">×</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Otro contenedor -->
+        <div class="container" id="secondary-container" data-container-id="secondary-container"
+             style="top: 50px; left: 600px; width: 250px; height: 150px;">
+            
+            <div class="container-placeholder">
+                Contenedor Secundario<br/>
+                <span style="font-size: 12px;">Drop zone alternativo</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dragState = {
+            isDragging: false,
+            draggedElement: null,
+            dragType: null, // 'root' o 'child'
+            initialOffset: { x: 0, y: 0 },
+            containerRect: null,
+            childRect: null
+        };
+
+        // Función para detectar colisiones con contenedores
+        function detectContainerCollision(mouseX, mouseY) {
+            const containers = document.querySelectorAll('[data-container-id]');
+            
+            for (let container of containers) {
+                const rect = container.getBoundingClientRect();
+                
+                if (mouseX >= rect.left && mouseX <= rect.right && 
+                    mouseY >= rect.top && mouseY <= rect.bottom) {
+                    return {
+                        element: container,
+                        id: container.getAttribute('data-container-id'),
+                        rect: rect
+                    };
+                }
+            }
+            
+            return null;
+        }
+
+        // Función para attachar componente a contenedor
+        function attachToContainer(component, container, mouseX, mouseY) {
+            console.log('🎯 Attachando componente al contenedor:', {
+                component: component.id,
+                container: container.id
+            });
+            
+            // Remover del banner principal
+            if (component.parentElement.id === 'banner') {
+                // Calcular posición relativa al contenedor
+                const containerRect = container.rect;
+                const relativeX = mouseX - containerRect.left - 15; // padding del contenedor
+                const relativeY = mouseY - containerRect.top - 15;
+                
+                // Convertir a porcentajes
+                const leftPercent = (relativeX / (containerRect.width - 30)) * 100;
+                const topPercent = (relativeY / (containerRect.height - 30)) * 100;
+                
+                // Limitar dentro del contenedor
+                const constrainedLeft = Math.max(0, Math.min(leftPercent, 90));
+                const constrainedTop = Math.max(0, Math.min(topPercent, 90));
+                
+                // Cambiar estilos
+                component.className = 'child-component';
+                component.style.position = 'absolute';
+                component.style.top = `${constrainedTop}%`;
+                component.style.left = `${constrainedLeft}%`;
+                
+                // Agregar handle si no lo tiene
+                if (!component.querySelector('.child-drag-handle')) {
+                    const handle = document.createElement('div');
+                    handle.className = 'child-drag-handle';
+                    component.insertBefore(handle, component.firstChild);
+                    
+                    // Agregar eventos al nuevo handle
+                    handle.addEventListener('mousedown', (e) => {
+                        handleChildDrag(e, component);
+                    });
+                }
+                
+                // Mover al contenedor
+                container.element.appendChild(component);
+                
+                console.log('✅ Componente attachado exitosamente');
+            }
+        }
+
+        // Función para manejar drag de componentes raíz
+        function handleRootDrag(e, component) {
+            const banner = document.getElementById('banner');
+            const bannerRect = banner.getBoundingClientRect();
+            
+            dragState.isDragging = true;
+            dragState.draggedElement = component;
+            dragState.dragType = 'root';
+            
+            const componentRect = component.getBoundingClientRect();
+            dragState.initialOffset = {
+                x: e.clientX - componentRect.left,
+                y: e.clientY - componentRect.top
+            };
+            
+            component.classList.add('dragging');
+            console.log('🎯 Iniciando drag de componente raíz:', component.id);
+        }
+
+        // Función para manejar drag de componentes hijos
+        function handleChildDrag(e, component) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const container = component.closest('[data-container-id]');
+            if (!container) return;
+            
+            dragState.isDragging = true;
+            dragState.draggedElement = component;
+            dragState.dragType = 'child';
+            dragState.containerRect = container.getBoundingClientRect();
+            dragState.childRect = component.getBoundingClientRect();
+            
+            dragState.initialOffset = {
+                x: e.clientX - dragState.childRect.left + dragState.containerRect.left,
+                y: e.clientY - dragState.childRect.top + dragState.containerRect.top
+            };
+            
+            component.classList.add('dragging');
+            container.style.outline = '3px solid #4CAF50';
+            document.body.style.cursor = 'grabbing';
+            
+            console.log('🎯 Iniciando drag de componente hijo:', component.id);
+        }
+
+        // Event listeners para componentes raíz
+        document.querySelectorAll('.root-component').forEach(component => {
+            // Drag directo
+            component.addEventListener('dragstart', (e) => {
+                handleRootDrag(e, component);
+                
+                // Configurar datos para el sistema nativo
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('component-id', component.id);
+                
+                const emptyImg = document.createElement('img');
+                emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                e.dataTransfer.setDragImage(emptyImg, 0, 0);
+            });
+            
+            component.addEventListener('dragend', (e) => {
+                component.classList.remove('dragging');
+                dragState.isDragging = false;
+                dragState.draggedElement = null;
+                console.log('✅ Drag de componente raíz finalizado');
+            });
+            
+            // Botón azul
+            const blueButton = component.querySelector('.blue-button');
+            if (blueButton) {
+                blueButton.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🔵 Botón azul activado para componente raíz');
+                    
+                    // Simular dragstart
+                    const dragEvent = new DragEvent('dragstart', {
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    component.dispatchEvent(dragEvent);
+                });
+            }
+        });
+
+        // Event listeners para handles de hijos
+        document.querySelectorAll('.child-drag-handle').forEach(handle => {
+            handle.addEventListener('mousedown', (e) => {
+                const component = handle.closest('.child-component');
+                handleChildDrag(e, component);
+            });
+        });
+
+        // Event listeners para botones azules de hijos
+        document.querySelectorAll('.child-component .blue-button').forEach(button => {
+            button.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const component = button.closest('.child-component');
+                const handle = component.querySelector('.child-drag-handle');
+                
+                console.log('🔵 Botón azul activado para componente hijo');
+                
+                if (handle) {
+                    // Activar visualmente
+                    handle.style.transform = 'scale(1.2)';
+                    handle.style.backgroundColor = '#1565c0';
+                    
+                    // Simular mousedown en handle
+                    const rect = handle.getBoundingClientRect();
+                    const syntheticEvent = new MouseEvent('mousedown', {
+                        bubbles: true,
+                        cancelable: true,
+                        clientX: rect.left + rect.width / 2,
+                        clientY: rect.top + rect.height / 2,
+                        button: 0
+                    });
+                    
+                    handle.dispatchEvent(syntheticEvent);
+                }
+            });
+        });
+
+        // Drag over para contenedores
+        document.querySelectorAll('[data-container-id]').forEach(container => {
+            container.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                container.classList.add('drag-over');
+            });
+            
+            container.addEventListener('dragleave', (e) => {
+                container.classList.remove('drag-over');
+            });
+            
+            container.addEventListener('drop', (e) => {
+                e.preventDefault();
+                container.classList.remove('drag-over');
+                
+                const componentId = e.dataTransfer.getData('component-id');
+                const component = document.getElementById(componentId);
+                
+                if (component && dragState.dragType === 'root') {
+                    const collision = detectContainerCollision(e.clientX, e.clientY);
+                    if (collision) {
+                        attachToContainer(component, collision, e.clientX, e.clientY);
+                    }
+                }
+                
+                console.log('📦 Drop en contenedor:', container.getAttribute('data-container-id'));
+            });
+        });
+
+        // Mouse move global
+        document.addEventListener('mousemove', (e) => {
+            if (!dragState.isDragging || !dragState.draggedElement) return;
+            
+            if (dragState.dragType === 'child') {
+                // Drag de hijo dentro del contenedor
+                const mouseRelativeX = e.clientX - dragState.containerRect.left;
+                const mouseRelativeY = e.clientY - dragState.containerRect.top;
+                
+                const childLeft = mouseRelativeX - dragState.initialOffset.x;
+                const childTop = mouseRelativeY - dragState.initialOffset.y;
+                
+                const containerPadding = 15;
+                const availableWidth = dragState.containerRect.width - (containerPadding * 2);
+                const availableHeight = dragState.containerRect.height - (containerPadding * 2);
+                
+                const maxX = availableWidth - dragState.childRect.width;
+                const maxY = availableHeight - dragState.childRect.height;
+                
+                const constrainedX = Math.max(containerPadding, Math.min(childLeft + containerPadding, maxX + containerPadding));
+                const constrainedY = Math.max(containerPadding, Math.min(childTop + containerPadding, maxY + containerPadding));
+                
+                dragState.draggedElement.style.left = `${constrainedX}px`;
+                dragState.draggedElement.style.top = `${constrainedY}px`;
+            }
+        });
+
+        // Mouse up global
+        document.addEventListener('mouseup', () => {
+            if (dragState.isDragging && dragState.draggedElement) {
+                console.log('✅ Finalizando drag');
+                
+                // Restaurar estilos
+                dragState.draggedElement.classList.remove('dragging');
+                
+                if (dragState.dragType === 'child') {
+                    const container = dragState.draggedElement.closest('[data-container-id]');
+                    if (container) {
+                        container.style.outline = '';
+                    }
+                    document.body.style.cursor = '';
+                    
+                    // Restaurar handle si fue activado desde botón azul
+                    const handle = dragState.draggedElement.querySelector('.child-drag-handle');
+                    if (handle) {
+                        handle.style.transform = '';
+                        handle.style.backgroundColor = '';
+                    }
+                }
+                
+                // Limpiar estado
+                dragState.isDragging = false;
+                dragState.draggedElement = null;
+                dragState.dragType = null;
+            }
+        });
+    </script>
+</body>
+</html>

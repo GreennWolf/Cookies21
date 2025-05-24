@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Dimension Flow - Debug Console</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .instructions {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .step {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-left: 4px solid #3b82f6;
+            background: #f8fafc;
+        }
+        .console-output {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 8px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .error { color: #ff4444; }
+        .warning { color: #ffaa00; }
+        .info { color: #00aaff; }
+        .success { color: #00ff00; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Test de Flujo de Dimensiones - Debug Console</h1>
+        
+        <div class="instructions">
+            <h2>📋 Instrucciones para depurar el problema de dimensiones</h2>
+            
+            <div class="step">
+                <strong>Paso 1:</strong> Abre la aplicación del banner editor en otra pestaña con el puerto 5173
+            </div>
+            
+            <div class="step">
+                <strong>Paso 2:</strong> Abre las DevTools (F12) y ve a la pestaña Console
+            </div>
+            
+            <div class="step">
+                <strong>Paso 3:</strong> Crea o selecciona un banner y luego:
+                <ul>
+                    <li>Agrega un contenedor</li>
+                    <li>Agrega una imagen dentro del contenedor</li>
+                    <li>Selecciona la imagen dentro del contenedor</li>
+                </ul>
+            </div>
+            
+            <div class="step">
+                <strong>Paso 4:</strong> En el panel de propiedades, intenta cambiar las dimensiones:
+                <ul>
+                    <li>Cambia el width de la imagen (ej: 50px o 80%)</li>
+                    <li>Cambia el height de la imagen (ej: 60px o 90%)</li>
+                </ul>
+            </div>
+            
+            <div class="step">
+                <strong>Paso 5:</strong> Observa los logs en la consola y busca:
+                <ul>
+                    <li>🎨 BannerPropertyPanel - handleStyleChange</li>
+                    <li>🎯 BannerEditor - handleUpdateStyle</li>
+                    <li>🎨 ComponentRenderer</li>
+                </ul>
+            </div>
+            
+            <div class="step">
+                <strong>Paso 6:</strong> Verifica si:
+                <ul>
+                    <li>Los valores llegan correctamente a handleStyleChange</li>
+                    <li>Se detecta correctamente si es componente hijo</li>
+                    <li>Los estilos se aplican en ComponentRenderer</li>
+                    <li>Los cambios se reflejan visualmente</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h2>🐛 Síntomas del problema reportado:</h2>
+            <ul>
+                <li><strong>Containers:</strong> Los cambios en dimensiones no tienen efecto</li>
+                <li><strong>Imágenes dentro de containers:</strong> Los cambios en dimensiones no tienen efecto</li>
+                <li><strong>Sistema de porcentajes:</strong> No funciona correctamente</li>
+                <li><strong>Contexto:</strong> Los porcentajes deberían usar el canvas como referencia para componentes directos, y el contenedor padre para componentes hijos</li>
+            </ul>
+        </div>
+
+        <div class="instructions">
+            <h2>📊 Puntos de control en el flujo:</h2>
+            <ol>
+                <li><strong>Input del usuario:</strong> Cambio en DimensionControl</li>
+                <li><strong>BannerPropertyPanel.handleStyleChange:</strong> Recibe el cambio</li>
+                <li><strong>BannerEditor.handleUpdateStyle:</strong> Procesa la actualización</li>
+                <li><strong>useBannerEditor.updateChildStyleForDevice/updateComponentStyleForDevice:</strong> Actualiza el estado</li>
+                <li><strong>ComponentRenderer:</strong> Aplica los estilos al DOM</li>
+                <li><strong>Efecto visual:</strong> Se debe ver el cambio en el canvas</li>
+            </ol>
+        </div>
+
+        <div class="instructions">
+            <h2>🔧 Posibles causas del problema:</h2>
+            <ul>
+                <li>Los valores no llegan correctamente desde el input</li>
+                <li>La detección de componente hijo/padre es incorrecta</li>
+                <li>Los estilos se pierden durante el procesamiento</li>
+                <li>El ComponentRenderer no está aplicando correctamente los estilos</li>
+                <li>Hay conflictos de CSS que anulan los cambios</li>
+                <li>El sistema de porcentajes está convirtiendo incorrectamente</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Función para ayudar a capturar logs si fuera necesario
+        const originalConsoleLog = console.log;
+        const originalConsoleGroup = console.group;
+        const originalConsoleGroupEnd = console.groupEnd;
+        
+        function captureConsoleOutput() {
+            const output = document.querySelector('.console-output');
+            if (!output) return;
+            
+            console.log = function(...args) {
+                output.textContent += args.join(' ') + '\n';
+                output.scrollTop = output.scrollHeight;
+                originalConsoleLog.apply(console, args);
+            };
+            
+            console.group = function(...args) {
+                output.textContent += '▼ ' + args.join(' ') + '\n';
+                output.scrollTop = output.scrollHeight;
+                originalConsoleGroup.apply(console, args);
+            };
+            
+            console.groupEnd = function() {
+                output.textContent += '▲ (group end)\n';
+                output.scrollTop = output.scrollHeight;
+                originalConsoleGroupEnd.apply(console);
+            };
+        }
+        
+        // Mensaje inicial
+        console.log("🔍 Test de flujo de dimensiones iniciado. Sigue las instrucciones para depurar el problema.");
+    </script>
+</body>
+</html>

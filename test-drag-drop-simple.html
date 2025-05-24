@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Drag Drop Test</title>
+    <style>
+        .sidebar {
+            width: 200px;
+            height: 400px;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            float: left;
+            padding: 10px;
+        }
+        .canvas {
+            width: 400px;
+            height: 400px;
+            background: #fff;
+            border: 1px solid #ccc;
+            float: left;
+            margin-left: 20px;
+            padding: 10px;
+        }
+        .component {
+            background: #007bff;
+            color: white;
+            padding: 10px;
+            margin: 5px 0;
+            cursor: grab;
+        }
+        .component:active {
+            cursor: grabbing;
+        }
+    </style>
+</head>
+<body>
+    <h1>Drag Drop Test</h1>
+    
+    <div class="sidebar">
+        <h3>Components</h3>
+        <div class="component" draggable="true" data-type="button">
+            Button Component
+        </div>
+        <div class="component" draggable="true" data-type="text">
+            Text Component
+        </div>
+    </div>
+    
+    <div class="canvas" id="canvas">
+        <h3>Canvas (Drop Here)</h3>
+        <p>Drop components here...</p>
+    </div>
+
+    <script>
+        // Add drag listeners to components
+        document.querySelectorAll('.component').forEach(comp => {
+            comp.addEventListener('dragstart', (e) => {
+                console.log('🚀 Drag start:', e.target.dataset.type);
+                const dragData = {
+                    type: e.target.dataset.type,
+                    label: e.target.textContent
+                };
+                e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+                e.dataTransfer.effectAllowed = 'copy';
+            });
+        });
+
+        // Add drop listeners to canvas
+        const canvas = document.getElementById('canvas');
+        
+        canvas.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        });
+        
+        canvas.addEventListener('drop', (e) => {
+            console.log('🎯 Drop event triggered');
+            e.preventDefault();
+            
+            try {
+                const jsonData = e.dataTransfer.getData('application/json');
+                console.log('🎯 JSON data:', jsonData);
+                
+                if (jsonData) {
+                    const componentData = JSON.parse(jsonData);
+                    console.log('🎯 Parsed data:', componentData);
+                    
+                    if (componentData.type) {
+                        console.log('🎯 Adding component:', componentData.type);
+                        
+                        // Add visual element to canvas
+                        const newElement = document.createElement('div');
+                        newElement.textContent = `Added: ${componentData.type}`;
+                        newElement.style.background = '#28a745';
+                        newElement.style.color = 'white';
+                        newElement.style.padding = '5px';
+                        newElement.style.margin = '5px';
+                        newElement.style.border = '1px solid #ccc';
+                        canvas.appendChild(newElement);
+                    }
+                }
+            } catch (error) {
+                console.error('🎯 Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>

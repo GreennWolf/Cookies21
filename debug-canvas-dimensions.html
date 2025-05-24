@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Canvas Dimensions</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .banner-container {
+            position: relative;
+            background-color: #ffffff;
+            width: 100%;
+            height: auto;
+            min-height: 200px;
+            border: 2px solid #3b82f6;
+            box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
+            border-radius: 4px;
+            overflow: visible;
+            transition: all 0.3s ease-in-out;
+            margin: 20px 0;
+        }
+        .component {
+            position: absolute;
+            background: rgba(34, 197, 94, 0.1);
+            border: 2px solid #22c55e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #22c55e;
+            border-radius: 4px;
+        }
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        .info-table th, .info-table td {
+            border: 1px solid #d1d5db;
+            padding: 8px;
+            text-align: left;
+        }
+        .info-table th {
+            background: #f3f4f6;
+            font-weight: bold;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            background: #f3f4f6;
+            border-radius: 4px;
+        }
+        .error {
+            background: #fee2e2;
+            color: #dc2626;
+            font-weight: bold;
+        }
+        .success {
+            background: #dcfce7;
+            color: #166534;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug: Canvas Dimensions & Percentage System</h1>
+    
+    <div class="container">
+        <h3>🎯 Investigando el Problema</h3>
+        <p><strong>Problema reportado:</strong> "sigue sin funcionar ese sistema, analiza como funcionan el CSS general y como podrías aplicar porque no obtienes la cantidad de píxeles que tiene el canvas para aplicarla a la conversión de %"</p>
+        
+        <p><strong>Hipótesis:</strong></p>
+        <ul>
+            <li>El canvas usa <code>width: 100%, height: auto</code> - dimensiones relativas</li>
+            <li>Las dimensiones reales dependen del contenedor padre</li>
+            <li>Puede haber problemas de timing al obtener <code>getBoundingClientRect()</code></li>
+            <li>Los porcentajes en CSS se calculan diferente que nuestras conversiones manuales</li>
+        </ul>
+    </div>
+
+    <!-- Canvas de prueba -->
+    <div class="container">
+        <h3>🎨 Canvas de Prueba</h3>
+        <div class="banner-container" id="test-canvas">
+            <!-- Componente con 50% width CSS nativo -->
+            <div class="component" id="comp-css" style="width: 50%; height: 100px; top: 20px; left: 0;">
+                50% CSS Nativo
+            </div>
+            
+            <!-- Componente con píxeles calculados manualmente -->
+            <div class="component" id="comp-manual" style="width: 300px; height: 100px; top: 140px; left: 0;">
+                300px Manual
+            </div>
+        </div>
+        
+        <!-- Controles -->
+        <div class="controls">
+            <div class="control-group">
+                <label>Canvas Width:</label>
+                <input type="number" id="canvas-width" value="600" min="200" max="1200" step="50">
+                <span>px</span>
+            </div>
+            <div class="control-group">
+                <label>Component %:</label>
+                <input type="number" id="comp-percent" value="50" min="0" max="100" step="5">
+                <span>%</span>
+            </div>
+            <button onclick="updateDimensions()" style="background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 4px;">
+                Actualizar
+            </button>
+            <button onclick="debugDimensions()" style="background: #059669; color: white; border: none; padding: 6px 12px; border-radius: 4px;">
+                Debug Dimensiones
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabla de información -->
+    <div class="container">
+        <h3>📊 Información de Dimensiones</h3>
+        <table class="info-table">
+            <thead>
+                <tr>
+                    <th>Elemento</th>
+                    <th>CSS Style</th>
+                    <th>Computed Width</th>
+                    <th>getBoundingClientRect</th>
+                    <th>Cálculo Manual</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Canvas</td>
+                    <td id="canvas-css-style">width: 100%</td>
+                    <td id="canvas-computed">-</td>
+                    <td id="canvas-rect">-</td>
+                    <td>N/A</td>
+                    <td id="canvas-status">-</td>
+                </tr>
+                <tr>
+                    <td>Comp CSS (50%)</td>
+                    <td id="comp-css-style">width: 50%</td>
+                    <td id="comp-css-computed">-</td>
+                    <td id="comp-css-rect">-</td>
+                    <td id="comp-css-manual">-</td>
+                    <td id="comp-css-status">-</td>
+                </tr>
+                <tr>
+                    <td>Comp Manual (px)</td>
+                    <td id="comp-manual-style">width: 300px</td>
+                    <td id="comp-manual-computed">-</td>
+                    <td id="comp-manual-rect">-</td>
+                    <td id="comp-manual-manual">-</td>
+                    <td id="comp-manual-status">-</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Análisis -->
+    <div class="container">
+        <h3>🔬 Análisis de Problemas</h3>
+        <div id="analysis-result">
+            <p>Ejecuta "Debug Dimensiones" para analizar...</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('test-canvas');
+        const compCss = document.getElementById('comp-css');
+        const compManual = document.getElementById('comp-manual');
+        
+        function updateDimensions() {
+            const canvasWidth = document.getElementById('canvas-width').value;
+            const compPercent = document.getElementById('comp-percent').value;
+            
+            // Actualizar canvas
+            canvas.style.width = canvasWidth + 'px';
+            
+            // Actualizar componente CSS
+            compCss.style.width = compPercent + '%';
+            compCss.textContent = `${compPercent}% CSS Nativo`;
+            
+            // Calcular píxeles manuales
+            const manualPx = Math.round((compPercent / 100) * canvasWidth);
+            compManual.style.width = manualPx + 'px';
+            compManual.textContent = `${manualPx}px Manual`;
+            
+            // Debug automático
+            setTimeout(debugDimensions, 100);
+        }
+        
+        function debugDimensions() {
+            console.group('🔍 DEBUG: Canvas Dimensions');
+            
+            // 1. Canvas dimensions
+            const canvasRect = canvas.getBoundingClientRect();
+            const canvasComputed = getComputedStyle(canvas);
+            
+            console.log('Canvas:', {
+                cssWidth: canvas.style.width,
+                computedWidth: canvasComputed.width,
+                rectWidth: canvasRect.width,
+                rectHeight: canvasRect.height
+            });
+            
+            // 2. Component CSS dimensions
+            const compCssRect = compCss.getBoundingClientRect();
+            const compCssComputed = getComputedStyle(compCss);
+            
+            console.log('Component CSS:', {
+                cssWidth: compCss.style.width,
+                computedWidth: compCssComputed.width,
+                rectWidth: compCssRect.width
+            });
+            
+            // 3. Component Manual dimensions
+            const compManualRect = compManual.getBoundingClientRect();
+            const compManualComputed = getComputedStyle(compManual);
+            
+            console.log('Component Manual:', {
+                cssWidth: compManual.style.width,
+                computedWidth: compManualComputed.width,
+                rectWidth: compManualRect.width
+            });
+            
+            // 4. Cálculos
+            const percent = parseFloat(document.getElementById('comp-percent').value);
+            const expectedPx = (percent / 100) * canvasRect.width;
+            const actualCssPx = compCssRect.width;
+            const actualManualPx = compManualRect.width;
+            
+            console.log('Calculations:', {
+                percent: percent + '%',
+                canvasWidth: canvasRect.width + 'px',
+                expectedPx: expectedPx + 'px',
+                actualCssPx: actualCssPx + 'px',
+                actualManualPx: actualManualPx + 'px',
+                cssMatch: Math.abs(expectedPx - actualCssPx) < 1,
+                manualMatch: Math.abs(expectedPx - actualManualPx) < 1
+            });
+            
+            console.groupEnd();
+            
+            // Actualizar tabla
+            updateTable();
+            
+            // Analizar problemas
+            analyzeProblems();
+        }
+        
+        function updateTable() {
+            const canvasRect = canvas.getBoundingClientRect();
+            const canvasComputed = getComputedStyle(canvas);
+            const compCssRect = compCss.getBoundingClientRect();
+            const compCssComputed = getComputedStyle(compCss);
+            const compManualRect = compManual.getBoundingClientRect();
+            const compManualComputed = getComputedStyle(compManual);
+            
+            // Canvas
+            document.getElementById('canvas-css-style').textContent = `width: ${canvas.style.width || '100%'}`;
+            document.getElementById('canvas-computed').textContent = canvasComputed.width;
+            document.getElementById('canvas-rect').textContent = `${Math.round(canvasRect.width)}×${Math.round(canvasRect.height)}px`;
+            document.getElementById('canvas-status').textContent = canvasRect.width > 0 ? '✅ OK' : '❌ Error';
+            document.getElementById('canvas-status').className = canvasRect.width > 0 ? 'success' : 'error';
+            
+            // Component CSS
+            const percent = parseFloat(document.getElementById('comp-percent').value);
+            const expectedPx = (percent / 100) * canvasRect.width;
+            
+            document.getElementById('comp-css-style').textContent = `width: ${compCss.style.width}`;
+            document.getElementById('comp-css-computed').textContent = compCssComputed.width;
+            document.getElementById('comp-css-rect').textContent = `${Math.round(compCssRect.width)}px`;
+            document.getElementById('comp-css-manual').textContent = `${Math.round(expectedPx)}px`;
+            
+            const cssMatch = Math.abs(expectedPx - compCssRect.width) < 1;
+            document.getElementById('comp-css-status').textContent = cssMatch ? '✅ Correcto' : '❌ Error';
+            document.getElementById('comp-css-status').className = cssMatch ? 'success' : 'error';
+            
+            // Component Manual
+            document.getElementById('comp-manual-style').textContent = `width: ${compManual.style.width}`;
+            document.getElementById('comp-manual-computed').textContent = compManualComputed.width;
+            document.getElementById('comp-manual-rect').textContent = `${Math.round(compManualRect.width)}px`;
+            document.getElementById('comp-manual-manual').textContent = `${Math.round(expectedPx)}px`;
+            
+            const manualMatch = Math.abs(expectedPx - compManualRect.width) < 1;
+            document.getElementById('comp-manual-status').textContent = manualMatch ? '✅ Correcto' : '❌ Error';
+            document.getElementById('comp-manual-status').className = manualMatch ? 'success' : 'error';
+        }
+        
+        function analyzeProblems() {
+            const canvasRect = canvas.getBoundingClientRect();
+            const compCssRect = compCss.getBoundingClientRect();
+            const compManualRect = compManual.getBoundingClientRect();
+            const percent = parseFloat(document.getElementById('comp-percent').value);
+            const expectedPx = (percent / 100) * canvasRect.width;
+            
+            let analysis = '<h4>🔬 Análisis de Resultados:</h4>';
+            
+            // Verificar canvas
+            if (canvasRect.width <= 0) {
+                analysis += '<p class="error">❌ <strong>PROBLEMA:</strong> Canvas width = 0. El canvas no tiene dimensiones válidas.</p>';
+            } else {
+                analysis += `<p class="success">✅ Canvas tiene dimensiones válidas: ${Math.round(canvasRect.width)}×${Math.round(canvasRect.height)}px</p>`;
+            }
+            
+            // Verificar CSS vs Manual
+            const cssMatch = Math.abs(expectedPx - compCssRect.width) < 1;
+            const manualMatch = Math.abs(expectedPx - compManualRect.width) < 1;
+            
+            if (cssMatch && manualMatch) {
+                analysis += '<p class="success">✅ <strong>PERFECTO:</strong> CSS nativo y cálculo manual coinciden.</p>';
+                analysis += '<p>💡 <strong>Conclusión:</strong> El problema NO está en el cálculo de porcentajes.</p>';
+            } else if (cssMatch && !manualMatch) {
+                analysis += '<p class="error">❌ <strong>PROBLEMA:</strong> CSS funciona pero cálculo manual está mal.</p>';
+                analysis += '<p>💡 <strong>Causa probable:</strong> Error en la conversión manual % → px.</p>';
+            } else if (!cssMatch && manualMatch) {
+                analysis += '<p class="error">❌ <strong>PROBLEMA:</strong> CSS no funciona pero cálculo manual sí.</p>';
+                analysis += '<p>💡 <strong>Causa probable:</strong> Problema con dimensiones del contenedor padre.</p>';
+            } else {
+                analysis += '<p class="error">❌ <strong>PROBLEMA GRAVE:</strong> Ni CSS ni cálculo manual funcionan.</p>';
+                analysis += '<p>💡 <strong>Causa probable:</strong> Problema fundamental con dimensiones del canvas.</p>';
+            }
+            
+            // Recomendaciones
+            analysis += '<h4>🛠️ Recomendaciones:</h4>';
+            analysis += '<ul>';
+            
+            if (canvasRect.width <= 0) {
+                analysis += '<li>🔧 Verificar que el canvas tenga dimensiones CSS válidas</li>';
+                analysis += '<li>🔧 Usar setTimeout() o requestAnimationFrame() para esperar a que el DOM se renderice</li>';
+            }
+            
+            if (!cssMatch) {
+                analysis += '<li>🔧 Verificar que el CSS del canvas permita % correctos</li>';
+                analysis += '<li>🔧 Usar CSS nativo en lugar de conversión manual cuando sea posible</li>';
+            }
+            
+            if (!manualMatch) {
+                analysis += '<li>🔧 Revisar la función de conversión % → px</li>';
+                analysis += '<li>🔧 Asegurar que getBoundingClientRect() se ejecute después del renderizado</li>';
+            }
+            
+            analysis += '</ul>';
+            
+            document.getElementById('analysis-result').innerHTML = analysis;
+        }
+        
+        // Inicializar
+        updateDimensions();
+        
+        // Auto-debug cada 2 segundos
+        setInterval(debugDimensions, 2000);
+        
+        console.log('🔍 Debug Canvas Dimensions cargado');
+        console.log('🎯 Objetivo: Entender por qué no funcionan los porcentajes');
+    </script>
+</body>
+</html>

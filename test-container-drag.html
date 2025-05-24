@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba Drag en Contenedores</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        
+        .instructions {
+            max-width: 800px;
+            margin: 0 auto 20px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        
+        .banner-container {
+            width: 800px;
+            height: 600px;
+            background-color: white;
+            border: 2px solid #ccc;
+            position: relative;
+            margin: 20px auto;
+            overflow: hidden;
+        }
+        
+        .container {
+            position: absolute;
+            background-color: rgba(33, 150, 243, 0.1);
+            border: 2px dashed #2196f3;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .container:hover {
+            background-color: rgba(33, 150, 243, 0.2);
+        }
+        
+        .child-component {
+            position: absolute;
+            background-color: #e3f2fd;
+            border: 2px solid #2196f3;
+            padding: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            user-select: none;
+            min-width: 80px;
+            min-height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .child-component:hover {
+            background-color: #bbdefb;
+        }
+        
+        .child-component.dragging {
+            opacity: 0.8;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .child-drag-handle {
+            position: absolute;
+            top: -6px;
+            left: -6px;
+            width: 18px;
+            height: 18px;
+            background-color: #1976d2;
+            cursor: grab;
+            border-radius: 3px;
+            z-index: 1002;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.8;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+            transition: all 0.15s ease;
+        }
+        
+        .child-drag-handle:hover {
+            transform: scale(1.05);
+            opacity: 1;
+            background-color: #1e88e5;
+        }
+        
+        .child-drag-handle:active {
+            cursor: grabbing;
+            background-color: #1565c0;
+        }
+        
+        .child-drag-handle::before {
+            content: '⋮⋮';
+            color: white;
+            font-size: 8px;
+            line-height: 1;
+            letter-spacing: -1px;
+        }
+        
+        .controls {
+            position: absolute;
+            top: -10px;
+            right: 10px;
+            transform: translate(50%, -50%);
+            display: flex;
+            gap: 4px;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: auto;
+        }
+        
+        .child-component:hover .controls {
+            opacity: 1;
+        }
+        
+        .blue-button {
+            padding: 4px;
+            border-radius: 4px;
+            background-color: #2196f3;
+            color: white;
+            font-size: 12px;
+            cursor: move;
+            border: none;
+            outline: none;
+        }
+        
+        .blue-button:hover {
+            background-color: #1976d2;
+        }
+        
+        .delete-btn {
+            padding: 4px;
+            border-radius: 4px;
+            background-color: #f44336;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            border: none;
+            outline: none;
+        }
+        
+        .delete-btn:hover {
+            background-color: #d32f2f;
+        }
+    </style>
+</head>
+<body>
+    <div class="instructions">
+        <h2>🧪 Prueba de Drag en Contenedores</h2>
+        <p><strong>Instrucciones:</strong></p>
+        <ol>
+            <li><strong>Handle pequeño azul:</strong> Arrastra el pequeño handle azul en la esquina superior izquierda de cada componente</li>
+            <li><strong>Botón azul:</strong> Haz clic en el botón azul ⛶ que aparece al hacer hover sobre el componente</li>
+            <li><strong>Límites:</strong> Los componentes deben mantenerse dentro del contenedor azul</li>
+            <li><strong>Visual:</strong> Durante el drag, debe aparecer feedback visual</li>
+        </ol>
+        <p><strong>🎯 Objetivo:</strong> Verificar que ambos métodos funcionen correctamente para arrastrar componentes dentro del contenedor.</p>
+    </div>
+
+    <div class="banner-container">
+        <!-- Contenedor principal -->
+        <div class="container" id="main-container" style="top: 10%; left: 10%; width: 400px; height: 300px;">
+            <div style="position: absolute; top: -25px; left: 0; font-size: 12px; color: #2196f3; font-weight: bold;">
+                Contenedor Principal
+            </div>
+            
+            <!-- Componente hijo 1 -->
+            <div class="child-component" id="child1" style="top: 20px; left: 20px;">
+                <div class="child-drag-handle"></div>
+                <div>Botón 1</div>
+                <div class="controls">
+                    <button class="blue-button" title="Mover">⛶</button>
+                    <button class="delete-btn" title="Eliminar">×</button>
+                </div>
+            </div>
+            
+            <!-- Componente hijo 2 -->
+            <div class="child-component" id="child2" style="top: 80px; left: 150px;">
+                <div class="child-drag-handle"></div>
+                <div>Texto 1</div>
+                <div class="controls">
+                    <button class="blue-button" title="Mover">⛶</button>
+                    <button class="delete-btn" title="Eliminar">×</button>
+                </div>
+            </div>
+            
+            <!-- Componente hijo 3 -->
+            <div class="child-component" id="child3" style="top: 140px; left: 50px;">
+                <div class="child-drag-handle"></div>
+                <div>Imagen 1</div>
+                <div class="controls">
+                    <button class="blue-button" title="Mover">⛶</button>
+                    <button class="delete-btn" title="Eliminar">×</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isDragging = false;
+        let draggedElement = null;
+        let initialOffset = { x: 0, y: 0 };
+        let containerRect = null;
+        let childRect = null;
+
+        // Función para manejar drag desde el handle pequeño
+        function handleChildDrag(e, child) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('🎯 Iniciando drag desde handle para:', child.id);
+            
+            const container = document.getElementById('main-container');
+            const childElement = child;
+            
+            // Configurar variables globales
+            isDragging = true;
+            draggedElement = childElement;
+            containerRect = container.getBoundingClientRect();
+            childRect = childElement.getBoundingClientRect();
+            
+            // Calcular offset inicial
+            initialOffset = {
+                x: e.clientX - childRect.left + containerRect.left,
+                y: e.clientY - childRect.top + containerRect.top
+            };
+            
+            // Estilos durante drag
+            childElement.classList.add('dragging');
+            container.style.outline = '3px solid #4CAF50';
+            document.body.style.cursor = 'grabbing';
+            
+            console.log('📍 Configuración inicial:', {
+                containerRect: { width: containerRect.width, height: containerRect.height },
+                childRect: { width: childRect.width, height: childRect.height },
+                offset: initialOffset
+            });
+        }
+
+        // Función para manejar drag desde el botón azul
+        function handleBlueButtonDrag(e, child) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('🔵 Iniciando drag desde botón azul para:', child.id);
+            
+            // Buscar el handle y simular su activación
+            const handle = child.querySelector('.child-drag-handle');
+            if (handle) {
+                // Activar visualmente
+                handle.style.transform = 'scale(1.2)';
+                handle.style.backgroundColor = '#1565c0';
+                
+                // Simular mousedown en el handle
+                const rect = handle.getBoundingClientRect();
+                const syntheticEvent = new MouseEvent('mousedown', {
+                    bubbles: true,
+                    cancelable: true,
+                    clientX: rect.left + rect.width / 2,
+                    clientY: rect.top + rect.height / 2,
+                    button: 0
+                });
+                
+                handle.dispatchEvent(syntheticEvent);
+            }
+        }
+
+        // Event listeners para los handles
+        document.querySelectorAll('.child-drag-handle').forEach(handle => {
+            handle.addEventListener('mousedown', (e) => {
+                const child = e.target.closest('.child-component');
+                handleChildDrag(e, child);
+            });
+        });
+
+        // Event listeners para los botones azules
+        document.querySelectorAll('.blue-button').forEach(button => {
+            button.addEventListener('mousedown', (e) => {
+                const child = e.target.closest('.child-component');
+                handleBlueButtonDrag(e, child);
+            });
+        });
+
+        // Mouse move global
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging || !draggedElement) return;
+            
+            const mouseRelativeX = e.clientX - containerRect.left;
+            const mouseRelativeY = e.clientY - containerRect.top;
+            
+            const childLeft = mouseRelativeX - initialOffset.x;
+            const childTop = mouseRelativeY - initialOffset.y;
+            
+            // Límites del contenedor
+            const containerPadding = 10;
+            const availableWidth = containerRect.width - (containerPadding * 2);
+            const availableHeight = containerRect.height - (containerPadding * 2);
+            
+            const maxX = availableWidth - childRect.width;
+            const maxY = availableHeight - childRect.height;
+            
+            // Constrain dentro del contenedor
+            const constrainedX = Math.max(containerPadding, Math.min(childLeft + containerPadding, maxX + containerPadding));
+            const constrainedY = Math.max(containerPadding, Math.min(childTop + containerPadding, maxY + containerPadding));
+            
+            // Aplicar posición
+            draggedElement.style.left = `${constrainedX}px`;
+            draggedElement.style.top = `${constrainedY}px`;
+            
+            // Convertir a porcentajes para logging
+            const leftPercent = ((constrainedX - containerPadding) / availableWidth) * 100;
+            const topPercent = ((constrainedY - containerPadding) / availableHeight) * 100;
+            
+            console.log(`📍 Posición: ${leftPercent.toFixed(1)}%, ${topPercent.toFixed(1)}%`);
+        });
+
+        // Mouse up global
+        document.addEventListener('mouseup', () => {
+            if (isDragging && draggedElement) {
+                console.log('✅ Finalizando drag para:', draggedElement.id);
+                
+                // Restaurar estilos
+                draggedElement.classList.remove('dragging');
+                document.getElementById('main-container').style.outline = '';
+                document.body.style.cursor = '';
+                
+                // Restaurar handle si fue activado desde botón azul
+                const handle = draggedElement.querySelector('.child-drag-handle');
+                if (handle) {
+                    handle.style.transform = '';
+                    handle.style.backgroundColor = '';
+                }
+                
+                // Limpiar variables
+                isDragging = false;
+                draggedElement = null;
+                initialOffset = { x: 0, y: 0 };
+                containerRect = null;
+                childRect = null;
+            }
+        });
+    </script>
+</body>
+</html>

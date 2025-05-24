@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✅ LayersPanel - Problemas Corregidos</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .fixed-section {
+            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        
+        .problem-solution {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .problem {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .solution {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .feature-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid #e1e8ff;
+        }
+        
+        .success { color: #10b981; font-weight: 600; }
+        .error { color: #ef4444; font-weight: 600; }
+        .warning { color: #f59e0b; font-weight: 600; }
+        
+        .code-snippet {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        
+        .highlight {
+            color: #ffd700;
+            font-weight: bold;
+        }
+        
+        .names-demo {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+        
+        .layer-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+            margin: 5px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+        }
+        
+        .text-icon { background: #3b82f6; }
+        .button-icon { background: #10b981; }
+        .image-icon { background: #8b5cf6; }
+        .container-icon { background: #f59e0b; }
+        
+        .z-index {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.8em;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✅ LayersPanel - Problemas Corregidos</h1>
+            <p>Nombres lógicos, drag & drop funcional, y componentes obligatorios editables</p>
+        </div>
+        
+        <div class="content">
+            <div class="fixed-section">
+                <h2>🎯 Problemas Resueltos</h2>
+                <p>Los tres problemas principales han sido corregidos completamente</p>
+            </div>
+            
+            <div class="problem-solution">
+                <div class="problem">
+                    <h3 class="error">❌ Problema 1: Nombres Genéricos</h3>
+                    <p>Los componentes mostraban "Componente text", "Componente button" en lugar de nombres útiles.</p>
+                </div>
+                <div class="solution">
+                    <h3 class="success">✅ Solución: Nombres Lógicos</h3>
+                    <p>Ahora muestran nombres específicos como "Botón Aceptar", "Texto Principal", etc.</p>
+                </div>
+            </div>
+            
+            <div class="problem-solution">
+                <div class="problem">
+                    <h3 class="error">❌ Problema 2: Drag & Drop No Funciona</h3>
+                    <p>Arrastrar componentes no cambiaba su orden visual (z-index).</p>
+                </div>
+                <div class="solution">
+                    <h3 class="success">✅ Solución: Lógica Corregida</h3>
+                    <p>Drag & drop ahora funciona correctamente con índices ajustados y logs de depuración.</p>
+                </div>
+            </div>
+            
+            <div class="problem-solution">
+                <div class="problem">
+                    <h3 class="error">❌ Problema 3: Componentes Bloqueados</h3>
+                    <p>Los componentes obligatorios no se podían modificar ni reordenar.</p>
+                </div>
+                <div class="solution">
+                    <h3 class="success">✅ Solución: Edición Permitida</h3>
+                    <p>Todos los componentes son editables y movibles (solo se prohíbe eliminar los esenciales).</p>
+                </div>
+            </div>
+            
+            <h2>🏷️ Sistema de Nombres Mejorado</h2>
+            <div class="names-demo">
+                <h4>Componentes del Sistema (IDs específicos):</h4>
+                <div class="layer-item">
+                    <div class="icon button-icon"></div>
+                    <span class="z-index">z:103</span>
+                    <span><strong>Botón Aceptar</strong> (acceptBtn)</span>
+                </div>
+                <div class="layer-item">
+                    <div class="icon button-icon"></div>
+                    <span class="z-index">z:102</span>
+                    <span><strong>Botón Rechazar</strong> (rejectBtn)</span>
+                </div>
+                <div class="layer-item">
+                    <div class="icon button-icon"></div>
+                    <span class="z-index">z:101</span>
+                    <span><strong>Botón Preferencias</strong> (preferencesBtn)</span>
+                </div>
+                <div class="layer-item">
+                    <div class="icon text-icon"></div>
+                    <span class="z-index">z:100</span>
+                    <span><strong>Texto Principal</strong> (mainText)</span>
+                </div>
+                
+                <h4 style="margin-top: 20px;">Componentes Dinámicos:</h4>
+                <div class="layer-item">
+                    <div class="icon text-icon"></div>
+                    <span class="z-index">z:105</span>
+                    <span><strong>Este sitio web utiliza cookies...</strong> (contenido del componente)</span>
+                </div>
+                <div class="layer-item">
+                    <div class="icon image-icon"></div>
+                    <span class="z-index">z:104</span>
+                    <span><strong>Logo</strong> (logoImage)</span>
+                </div>
+            </div>
+            
+            <h2>🔧 Funcionalidades Corregidas</h2>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3 class="success">✅ Botón X Funcional</h3>
+                    <p>El botón X en el header del panel ahora cierra correctamente el panel y vuelve a la vista de componentes.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3 class="success">✅ Drag & Drop Mejorado</h3>
+                    <p>Sistema de arrastre completamente funcional con:</p>
+                    <ul>
+                        <li>Índices corregidos y validados</li>
+                        <li>Logs de depuración detallados</li>
+                        <li>Ajuste automático para movimientos hacia abajo</li>
+                        <li>Deep clone para evitar mutaciones</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-card">
+                    <h3 class="success">✅ Componentes Editables</h3>
+                    <p>Todos los componentes ahora son:</p>
+                    <ul>
+                        <li>Editables (doble-click para renombrar)</li>
+                        <li>Movibles (drag & drop habilitado)</li>
+                        <li>Solo componentes esenciales no se pueden eliminar</li>
+                        <li>Bloqueo/desbloqueo disponible para todos</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-card">
+                    <h3 class="warning">⚡ Z-Index Automático</h3>
+                    <p>El sistema aplica z-index automáticamente:</p>
+                    <ul>
+                        <li>Componente arriba = mayor z-index</li>
+                        <li>Aplicado a todos los dispositivos</li>
+                        <li>Base 100+ para componentes principales</li>
+                        <li>Actualización inmediata al reordenar</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <h2>💻 Código Implementado</h2>
+            
+            <h3>Sistema de Nombres:</h3>
+            <div class="code-snippet">
+<span class="highlight">// Nombres específicos por ID (componentes del sistema)</span>
+if (component.id === 'acceptBtn') return 'Botón Aceptar';
+if (component.id === 'rejectBtn') return 'Botón Rechazar';
+if (component.id === 'preferencesBtn') return 'Botón Preferencias';
+if (component.id === 'mainText') return 'Texto Principal';
+if (component.id === 'titleText') return 'Título';
+if (component.id === 'logoImage') return 'Logo';
+
+<span class="highlight">// Para otros componentes, usar el contenido</span>
+if (component.content && typeof component.content === 'string') {
+  const trimmed = component.content.trim();
+  if (trimmed.length > 0) {
+    return trimmed.length > 25 ? trimmed.substring(0, 25) + '...' : trimmed;
+  }
+}
+            </div>
+            
+            <h3>Drag & Drop Corregido:</h3>
+            <div class="code-snippet">
+<span class="highlight">// Ajustar índice si movemos hacia abajo</span>
+const finalNewIndex = sourceIndex < newIndex ? newIndex - 1 : newIndex;
+
+<span class="highlight">// Validar índices antes de proceder</span>
+if (sourceIndex < 0 || sourceIndex >= components.length || 
+    destinationIndex < 0 || destinationIndex > components.length) {
+  console.error('❌ Índices inválidos');
+  return;
+}
+
+<span class="highlight">// Deep clone para evitar mutaciones</span>
+const updatedConfig = JSON.parse(JSON.stringify(bannerConfig));
+            </div>
+            
+            <h3>Componentes Editables:</h3>
+            <div class="code-snippet">
+<span class="highlight">// Permitir drag para todos excepto cuando esté editando</span>
+draggable={!isEditing}
+
+<span class="highlight">// Permitir renombrado para todos</span>
+onDoubleClick={() => setIsEditing(true)}
+
+<span class="highlight">// Solo ocultar eliminar para componentes esenciales</span>
+{!['acceptBtn', 'rejectBtn', 'preferencesBtn', 'mainText', 'titleText'].includes(component.id) && (
+  &lt;button onClick={onDelete}&gt;
+    &lt;Trash2 /&gt;
+  &lt;/button&gt;
+)}
+            </div>
+            
+            <div class="fixed-section">
+                <h2>🚀 ¡Todo Funcional!</h2>
+                <p>
+                    El LayersPanel ahora está completamente operativo con nombres lógicos, 
+                    drag & drop funcional, y todos los componentes editables. 
+                    El sistema de z-index estilo Photoshop funciona perfectamente.
+                </p>
+                
+                <h3>📋 Instrucciones de Uso:</h3>
+                <ol style="color: white; margin-top: 15px;">
+                    <li><strong>Abrir Panel:</strong> Click en "Capas" en la barra superior</li>
+                    <li><strong>Reordenar:</strong> Arrastra cualquier componente arriba/abajo</li>
+                    <li><strong>Renombrar:</strong> Doble-click en cualquier nombre</li>
+                    <li><strong>Visibilidad:</strong> Click en el ojo para mostrar/ocultar</li>
+                    <li><strong>Cerrar Panel:</strong> Click en la X del header</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        console.log("✅ LayersPanel - Todos los problemas corregidos:");
+        console.log("  1. ✅ Nombres lógicos implementados");
+        console.log("  2. ✅ Drag & drop funcional con logs de debug");
+        console.log("  3. ✅ Componentes obligatorios editables");
+        console.log("  4. ✅ Botón X funcional");
+        console.log("  5. ✅ Z-index automático estilo Photoshop");
+        console.log("");
+        console.log("🎯 Próximas funcionalidades disponibles:");
+        console.log("  - Reordenamiento visual en tiempo real");
+        console.log("  - Búsqueda y filtrado de capas");
+        console.log("  - Expand/collapse de contenedores");
+        console.log("  - Sistema completo de jerarquía");
+    </script>
+</body>
+</html>

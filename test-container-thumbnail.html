@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Container Thumbnail Rendering</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .thumbnail-wrapper {
+            width: 200px;
+            height: 150px;
+            border: 1px solid #ddd;
+            margin: 10px;
+            display: inline-block;
+        }
+        .preview-wrapper {
+            width: 400px;
+            height: 300px;
+            border: 1px solid #ddd;
+            margin: 10px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Container Rendering in Thumbnails and Previews</h1>
+    
+    <div class="test-container">
+        <h2>Test Configuration</h2>
+        <p>Banner with container that has button children in flex mode</p>
+        
+        <h3>Expected Result:</h3>
+        <ul>
+            <li>Thumbnail should show a small container with "C" indicator</li>
+            <li>Preview should show flex container with two buttons laid out horizontally</li>
+            <li>Container should have proper flex styling (gap, alignment)</li>
+            <li>Children should be positioned according to display mode</li>
+        </ul>
+        
+        <h3>Test Data Structure:</h3>
+        <pre id="testData"></pre>
+    </div>
+    
+    <div class="test-container">
+        <h2>Simulated Results</h2>
+        <p>This HTML simulates what the enhanced BannerThumbnail and BannerPreviewSimple should render:</p>
+        
+        <h3>Thumbnail View:</h3>
+        <div class="thumbnail-wrapper" style="position: relative; background: #fff; display: flex; align-items: center; justify-content: center;">
+            <div style="
+                width: 60px; 
+                height: 40px; 
+                background: rgba(200, 200, 200, 0.1);
+                border: 1px solid rgba(150, 150, 150, 0.3);
+                border-radius: 2px;
+                padding: 2px;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: row;
+                justify-content: flex-start;
+                align-items: flex-start;
+                gap: 2px;
+                position: relative;
+            ">
+                <!-- Container children -->
+                <div style="
+                    background: #4CAF50;
+                    color: white;
+                    border-radius: 3px;
+                    padding: 2px 5px;
+                    font-size: 6px;
+                    font-weight: bold;
+                    text-align: center;
+                    white-space: nowrap;
+                ">Accept</div>
+                <div style="
+                    background: #f44336;
+                    color: white;
+                    border-radius: 3px;
+                    padding: 2px 5px;
+                    font-size: 6px;
+                    font-weight: bold;
+                    text-align: center;
+                    white-space: nowrap;
+                ">Reject</div>
+                <!-- Container indicator -->
+                <div style="
+                    position: absolute;
+                    top: 1px;
+                    right: 1px;
+                    background: rgba(100, 149, 237, 0.7);
+                    color: white;
+                    font-size: 6px;
+                    padding: 1px 2px;
+                    border-radius: 1px;
+                    line-height: 1;
+                ">C</div>
+            </div>
+        </div>
+        
+        <h3>Preview View:</h3>
+        <div class="preview-wrapper" style="position: relative; background: #fff; display: flex; align-items: center; justify-content: center;">
+            <div style="
+                min-width: 100px;
+                min-height: 80px;
+                width: auto;
+                height: auto;
+                background: rgba(230, 230, 230, 0.1);
+                border: 1px solid rgba(180, 180, 180, 0.4);
+                border-radius: 4px;
+                padding: 8px;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: row;
+                justify-content: flex-start;
+                align-items: flex-start;
+                gap: 8px;
+                position: relative;
+            ">
+                <!-- Container children -->
+                <button style="
+                    background: #4CAF50;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 8px 16px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    cursor: pointer;
+                ">Accept All</button>
+                <button style="
+                    background: #f44336;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 8px 16px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    cursor: pointer;
+                ">Reject All</button>
+                <!-- Container mode indicator -->
+                <div style="
+                    position: absolute;
+                    top: 2px;
+                    right: 2px;
+                    background: rgba(33, 150, 243, 0.8);
+                    color: white;
+                    font-size: 10px;
+                    padding: 2px 4px;
+                    border-radius: 2px;
+                    line-height: 1;
+                    font-weight: bold;
+                ">FLEX</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Example test data structure
+        const testBannerConfig = {
+            layout: {
+                desktop: {
+                    type: 'modal',
+                    backgroundColor: '#ffffff',
+                    width: '400px',
+                    height: 'auto'
+                }
+            },
+            components: [
+                {
+                    id: 'container-1',
+                    type: 'container',
+                    style: {
+                        desktop: {
+                            width: '300px',
+                            height: '100px',
+                            backgroundColor: 'rgba(240, 240, 240, 0.5)',
+                            border: '1px solid #ccc',
+                            borderRadius: '8px',
+                            padding: '16px'
+                        }
+                    },
+                    position: {
+                        desktop: {
+                            top: '50px',
+                            left: '50px'
+                        }
+                    },
+                    containerConfig: {
+                        desktop: {
+                            displayMode: 'flex',
+                            flexDirection: 'row',
+                            justifyContent: 'flex-start',
+                            alignItems: 'center',
+                            gap: '12px'
+                        }
+                    },
+                    children: [
+                        {
+                            id: 'accept-btn',
+                            type: 'button',
+                            content: 'Accept All',
+                            style: {
+                                desktop: {
+                                    backgroundColor: '#4CAF50',
+                                    color: 'white',
+                                    padding: '8px 16px',
+                                    borderRadius: '4px',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold'
+                                }
+                            },
+                            action: {
+                                type: 'accept_all'
+                            },
+                            parentId: 'container-1'
+                        },
+                        {
+                            id: 'reject-btn',
+                            type: 'button',
+                            content: 'Reject All',
+                            style: {
+                                desktop: {
+                                    backgroundColor: '#f44336',
+                                    color: 'white',
+                                    padding: '8px 16px',
+                                    borderRadius: '4px',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold'
+                                }
+                            },
+                            action: {
+                                type: 'reject_all'
+                            },
+                            parentId: 'container-1'
+                        }
+                    ]
+                }
+            ]
+        };
+
+        document.getElementById('testData').textContent = JSON.stringify(testBannerConfig, null, 2);
+    </script>
+</body>
+</html>

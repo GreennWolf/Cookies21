@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba Drag Handle Botón Azul</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        
+        .banner-container {
+            width: 800px;
+            height: 600px;
+            background-color: white;
+            border: 2px solid #ccc;
+            position: relative;
+            margin: 20px auto;
+            overflow: hidden;
+        }
+        
+        .component {
+            position: absolute;
+            background-color: #e3f2fd;
+            border: 2px solid #2196f3;
+            padding: 10px;
+            cursor: pointer;
+            user-select: none;
+            group: hover;
+        }
+        
+        .component:hover .controls {
+            opacity: 1;
+        }
+        
+        .controls {
+            position: absolute;
+            top: -10px;
+            right: 10px;
+            transform: translate(50%, -50%);
+            display: flex;
+            gap: 4px;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: auto;
+        }
+        
+        .drag-handle {
+            padding: 4px;
+            border-radius: 4px;
+            background-color: #2196f3;
+            color: white;
+            font-size: 12px;
+            cursor: move;
+            border: none;
+            outline: none;
+        }
+        
+        .drag-handle:hover {
+            background-color: #1976d2;
+        }
+        
+        .delete-btn {
+            padding: 4px;
+            border-radius: 4px;
+            background-color: #f44336;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            border: none;
+            outline: none;
+        }
+        
+        .delete-btn:hover {
+            background-color: #d32f2f;
+        }
+        
+        .instructions {
+            max-width: 800px;
+            margin: 0 auto 20px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="instructions">
+        <h2>🧪 Prueba del Drag Handle (Botón Azul)</h2>
+        <p><strong>Instrucciones:</strong></p>
+        <ol>
+            <li>Pasa el mouse sobre cualquier componente azul</li>
+            <li>Aparecerá un botón azul (🔵) en la esquina superior derecha</li>
+            <li>Haz clic y arrastra el botón azul para mover el componente</li>
+            <li>El componente debería moverse suavemente y quedar en la nueva posición</li>
+        </ol>
+        <p><strong>🎯 Objetivo:</strong> Verificar que el botón azul funciona correctamente para arrastrar componentes.</p>
+    </div>
+
+    <div class="banner-container" id="banner">
+        <div class="component" id="comp1" style="top: 20%; left: 10%; width: 150px; height: 80px;">
+            <div>Componente 1</div>
+            <div class="controls">
+                <button class="drag-handle" title="Mover">⛶</button>
+                <button class="delete-btn" title="Eliminar">×</button>
+            </div>
+        </div>
+        
+        <div class="component" id="comp2" style="top: 50%; left: 40%; width: 120px; height: 60px;">
+            <div>Componente 2</div>
+            <div class="controls">
+                <button class="drag-handle" title="Mover">⛶</button>
+                <button class="delete-btn" title="Eliminar">×</button>
+            </div>
+        </div>
+        
+        <div class="component" id="comp3" style="top: 30%; left: 70%; width: 100px; height: 100px;">
+            <div>Componente 3</div>
+            <div class="controls">
+                <button class="drag-handle" title="Mover">⛶</button>
+                <button class="delete-btn" title="Eliminar">×</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Implementar drag functionality para los botones azules
+        document.addEventListener('DOMContentLoaded', function() {
+            const banner = document.getElementById('banner');
+            const components = document.querySelectorAll('.component');
+            
+            components.forEach(component => {
+                const dragHandle = component.querySelector('.drag-handle');
+                
+                dragHandle.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    console.log('🎯 Iniciando drag del componente:', component.id);
+                    
+                    const startX = e.clientX;
+                    const startY = e.clientY;
+                    
+                    // Obtener posición inicial
+                    const componentRect = component.getBoundingClientRect();
+                    const bannerRect = banner.getBoundingClientRect();
+                    
+                    const initialLeft = componentRect.left - bannerRect.left;
+                    const initialTop = componentRect.top - bannerRect.top;
+                    
+                    // Agregar clase visual durante drag
+                    component.style.opacity = '0.8';
+                    component.style.zIndex = '1000';
+                    
+                    function handleMouseMove(moveEvent) {
+                        const deltaX = moveEvent.clientX - startX;
+                        const deltaY = moveEvent.clientY - startY;
+                        
+                        // Calcular nueva posición
+                        const newLeft = initialLeft + deltaX;
+                        const newTop = initialTop + deltaY;
+                        
+                        // Limitar dentro del banner
+                        const maxLeft = bannerRect.width - componentRect.width;
+                        const maxTop = bannerRect.height - componentRect.height;
+                        
+                        const constrainedLeft = Math.max(0, Math.min(newLeft, maxLeft));
+                        const constrainedTop = Math.max(0, Math.min(newTop, maxTop));
+                        
+                        // Aplicar transformación
+                        component.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                    }
+                    
+                    function handleMouseUp() {
+                        console.log('🎯 Finalizando drag del componente:', component.id);
+                        
+                        // Calcular posición final
+                        const finalRect = component.getBoundingClientRect();
+                        const newLeft = finalRect.left - bannerRect.left;
+                        const newTop = finalRect.top - bannerRect.top;
+                        
+                        // Limitar dentro del banner
+                        const maxLeft = bannerRect.width - componentRect.width;
+                        const maxTop = bannerRect.height - componentRect.height;
+                        
+                        const constrainedLeft = Math.max(0, Math.min(newLeft, maxLeft));
+                        const constrainedTop = Math.max(0, Math.min(newTop, maxTop));
+                        
+                        // Convertir a porcentajes
+                        const leftPercent = (constrainedLeft / bannerRect.width) * 100;
+                        const topPercent = (constrainedTop / bannerRect.height) * 100;
+                        
+                        // Aplicar posición final
+                        component.style.transform = '';
+                        component.style.left = `${leftPercent.toFixed(2)}%`;
+                        component.style.top = `${topPercent.toFixed(2)}%`;
+                        
+                        // Restaurar estilos
+                        component.style.opacity = '1';
+                        component.style.zIndex = '';
+                        
+                        console.log(`✅ Componente ${component.id} movido a: ${leftPercent.toFixed(2)}%, ${topPercent.toFixed(2)}%`);
+                        
+                        // Remover listeners
+                        document.removeEventListener('mousemove', handleMouseMove);
+                        document.removeEventListener('mouseup', handleMouseUp);
+                    }
+                    
+                    // Agregar listeners
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', handleMouseUp);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

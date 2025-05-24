@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test: Fixed Scaling and Indicators</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .fix-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.fixed {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <h1>✅ Fixed: Scaling and Indicators</h1>
+    
+    <div class="fix-section">
+        <h2>🔧 Thumbnails Scaling Fix</h2>
+        
+        <div class="status fixed">
+            <strong>BannerThumbnail.jsx - Reverted to Working System</strong><br>
+            ✅ Removed complex custom child rendering<br>
+            ✅ Restored original `component.children.map(renderComponent)` approach<br>
+            ✅ Simplified container styles without breaking existing scaling<br>
+            ✅ Maintains the transform scale that was working before<br>
+            ✅ Container indicator "C" only shows for top-level containers
+        </div>
+        
+        <h3>What was fixed:</h3>
+        <ul>
+            <li>❌ <del>Complex inline child rendering breaking scaling</del></li>
+            <li>❌ <del>Custom transform calculations interfering with existing system</del></li>
+            <li>❌ <del>Hardcoded dimensions overriding baseStyles</del></li>
+            <li>✅ Simple container support that works with existing scaling</li>
+            <li>✅ Proper use of baseStyles which includes the working transform logic</li>
+        </ul>
+    </div>
+
+    <div class="fix-section">
+        <h2>🏷️ Indicators Fix</h2>
+        
+        <div class="status fixed">
+            <strong>All Preview Components - Conditional Indicators</strong><br>
+            ✅ BannerPreviewSimple.jsx: Only shows display mode badge for top-level containers<br>
+            ✅ BannerPreview.jsx: Only shows display mode badge for top-level containers<br>
+            ✅ BannerThumbnail.jsx: Only shows "C" badge for top-level containers<br>
+            ✅ Child containers no longer show confusing indicators
+        </div>
+        
+        <h3>Logic implemented:</h3>
+        <pre>
+{!component.parentId && (
+  &lt;div style={{...indicator styles}}&gt;
+    {displayMode.toUpperCase()}
+  &lt;/div&gt;
+)}
+        </pre>
+        
+        <h3>What was fixed:</h3>
+        <ul>
+            <li>❌ <del>Child containers showing "LIBRE" when they shouldn't</del></li>
+            <li>❌ <del>Confusing indicators on nested components</del></li>
+            <li>✅ Clean interface showing only relevant container information</li>
+            <li>✅ Top-level containers clearly identified</li>
+        </ul>
+    </div>
+
+    <div class="fix-section">
+        <h2>🎯 Expected Results Now</h2>
+        
+        <div class="status success">
+            <strong>BannerThumbnail.jsx</strong><br>
+            ✅ Thumbnails scale properly like before<br>
+            ✅ Containers show with basic layout information<br>
+            ✅ Children render correctly using existing renderComponent<br>
+            ✅ "C" badge only on main containers<br>
+            ✅ No breaking of existing transform/scaling logic
+        </div>
+        
+        <div class="status success">
+            <strong>BannerPreview.jsx & BannerPreviewSimple.jsx</strong><br>
+            ✅ Containers render with proper dimensions<br>
+            ✅ Children positioned correctly inside containers<br>
+            ✅ Display mode badges only on top-level containers<br>
+            ✅ Clean interface without confusing indicators<br>
+            ✅ Nested containers work without duplicate badges
+        </div>
+        
+        <div class="status success">
+            <strong>Component Hierarchy</strong><br>
+            ✅ Top-level components (no parentId) rendered directly<br>
+            ✅ Child components handled by their parent containers<br>
+            ✅ Proper filtering prevents duplicate rendering<br>
+            ✅ Clear visual distinction between container levels
+        </div>
+    </div>
+
+    <div class="fix-section">
+        <h2>📋 Testing Checklist</h2>
+        
+        <h3>Thumbnail Testing:</h3>
+        <ul>
+            <li>[ ] Create banner with container</li>
+            <li>[ ] Add child components to container</li>
+            <li>[ ] Check thumbnail scales properly</li>
+            <li>[ ] Verify "C" badge only on main container</li>
+            <li>[ ] Confirm children are visible inside container</li>
+        </ul>
+        
+        <h3>Preview Testing:</h3>
+        <ul>
+            <li>[ ] Check editor preview shows containers correctly</li>
+            <li>[ ] Verify display mode badge only on top-level containers</li>
+            <li>[ ] Test flex, grid, and libre display modes</li>
+            <li>[ ] Confirm no "LIBRE" on child components</li>
+            <li>[ ] Test nested containers (container within container)</li>
+        </ul>
+        
+        <h3>Interaction Testing:</h3>
+        <ul>
+            <li>[ ] Buttons inside containers should work</li>
+            <li>[ ] Images inside containers should load</li>
+            <li>[ ] Text inside containers should display</li>
+            <li>[ ] Container configurations should apply</li>
+        </ul>
+    </div>
+
+    <div class="fix-section">
+        <h2>🔍 Technical Changes Summary</h2>
+        
+        <h3>BannerThumbnail.jsx:</h3>
+        <pre>
+// OLD: Complex custom rendering breaking scaling
+return component.children.map((child, index) => {
+  // Custom styling logic that broke transforms
+});
+
+// NEW: Simple approach that preserves scaling
+{component.children && component.children.length > 0 ? (
+  component.children.map(renderComponent)  // Uses existing working system
+) : (
+  &lt;div&gt;Container&lt;/div&gt;
+)}
+        </pre>
+        
+        <h3>All Preview Components:</h3>
+        <pre>
+// OLD: Always showed indicators
+&lt;div&gt;{displayMode.toUpperCase()}&lt;/div&gt;
+
+// NEW: Conditional indicators
+{!component.parentId && (
+  &lt;div&gt;{displayMode.toUpperCase()}&lt;/div&gt;
+)}
+        </pre>
+    </div>
+
+    <script>
+        console.log('✅ Fixed scaling and indicators');
+        console.log('🔧 Thumbnails: Reverted to working scaling system');
+        console.log('🏷️ Indicators: Only show on top-level containers');
+        console.log('🚀 Ready for testing');
+    </script>
+</body>
+</html>

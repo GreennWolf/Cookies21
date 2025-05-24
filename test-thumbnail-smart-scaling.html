@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Thumbnail Scaling</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .scaling-rule {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .percentage-rule {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+        .pixel-rule {
+            background-color: #cce5ff;
+            border: 1px solid #99ccff;
+        }
+        .code-example {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        .comparison-table th,
+        .comparison-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        .comparison-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎯 Smart Thumbnail Scaling Implementation</h1>
+    
+    <div class="test-section">
+        <h2>📏 Scaling Rules</h2>
+        
+        <div class="scaling-rule percentage-rule">
+            <h3>🟢 Porcentajes: SIN escalado (scale = 1.0)</h3>
+            <p><strong>Regla:</strong> Si las dimensiones del componente están en porcentajes (%), no aplicar escalado</p>
+            <p><strong>Razón:</strong> Los porcentajes se adaptan automáticamente al contenedor padre</p>
+        </div>
+        
+        <div class="scaling-rule pixel-rule">
+            <h3>🔵 Píxeles: CON escalado (scale = 0.7)</h3>
+            <p><strong>Regla:</strong> Si las dimensiones del componente están en píxeles (px), aplicar escalado 0.7</p>
+            <p><strong>Razón:</strong> Los píxeles son fijos y necesitan reducirse para el thumbnail</p>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>💻 Implementación Técnica</h2>
+        
+        <h3>Función de Detección:</h3>
+        <div class="code-example">
+const needsScaling = () => {
+  const style = childDeviceStyle;
+  // Verificar si alguna dimensión está en píxeles
+  const hasPixelDimensions = 
+    (style.width && style.width.includes('px')) ||
+    (style.height && style.height.includes('px')) ||
+    (style.minWidth && style.minWidth.includes('px')) ||
+    (style.minHeight && style.minHeight.includes('px')) ||
+    (style.maxWidth && style.maxWidth.includes('px')) ||
+    (style.maxHeight && style.maxHeight.includes('px'));
+  
+  return hasPixelDimensions;
+};
+
+const scaleValue = needsScaling() ? 0.7 : 1;
+        </div>
+        
+        <h3>Aplicación del Escalado:</h3>
+        <div class="code-example">
+// Para hijos del contenedor
+childStyles = {
+  ...childDeviceStyle,
+  position: 'relative',
+  top: 'auto',
+  left: 'auto',
+  right: 'auto',
+  bottom: 'auto',
+  transform: `scale(${scaleValue})`,  // 0.7 para px, 1.0 para %
+  transformOrigin: 'center'
+};
+
+// Para el contenedor principal
+containerStyles = {
+  ...baseStyles,
+  transform: `scale(${containerScaleValue})`,  // 0.7 para px, 1.0 para %
+  transformOrigin: 'top left'
+};
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Ejemplos de Aplicación</h2>
+        
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>Componente</th>
+                    <th>Dimensiones</th>
+                    <th>Escalado Aplicado</th>
+                    <th>Resultado</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Botón 1</strong></td>
+                    <td>width: "100px", height: "40px"</td>
+                    <td>❌ scale(0.7)</td>
+                    <td>70px × 28px en thumbnail</td>
+                </tr>
+                <tr>
+                    <td><strong>Botón 2</strong></td>
+                    <td>width: "30%", height: "20%"</td>
+                    <td>✅ scale(1.0)</td>
+                    <td>30% × 20% del contenedor</td>
+                </tr>
+                <tr>
+                    <td><strong>Contenedor</strong></td>
+                    <td>width: "300px", height: "150px"</td>
+                    <td>❌ scale(0.7)</td>
+                    <td>210px × 105px en thumbnail</td>
+                </tr>
+                <tr>
+                    <td><strong>Contenedor</strong></td>
+                    <td>width: "100%", height: "auto"</td>
+                    <td>✅ scale(1.0)</td>
+                    <td>100% × auto del padre</td>
+                </tr>
+                <tr>
+                    <td><strong>Texto</strong></td>
+                    <td>fontSize: "14px"</td>
+                    <td>❌ scale(0.7)</td>
+                    <td>≈10px en thumbnail</td>
+                </tr>
+                <tr>
+                    <td><strong>Imagen</strong></td>
+                    <td>width: "50%", height: "auto"</td>
+                    <td>✅ scale(1.0)</td>
+                    <td>50% × auto del contenedor</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 Casos de Uso</h2>
+        
+        <h3>Caso 1: Banner Responsive (Porcentajes)</h3>
+        <div class="code-example">
+// Componente configurado con porcentajes
+{
+  type: 'container',
+  style: {
+    desktop: {
+      width: '100%',     // ← Porcentaje
+      height: 'auto',    // ← Auto
+      padding: '2%'      // ← Porcentaje
+    }
+  },
+  children: [
+    {
+      type: 'button',
+      style: {
+        desktop: {
+          width: '30%',    // ← Porcentaje
+          height: '100%'   // ← Porcentaje
+        }
+      }
+    }
+  ]
+}
+// Resultado: NO scaling (scale = 1.0)
+// Los porcentajes se adaptan naturalmente al thumbnail
+        </div>
+        
+        <h3>Caso 2: Banner Fixed (Píxeles)</h3>
+        <div class="code-example">
+// Componente configurado con píxeles
+{
+  type: 'container',
+  style: {
+    desktop: {
+      width: '400px',    // ← Píxeles
+      height: '200px',   // ← Píxeles
+      padding: '20px'    // ← Píxeles
+    }
+  },
+  children: [
+    {
+      type: 'button',
+      style: {
+        desktop: {
+          width: '120px',  // ← Píxeles
+          height: '40px'   // ← Píxeles
+        }
+      }
+    }
+  ]
+}
+// Resultado: SÍ scaling (scale = 0.7)
+// 400px → 280px, 200px → 140px, etc.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>✅ Beneficios de Este Enfoque</h2>
+        
+        <ul>
+            <li><strong>🎯 Inteligente:</strong> Respeta la intención del diseño (responsive vs fixed)</li>
+            <li><strong>📱 Responsive:</strong> Los componentes con porcentajes mantienen proporciones</li>
+            <li><strong>📏 Escalable:</strong> Los componentes con píxeles se reducen apropiadamente</li>
+            <li><strong>🔄 Automático:</strong> No requiere configuración manual del usuario</li>
+            <li><strong>🎨 Consistente:</strong> Mantiene la relación visual entre componentes</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Testing Checklist</h2>
+        
+        <h3>Para Componentes con Porcentajes:</h3>
+        <ul>
+            <li>[ ] Width/height en % → Sin escalado aplicado</li>
+            <li>[ ] Mantienen proporciones dentro del thumbnail</li>
+            <li>[ ] Se adaptan al tamaño del contenedor padre</li>
+        </ul>
+        
+        <h3>Para Componentes con Píxeles:</h3>
+        <ul>
+            <li>[ ] Width/height en px → Escalado 0.7 aplicado</li>
+            <li>[ ] Tamaño reducido pero legible en thumbnail</li>
+            <li>[ ] Mantienen proporciones entre elementos</li>
+        </ul>
+        
+        <h3>Para Componentes Mixtos:</h3>
+        <ul>
+            <li>[ ] Si CUALQUIER dimensión está en px → Escalado 0.7</li>
+            <li>[ ] Solo si TODAS las dimensiones son % → Sin escalado</li>
+        </ul>
+    </div>
+
+    <script>
+        console.log('🎯 Smart scaling implementation loaded');
+        console.log('📏 Rules:');
+        console.log('  - Percentages: scale = 1.0 (no scaling)');
+        console.log('  - Pixels: scale = 0.7 (scaled down)');
+        console.log('🔍 Detection: checks width, height, minWidth, minHeight, maxWidth, maxHeight');
+    </script>
+</body>
+</html>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thumbnail Container Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .fix-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.fixed {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .before, .after {
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .before {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        .after {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>✅ Thumbnail Container Fix</h1>
+    
+    <div class="fix-section">
+        <h2>🔧 Problem Analysis</h2>
+        
+        <div class="status fixed">
+            <strong>Issue Identified</strong><br>
+            ✅ Editor preview works perfectly after previous fixes<br>
+            ❌ Thumbnail still broken - containers not showing correctly<br>
+            🎯 Need to apply same fixes to BannerThumbnail.jsx
+        </div>
+        
+        <div class="comparison">
+            <div class="before">
+                <h4>❌ Before (Broken Thumbnail)</h4>
+                <ul>
+                    <li>Used simple <code>component.children.map(renderComponent)</code></li>
+                    <li>Children kept absolute positioning in flex mode</li>
+                    <li>Container might be invisible</li>
+                    <li>No proper scaling for thumbnail</li>
+                </ul>
+            </div>
+            <div class="after">
+                <h4>✅ After (Fixed Thumbnail)</h4>
+                <ul>
+                    <li>Uses <code>baseStyles</code> like other components</li>
+                    <li>Children positioning reset for flex/grid modes</li>
+                    <li>Container visible with fallback styling</li>
+                    <li>Proper thumbnail scaling applied</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="fix-section">
+        <h2>🛠️ Fixes Applied</h2>
+        
+        <h3>1. Container Styling (Same as Editor Preview)</h3>
+        <div class="code-block">
+// Use baseStyles + fallbacks for visibility
+const containerStyles = {
+  ...baseStyles,  // ← Same pattern as editor preview
+  boxSizing: 'border-box',
+  overflow: 'hidden',
+  // Minimum dimensions for thumbnail
+  minWidth: baseStyles.width || baseStyles.minWidth || '40px',
+  minHeight: baseStyles.height || baseStyles.minHeight || '30px',
+  // Visible styling
+  backgroundColor: baseStyles.backgroundColor || 'rgba(200, 200, 200, 0.1)',
+  border: baseStyles.border || '1px solid rgba(150, 150, 150, 0.3)',
+  borderRadius: baseStyles.borderRadius || '2px',
+  padding: baseStyles.padding || '2px'
+};
+        </div>
+        
+        <h3>2. Child Positioning Reset (Same as Editor Preview)</h3>
+        <div class="code-block">
+if (displayMode === 'libre') {
+  // Keep absolute positioning for libre mode
+  childStyles = {
+    position: 'absolute',
+    top: childDevicePos.top || '0px',
+    left: childDevicePos.left || '0px',
+    ...childDeviceStyle,
+    transform: 'scale(0.8)',  // Thumbnail scaling
+    transformOrigin: 'top left'
+  };
+} else {
+  // Reset positioning for flex/grid modes
+  childStyles = {
+    ...childDeviceStyle,
+    position: 'relative',
+    top: 'auto',        // ← Reset absolute positioning
+    left: 'auto',       // ← Reset absolute positioning
+    right: 'auto',      // ← Reset absolute positioning
+    bottom: 'auto',     // ← Reset absolute positioning
+    transform: 'scale(0.8)',
+    transformOrigin: 'center'
+  };
+}
+        </div>
+        
+        <h3>3. Custom Thumbnail Rendering</h3>
+        <div class="code-block">
+// Custom rendering function for thumbnail-specific needs
+const renderThumbnailChildren = () => {
+  return component.children.map((child, index) => {
+    // Process child styles with proper positioning reset
+    // Render text, button, image with thumbnail-appropriate sizing
+    // Apply 0.8 scale for thumbnail view
+  });
+};
+        </div>
+    </div>
+
+    <div class="fix-section">
+        <h2>📊 Technical Details</h2>
+        
+        <h3>Key Differences from Editor Preview:</h3>
+        <ul>
+            <li><strong>Scaling</strong>: Applied <code>transform: scale(0.8)</code> for thumbnail size</li>
+            <li><strong>Font sizes</strong>: Reduced to 6px for buttons/text readability</li>
+            <li><strong>Dimensions</strong>: Minimum 40x30px for visibility</li>
+            <li><strong>Overflow</strong>: Hidden to prevent content spilling outside thumbnail</li>
+        </ul>
+        
+        <h3>Child Component Adaptations:</h3>
+        <div class="code-block">
+// Text components
+fontSize: '6px',
+whiteSpace: 'nowrap',
+overflow: 'hidden',
+textOverflow: 'ellipsis'
+
+// Button components  
+backgroundColor: childDeviceStyle.backgroundColor || '#757575',
+padding: '1px 3px',
+fontSize: '6px',
+fontWeight: 'bold'
+
+// Image components
+width: '15px',
+height: '10px',
+display: 'flex',
+alignItems: 'center',
+justifyContent: 'center'
+        </div>
+    </div>
+
+    <div class="fix-section">
+        <h2>🎯 Expected Results</h2>
+        
+        <div class="status fixed">
+            <strong>Thumbnail Should Now Show</strong><br>
+            ✅ Container with visible boundaries (border + background)<br>
+            ✅ Children positioned correctly inside container<br>
+            ✅ Flex layout: buttons arranged horizontally<br>
+            ✅ Grid layout: components in grid pattern<br>
+            ✅ Libre layout: absolute positioning maintained<br>
+            ✅ Proper scaling for thumbnail size<br>
+            ✅ "C" indicator for top-level containers only
+        </div>
+        
+        <h3>Testing Checklist:</h3>
+        <ul>
+            <li>[ ] Thumbnail shows container with visible border</li>
+            <li>[ ] Children components appear inside container (not floating outside)</li>
+            <li>[ ] Flex containers show horizontal/vertical alignment</li>
+            <li>[ ] Text is readable at thumbnail size</li>
+            <li>[ ] Buttons show with appropriate colors</li>
+            <li>[ ] Container scales properly with thumbnail</li>
+            <li>[ ] "C" badge appears only on main containers</li>
+        </ul>
+    </div>
+
+    <div class="fix-section">
+        <h2>🔍 Comparison: Editor vs Thumbnail</h2>
+        
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #f8f9fa;">
+                <th style="border: 1px solid #ddd; padding: 8px;">Aspect</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Editor Preview</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Thumbnail</th>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;"><strong>Container Sizing</strong></td>
+                <td style="border: 1px solid #ddd; padding: 8px;">Full size (200px+ minimum)</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">Scaled size (40px+ minimum)</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;"><strong>Child Scaling</strong></td>
+                <td style="border: 1px solid #ddd; padding: 8px;">No scaling applied</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">0.8x scale applied</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;"><strong>Font Sizes</strong></td>
+                <td style="border: 1px solid #ddd; padding: 8px;">Normal (14px+)</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">Tiny (6px)</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;"><strong>Overflow</strong></td>
+                <td style="border: 1px solid #ddd; padding: 8px;">Visible</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">Hidden</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;"><strong>Positioning Logic</strong></td>
+                <td style="border: 1px solid #ddd; padding: 8px;">✅ Same (fixed)</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">✅ Same (fixed)</td>
+            </tr>
+        </table>
+    </div>
+
+    <script>
+        console.log('✅ Thumbnail container fix applied');
+        console.log('🔧 Same positioning logic as editor preview');
+        console.log('📏 Adapted sizing for thumbnail view');
+        console.log('🎨 Proper child rendering with scaling');
+    </script>
+</body>
+</html>

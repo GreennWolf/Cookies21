@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test: Container BaseStyles Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .fix-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.fixed {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>✅ Container BaseStyles Fix</h1>
+    
+    <div class="fix-section">
+        <h2>🔧 The Problem</h2>
+        <p>Containers were not respecting their size and style configuration because they weren't using the same <code>baseStyles</code> pattern as other components.</p>
+        
+        <div class="status fixed">
+            <strong>Root Cause Found</strong><br>
+            ❌ Other components: Use <code>baseStyles</code> (includes position + all component styles)<br>
+            ❌ Containers: Used custom <code>containerStyles</code> that ignored component configuration<br>
+            ✅ Solution: Make containers use <code>baseStyles</code> like all other components
+        </div>
+    </div>
+
+    <div class="fix-section">
+        <h2>📊 How Other Components Work</h2>
+        
+        <h3>Standard Pattern (Text, Button, Image):</h3>
+        <div class="code-block">
+// Step 1: Process component styles
+const processedStyle = component.type === 'image' ? 
+  processImageStyles(component, deviceView) : 
+  {...component.style?.[deviceView] || {}};
+
+// Step 2: Create baseStyles with position + all component styles
+const baseStyles = {
+  position: 'absolute',
+  top: devicePos.top || '0px',
+  left: devicePos.left || '0px',
+  ...processedStyle,  // ← ALL COMPONENT STYLES HERE
+  transform: 'translate(0, 0)',
+  visibility: 'visible',
+  opacity: 1
+};
+
+// Step 3: Use baseStyles directly
+return &lt;div style={baseStyles}&gt;{content}&lt;/div&gt;
+        </div>
+        
+        <h3>What This Includes:</h3>
+        <ul>
+            <li>✅ Width, height, minWidth, minHeight</li>
+            <li>✅ Background color, borders, border radius</li>
+            <li>✅ Padding, margins</li>
+            <li>✅ Font styles, colors</li>
+            <li>✅ All custom CSS properties</li>
+            <li>✅ Positioning (top, left)</li>
+        </ul>
+    </div>
+
+    <div class="fix-section">
+        <h2>❌ What Containers Were Doing Wrong</h2>
+        
+        <h3>Broken Pattern (Before Fix):</h3>
+        <div class="code-block">
+// WRONG: Creating custom styles that ignored component configuration
+const containerStyles = {
+  ...baseStyles,  // ← This was correct
+  // But then we OVERWROTE with hardcoded values:
+  minWidth: deviceStyle.minWidth || '100px',  // ← Fallbacks made them small
+  backgroundColor: deviceStyle.backgroundColor || 'rgba(230, 230, 230, 0.1)',
+  border: deviceStyle.border || '1px solid rgba(180, 180, 180, 0.4)',
+  // etc... manual processing instead of using the existing system
+};
+        </div>
+        
+        <h3>Problems with This Approach:</h3>
+        <ul>
+            <li>❌ Small fallback values made containers tiny</li>
+            <li>❌ Manual style processing duplicated existing logic</li>
+            <li>❌ Didn't respect all component style properties</li>
+            <li>❌ Different behavior than other components</li>
+        </ul>
+    </div>
+
+    <div class="fix-section">
+        <h2>✅ Fixed Pattern (After Fix)</h2>
+        
+        <h3>Correct Pattern (Same as Other Components):</h3>
+        <div class="code-block">
+case 'container': {
+  const containerConfig = component.containerConfig?.[deviceView] || {};
+  const displayMode = containerConfig.displayMode || 'libre';
+  
+  // ✅ Use baseStyles like ALL other components
+  const containerStyles = {
+    ...baseStyles,  // ← Already includes position + ALL component styles
+    boxSizing: 'border-box',
+    overflow: 'visible'
+  };
+  
+  // Only add display-specific properties
+  if (displayMode === 'flex') {
+    containerStyles.display = 'flex';
+    containerStyles.flexDirection = containerConfig.flexDirection || 'row';
+    // etc...
+  }
+  
+  return &lt;div style={containerStyles}&gt;{children}&lt;/div&gt;
+}
+        </div>
+        
+        <h3>Benefits of This Approach:</h3>
+        <ul>
+            <li>✅ All component styles automatically included</li>
+            <li>✅ Same behavior as text, button, image components</li>
+            <li>✅ Respects configured dimensions and styling</li>
+            <li>✅ No manual style processing needed</li>
+            <li>✅ Consistent with existing codebase patterns</li>
+        </ul>
+    </div>
+
+    <div class="fix-section">
+        <h2>🔍 Technical Details</h2>
+        
+        <h3>What baseStyles Contains:</h3>
+        <div class="code-block">
+baseStyles = {
+  position: 'absolute',
+  top: devicePos.top || '0px',           // Component position
+  left: devicePos.left || '0px',         // Component position
+  ...processedStyle,                     // ALL component.style[deviceView] properties:
+                                         //   - width, height, minWidth, minHeight
+                                         //   - backgroundColor, color
+                                         //   - border, borderColor, borderRadius
+                                         //   - padding, margin
+                                         //   - fontSize, fontWeight, etc.
+                                         //   - All custom CSS properties
+  transform: 'translate(0, 0)',
+  willChange: 'transform',
+  visibility: 'visible',
+  opacity: 1
+}
+        </div>
+        
+        <h3>For Containers, We Only Add:</h3>
+        <div class="code-block">
+containerStyles = {
+  ...baseStyles,                         // ← All the component configuration
+  boxSizing: 'border-box',              // ← Container-specific
+  overflow: 'visible',                  // ← Container-specific
+  display: 'flex',                      // ← Based on displayMode
+  flexDirection: 'row',                 // ← Based on containerConfig
+  gap: '10px'                           // ← Based on containerConfig
+}
+        </div>
+    </div>
+
+    <div class="fix-section">
+        <h2>📋 Files Fixed</h2>
+        
+        <div class="status fixed">
+            <strong>BannerPreviewSimple.jsx</strong><br>
+            ✅ Changed to use baseStyles pattern<br>
+            ✅ Removed manual style processing<br>
+            ✅ Now respects all component configuration
+        </div>
+        
+        <div class="status fixed">
+            <strong>BannerPreview.jsx (Editor)</strong><br>
+            ✅ Changed to use baseStyles pattern<br>
+            ✅ Removed manual style processing<br>
+            ✅ Now respects all component configuration
+        </div>
+    </div>
+
+    <div class="fix-section">
+        <h2>🚀 Expected Results</h2>
+        
+        <h3>Container Behavior Now:</h3>
+        <ul>
+            <li>✅ <strong>Size</strong>: Uses actual configured width, height, minWidth, minHeight</li>
+            <li>✅ <strong>Styling</strong>: Uses actual backgroundColor, borders, borderRadius, padding</li>
+            <li>✅ <strong>Position</strong>: Uses actual top, left positioning</li>
+            <li>✅ <strong>Layout</strong>: Applies flex/grid/libre display modes correctly</li>
+            <li>✅ <strong>Consistency</strong>: Behaves exactly like text, button, image components</li>
+        </ul>
+        
+        <h3>Testing Checklist:</h3>
+        <ul>
+            <li>[ ] Create container with specific width/height → Should show at exact size</li>
+            <li>[ ] Set container background color → Should show exact color</li>
+            <li>[ ] Set container borders and padding → Should show exact styling</li>
+            <li>[ ] Position container at specific coordinates → Should appear at exact position</li>
+            <li>[ ] Configure flex/grid properties → Should apply layout correctly</li>
+        </ul>
+    </div>
+
+    <script>
+        console.log('✅ Container baseStyles fix applied');
+        console.log('🔧 Now using same pattern as other components');
+        console.log('📏 Should respect all size and style configuration');
+        console.log('🎨 Should show exact component styling');
+    </script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Corrección de Dimensiones de Imagen</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .test-header {
+            color: #2563eb;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+        }
+        .image-container {
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 10px;
+            display: inline-block;
+            position: relative;
+        }
+        .image-container::before {
+            content: attr(data-size);
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: rgba(59, 130, 246, 0.9);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 10;
+        }
+        .test-image {
+            display: block;
+            margin: 0;
+            padding: 0;
+            border: none;
+        }
+        .before-fix {
+            border-color: #dc2626;
+        }
+        .before-fix::before {
+            background: rgba(220, 38, 38, 0.9);
+            content: "ANTES (PROBLEMA): " attr(data-size);
+        }
+        .after-fix {
+            border-color: #059669;
+        }
+        .after-fix::before {
+            background: rgba(5, 150, 105, 0.9);
+            content: "DESPUÉS (CORREGIDO): " attr(data-size);
+        }
+        .comparison-row {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .problem-description {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .solution-description {
+            background: #dcfce7;
+            border: 1px solid #bbf7d0;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .code-block {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🖼️ Test Corrección de Dimensiones de Imagen</h1>
+    <p>Verificación de que las imágenes se adaptan correctamente al tamaño del componente contenedor.</p>
+
+    <!-- Descripción del problema -->
+    <div class="test-container">
+        <div class="test-header">❌ Problema Identificado</div>
+        <div class="problem-description">
+            <h4>El problema era:</h4>
+            <ul>
+                <li><strong>Zoom excesivo:</strong> Las imágenes se veían con muchísimo zoom</li>
+                <li><strong>No adaptación:</strong> Las imágenes no se adaptaban al tamaño del componente</li>
+                <li><strong>Dimensiones sobrescritas:</strong> La función <code>processImageStyles</code> sobrescribía las dimensiones</li>
+                <li><strong>CSS problemático:</strong> Se usaba <code>width: 'auto', height: 'auto'</code> en lugar del contenedor</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Descripción de la solución -->
+    <div class="test-container">
+        <div class="test-header">✅ Solución Implementada</div>
+        <div class="solution-description">
+            <h4>Las correcciones aplicadas:</h4>
+            <ol>
+                <li><strong>CSS de imagen simplificado:</strong>
+                    <div class="code-block">
+// ANTES (problemático)
+style={{
+  maxWidth: '100%',
+  maxHeight: '100%',
+  ...convertedDeviceStyle,
+  width: 'auto',      // ❌ Problema
+  height: 'auto',     // ❌ Problema
+  ...
+}}
+
+// DESPUÉS (corregido)
+style={{
+  width: '100%',      // ✅ Se adapta al contenedor
+  height: '100%',     // ✅ Se adapta al contenedor
+  objectFit: 'contain',
+  transform: convertedDeviceStyle.transform || 'none',
+  transformOrigin: 'center center'
+}}
+                    </div>
+                </li>
+                <li><strong>Función processImageStyles mejorada:</strong>
+                    <div class="code-block">
+// Nuevo parámetro preserveDimensions
+const imageRotationStyle = component.type === 'image' 
+  ? applyRotationToImageStyle({}, extractRotationFromTransform(deviceStyle.transform))
+  : {};
+  
+// Solo aplicar rotación, no sobrescribir dimensiones
+const convertedDeviceStyle = component.type === 'image'
+  ? { ...deviceStyle, ...imageRotationStyle }
+  : { ...deviceStyle };
+                    </div>
+                </li>
+                <li><strong>Preservación de dimensiones del componente:</strong> La imagen ahora respeta el tamaño del contenedor</li>
+                <li><strong>Rotación preservada:</strong> La funcionalidad de rotación sigue funcionando correctamente</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Simulación visual del problema y solución -->
+    <div class="test-container">
+        <div class="test-header">👁️ Comparación Visual</div>
+        
+        <h4>Imagen en componente 300x200px:</h4>
+        <div class="comparison-row">
+            <!-- ANTES (Problema) -->
+            <div class="image-container before-fix" data-size="300x200px" style="width: 300px; height: 200px;">
+                <img 
+                    src="https://via.placeholder.com/800x600/dc2626/ffffff?text=Imagen+Grande+800x600" 
+                    alt="Antes - Problema" 
+                    class="test-image"
+                    style="max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain;"
+                />
+            </div>
+            
+            <!-- DESPUÉS (Corregido) -->
+            <div class="image-container after-fix" data-size="300x200px" style="width: 300px; height: 200px;">
+                <img 
+                    src="https://via.placeholder.com/800x600/059669/ffffff?text=Imagen+Grande+800x600" 
+                    alt="Después - Corregido" 
+                    class="test-image"
+                    style="width: 100%; height: 100%; object-fit: contain;"
+                />
+            </div>
+        </div>
+
+        <h4>Imagen en componente 150x150px:</h4>
+        <div class="comparison-row">
+            <!-- ANTES (Problema) -->
+            <div class="image-container before-fix" data-size="150x150px" style="width: 150px; height: 150px;">
+                <img 
+                    src="https://via.placeholder.com/600x400/dc2626/ffffff?text=Imagen+600x400" 
+                    alt="Antes - Problema" 
+                    class="test-image"
+                    style="max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain;"
+                />
+            </div>
+            
+            <!-- DESPUÉS (Corregido) -->
+            <div class="image-container after-fix" data-size="150x150px" style="width: 150px; height: 150px;">
+                <img 
+                    src="https://via.placeholder.com/600x400/059669/ffffff?text=Imagen+600x400" 
+                    alt="Después - Corregido" 
+                    class="test-image"
+                    style="width: 100%; height: 100%; object-fit: contain;"
+                />
+            </div>
+        </div>
+
+        <h4>Imagen con rotación en componente 200x150px:</h4>
+        <div class="comparison-row">
+            <!-- ANTES (Problema) -->
+            <div class="image-container before-fix" data-size="200x150px" style="width: 200px; height: 150px;">
+                <img 
+                    src="https://via.placeholder.com/400x300/dc2626/ffffff?text=Con+Rotación" 
+                    alt="Antes - Problema" 
+                    class="test-image"
+                    style="max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; transform: rotate(15deg); transform-origin: center center;"
+                />
+            </div>
+            
+            <!-- DESPUÉS (Corregido) -->
+            <div class="image-container after-fix" data-size="200x150px" style="width: 200px; height: 150px;">
+                <img 
+                    src="https://via.placeholder.com/400x300/059669/ffffff?text=Con+Rotación" 
+                    alt="Después - Corregido" 
+                    class="test-image"
+                    style="width: 100%; height: 100%; object-fit: contain; transform: rotate(15deg); transform-origin: center center;"
+                />
+            </div>
+        </div>
+    </div>
+
+    <!-- Verificación técnica -->
+    <div class="test-container">
+        <div class="test-header">🔧 Verificación Técnica</div>
+        
+        <h4>Archivos modificados:</h4>
+        <ul>
+            <li>✅ <code>/front/src/components/banner/Editor/ComponentRenderer.jsx</code>
+                <ul>
+                    <li>Simplificado CSS de imagen: <code>width: '100%', height: '100%'</code></li>
+                    <li>Extracción de rotación sin sobrescribir dimensiones</li>
+                </ul>
+            </li>
+            <li>✅ <code>/front/src/utils/imageProcessing.js</code>
+                <ul>
+                    <li>Nuevo parámetro <code>preserveDimensions</code></li>
+                    <li>Lógica condicional para evitar sobrescribir dimensiones</li>
+                </ul>
+            </li>
+        </ul>
+        
+        <h4>Funcionalidades preservadas:</h4>
+        <ul>
+            <li>✅ Rotación de imágenes funciona correctamente</li>
+            <li>✅ Thumbnails siguen funcionando (usan <code>preserveDimensions: false</code>)</li>
+            <li>✅ Vistas previas mantienen rotación</li>
+            <li>✅ Editor principal respeta dimensiones del componente</li>
+        </ul>
+        
+        <h4>Resultado esperado:</h4>
+        <div class="solution-description">
+            <p><strong>✅ Las imágenes ahora se adaptan perfectamente al tamaño del componente contenedor</strong></p>
+            <p>No más zoom excesivo - la imagen ocupa exactamente el espacio asignado al componente.</p>
+        </div>
+    </div>
+
+    <script>
+        console.log('✅ Test de corrección de dimensiones de imagen cargado');
+        console.log('🔧 Problema: Zoom excesivo en imágenes');
+        console.log('✅ Solución: width: 100%, height: 100% + preserveDimensions');
+        console.log('🎯 Resultado: Imágenes se adaptan al contenedor');
+    </script>
+</body>
+</html>

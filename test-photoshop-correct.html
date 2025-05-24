@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎨 LayersPanel - Lógica Photoshop Corregida</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 30px 0;
+        }
+        
+        .before, .after {
+            padding: 20px;
+            border-radius: 12px;
+        }
+        
+        .before {
+            background: #fef2f2;
+            border: 2px solid #fecaca;
+        }
+        
+        .after {
+            background: #f0fdf4;
+            border: 2px solid #bbf7d0;
+        }
+        
+        .layer-stack {
+            background: #2d3748;
+            border-radius: 8px;
+            padding: 15px;
+            color: #e2e8f0;
+            font-family: 'Courier New', monospace;
+            margin: 15px 0;
+        }
+        
+        .layer-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            margin: 4px 0;
+            background: #4a5568;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .layer-item:hover {
+            background: #718096;
+            transform: translateX(5px);
+        }
+        
+        .layer-item.highest {
+            background: #4facfe;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .layer-item.lowest {
+            background: #6b7280;
+            opacity: 0.7;
+        }
+        
+        .icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+        }
+        
+        .text-icon { background: #3b82f6; }
+        .button-icon { background: #10b981; }
+        .image-icon { background: #8b5cf6; }
+        
+        .z-index {
+            background: #1a202c;
+            color: #ffd700;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+            min-width: 40px;
+            text-align: center;
+        }
+        
+        .position {
+            background: #2d3748;
+            color: #cbd5e0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7em;
+        }
+        
+        .error { color: #ef4444; font-weight: bold; }
+        .success { color: #10b981; font-weight: bold; }
+        
+        .visual-demo {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 30px;
+            margin: 20px 0;
+            position: relative;
+            height: 200px;
+            overflow: hidden;
+        }
+        
+        .visual-component {
+            position: absolute;
+            padding: 15px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .visual-component:hover {
+            transform: scale(1.05);
+        }
+        
+        .comp-1 { background: #4facfe; z-index: 103; top: 20px; left: 20px; }
+        .comp-2 { background: #10b981; z-index: 102; top: 50px; left: 80px; }
+        .comp-3 { background: #8b5cf6; z-index: 101; top: 80px; left: 140px; }
+        
+        .explanation {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Lógica Photoshop Corregida</h1>
+            <p>Arriba en la lista = Mayor z-index = Más visible</p>
+        </div>
+        
+        <div class="content">
+            <div class="explanation">
+                <h2>🔧 Problema Identificado y Corregido</h2>
+                <p>
+                    <strong>Error:</strong> El componente que estaba abajo en la lista tenía mayor z-index.<br>
+                    <strong>Corrección:</strong> Ahora el componente arriba en la lista tiene mayor z-index (estilo Photoshop).
+                </p>
+            </div>
+            
+            <div class="comparison">
+                <div class="before">
+                    <h3 class="error">❌ ANTES (Incorrecto)</h3>
+                    <p>Lista en orden normal, z-index invertido</p>
+                    
+                    <div class="layer-stack">
+                        <div class="layer-item">
+                            <div class="icon text-icon"></div>
+                            <span class="position">pos:0</span>
+                            <span>Texto Principal</span>
+                            <span class="z-index">103</span>
+                        </div>
+                        <div class="layer-item">
+                            <div class="icon button-icon"></div>
+                            <span class="position">pos:1</span>
+                            <span>Botón Aceptar</span>
+                            <span class="z-index">102</span>
+                        </div>
+                        <div class="layer-item lowest">
+                            <div class="icon image-icon"></div>
+                            <span class="position">pos:2</span>
+                            <span>Logo</span>
+                            <span class="z-index">101</span>
+                        </div>
+                    </div>
+                    
+                    <p class="error">❌ El Logo (abajo) se veía menos que el Texto (arriba)</p>
+                </div>
+                
+                <div class="after">
+                    <h3 class="success">✅ AHORA (Correcto)</h3>
+                    <p>Lista invertida, z-index correcto</p>
+                    
+                    <div class="layer-stack">
+                        <div class="layer-item highest">
+                            <div class="icon image-icon"></div>
+                            <span class="position">pos:0</span>
+                            <span>Logo</span>
+                            <span class="z-index">103</span>
+                        </div>
+                        <div class="layer-item">
+                            <div class="icon button-icon"></div>
+                            <span class="position">pos:1</span>
+                            <span>Botón Aceptar</span>
+                            <span class="z-index">102</span>
+                        </div>
+                        <div class="layer-item">
+                            <div class="icon text-icon"></div>
+                            <span class="position">pos:2</span>
+                            <span>Texto Principal</span>
+                            <span class="z-index">101</span>
+                        </div>
+                    </div>
+                    
+                    <p class="success">✅ El Logo (arriba) se ve más que el Texto (abajo)</p>
+                </div>
+            </div>
+            
+            <h2>🎯 Demostración Visual</h2>
+            <p>Los componentes están superpuestos. El que está arriba en la lista debe verse por encima:</p>
+            
+            <div class="visual-demo">
+                <div class="visual-component comp-1">Logo (z:103)</div>
+                <div class="visual-component comp-2">Botón (z:102)</div>
+                <div class="visual-component comp-3">Texto (z:101)</div>
+            </div>
+            
+            <h2>⚙️ Cambios Implementados</h2>
+            
+            <h3>1. Lista Invertida en LayersPanel:</h3>
+            <div class="layer-stack">
+{[...components].reverse().map((component, reverseIndex) => {
+  const realIndex = components.length - 1 - reverseIndex;
+  return (
+    &lt;LayerItem
+      zIndexNumber={realIndex + 1 + 100} // Arriba = mayor z-index
+      arrayIndex={realIndex} // Índice real del array
+    /&gt;
+  );
+})}
+            </div>
+            
+            <h3>2. Z-Index Correcto en BannerEditor:</h3>
+            <div class="layer-stack">
+// Photoshop style: index 0 = mayor z-index
+components.forEach((comp, index) => {
+  const zIndex = components.length - index + 100;
+  comp.style[device].zIndex = zIndex;
+  
+  console.log(`${comp.id} = ${zIndex} (pos:${index}) - 
+    ${index === 0 ? 'FRENTE' : 'atrás'}`);
+});
+            </div>
+            
+            <h3>3. Mapeo Correcto:</h3>
+            <div class="layer-stack">
+<strong>Array real:</strong>      [Logo, Botón, Texto]    // índices: 0, 1, 2
+<strong>Z-index:</strong>         [103,  102,   101]      // mayor a menor
+<strong>Lista visual:</strong>    Logo (arriba) → Texto (abajo)
+<strong>Resultado:</strong>      Logo se ve por encima ✅
+            </div>
+            
+            <div class="explanation">
+                <h2>🚀 ¡Lógica Photoshop Implementada!</h2>
+                <p>
+                    Ahora funciona exactamente como Photoshop:<br>
+                    • Arrastra un componente hacia <strong>arriba</strong> en la lista = Se mueve al <strong>frente</strong> (mayor z-index)<br>
+                    • Arrastra un componente hacia <strong>abajo</strong> en la lista = Se mueve hacia <strong>atrás</strong> (menor z-index)
+                </p>
+                
+                <h3>📋 Verificación:</h3>
+                <ol style="color: white; margin-top: 15px;">
+                    <li><strong>Abre el panel de capas</strong></li>
+                    <li><strong>El componente de arriba</strong> debe tener el z-index más alto</li>
+                    <li><strong>Arrastra un componente hacia arriba</strong></li>
+                    <li><strong>Verifica que se mueva al frente visualmente</strong></li>
+                </ol>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        console.log("🎨 Lógica Photoshop corregida:");
+        console.log("✅ Lista invertida: arriba = mayor z-index");
+        console.log("✅ Mapeo correcto: realIndex + 100");
+        console.log("✅ Drag & drop: mantiene lógica correcta");
+        console.log("");
+        console.log("📋 Orden correcto:");
+        console.log("  Posición 0 (arriba) → z-index 103 → MÁS VISIBLE");
+        console.log("  Posición 1 (medio) → z-index 102 → medio");
+        console.log("  Posición 2 (abajo) → z-index 101 → menos visible");
+    </script>
+</body>
+</html>

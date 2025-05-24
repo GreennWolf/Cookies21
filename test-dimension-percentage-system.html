@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Sistema de Porcentajes - Dimensiones</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .banner-canvas {
+            width: 600px;
+            height: 400px;
+            border: 2px solid #3b82f6;
+            position: relative;
+            background: #f8fafc;
+            overflow: hidden;
+            margin: 20px auto;
+        }
+        .component-item {
+            position: absolute;
+            border: 1px solid #059669;
+            background: rgba(5, 150, 105, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #059669;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            background: #f3f4f6;
+            border-radius: 4px;
+        }
+        .control-group label {
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .control-group input, .control-group select {
+            padding: 2px 5px;
+            border: 1px solid #d1d5db;
+            border-radius: 3px;
+        }
+        .info-panel {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .problem-description {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .solution-description {
+            background: #dcfce7;
+            border: 1px solid #bbf7d0;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .test-values {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .test-value {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        .test-value h5 {
+            margin: 0 0 5px 0;
+            color: #1e40af;
+            font-size: 14px;
+        }
+        .test-value p {
+            margin: 3px 0;
+            font-size: 12px;
+        }
+        .highlight {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>📐 Test Sistema de Porcentajes - Dimensiones Banner</h1>
+    
+    <div class="test-container">
+        <h3>❌ Problema Reportado</h3>
+        <div class="problem-description">
+            <p><strong>Usuario:</strong> "ahora debemos hacer que la parte de dimensiones del BannerPropertyPanel funcionen correctamente, el porcentaje sobre el canvas por ejemplo si pongo 100 debe ocupar todo el banner y acomodarse para no sobresalir del mismo"</p>
+            <p><strong>Problema:</strong> Al poner 100% de ancho, el componente debería ocupar exactamente todo el ancho del banner (canvas), pero puede que no se esté calculando o aplicando correctamente.</p>
+        </div>
+    </div>
+
+    <!-- Canvas de prueba -->
+    <div class="test-container">
+        <h3>🎨 Canvas de Prueba (600px × 400px)</h3>
+        <div class="banner-canvas" id="canvas">
+            <div class="component-item" id="test-component" style="width: 50%; height: 25%; top: 20%; left: 25%;">
+                Componente Test
+            </div>
+        </div>
+        
+        <!-- Controles -->
+        <div class="controls">
+            <div class="control-group">
+                <label>Ancho:</label>
+                <input type="number" id="width-input" value="50" min="0" max="100" step="1">
+                <select id="width-unit">
+                    <option value="%">%</option>
+                    <option value="px">px</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Alto:</label>
+                <input type="number" id="height-input" value="25" min="0" max="100" step="1">
+                <select id="height-unit">
+                    <option value="%">%</option>
+                    <option value="px">px</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Top:</label>
+                <input type="number" id="top-input" value="20" min="0" max="100" step="1">
+                <select id="top-unit">
+                    <option value="%">%</option>
+                    <option value="px">px</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Left:</label>
+                <input type="number" id="left-input" value="25" min="0" max="100" step="1">
+                <select id="left-unit">
+                    <option value="%">%</option>
+                    <option value="px">px</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button onclick="setDimensions(100, '%', 'width')" style="background: #3b82f6; color: white; border: none; padding: 8px 12px; border-radius: 4px;">
+                Ancho 100%
+            </button>
+            <button onclick="setDimensions(100, '%', 'height')" style="background: #3b82f6; color: white; border: none; padding: 8px 12px; border-radius: 4px;">
+                Alto 100%
+            </button>
+            <button onclick="setDimensions(100, '%', 'both')" style="background: #059669; color: white; border: none; padding: 8px 12px; border-radius: 4px;">
+                100% × 100%
+            </button>
+            <button onclick="resetComponent()" style="background: #6b7280; color: white; border: none; padding: 8px 12px; border-radius: 4px;">
+                Reset
+            </button>
+        </div>
+    </div>
+
+    <!-- Panel de información -->
+    <div class="test-container">
+        <h3>📊 Información en Tiempo Real</h3>
+        <div class="test-values">
+            <div class="test-value">
+                <h5>Canvas</h5>
+                <p>Ancho: <span id="canvas-width">600</span>px</p>
+                <p>Alto: <span id="canvas-height">400</span>px</p>
+            </div>
+            <div class="test-value">
+                <h5>Componente (CSS)</h5>
+                <p>Ancho: <span id="comp-css-width">50%</span></p>
+                <p>Alto: <span id="comp-css-height">25%</span></p>
+                <p>Top: <span id="comp-css-top">20%</span></p>
+                <p>Left: <span id="comp-css-left">25%</span></p>
+            </div>
+            <div class="test-value">
+                <h5>Componente (Calculado)</h5>
+                <p>Ancho: <span id="comp-calc-width">300</span>px</p>
+                <p>Alto: <span id="comp-calc-height">100</span>px</p>
+                <p>Top: <span id="comp-calc-top">80</span>px</p>
+                <p>Left: <span id="comp-calc-left">150</span>px</p>
+            </div>
+            <div class="test-value">
+                <h5>Verificación</h5>
+                <p>Ancho %: <span id="width-percent-calc">50.0</span>%</p>
+                <p>Alto %: <span id="height-percent-calc">25.0</span>%</p>
+                <p><span id="overflow-check">✅ Dentro del canvas</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Casos de prueba específicos -->
+    <div class="test-container">
+        <h3>🧪 Casos de Prueba</h3>
+        <div class="info-panel">
+            <h4>Test 1: Ancho 100% debería ocupar todo el banner</h4>
+            <p><strong>Esperado:</strong> Component width = 600px (100% del canvas)</p>
+            <p><strong>Fórmula:</strong> width_px = (width_% / 100) × canvas_width_px</p>
+            <p><strong>Ejemplo:</strong> 100% × 600px = 600px</p>
+        </div>
+        
+        <div class="info-panel">
+            <h4>Test 2: Verificar que no se desborde</h4>
+            <p><strong>Condición:</strong> left + width ≤ canvas_width</p>
+            <p><strong>Condición:</strong> top + height ≤ canvas_height</p>
+            <p><strong>Auto-reposicionamiento:</strong> Si se desborda, ajustar posición automáticamente</p>
+        </div>
+    </div>
+
+    <!-- Solución esperada -->
+    <div class="test-container">
+        <h3>✅ Solución Esperada</h3>
+        <div class="solution-description">
+            <h4>Funcionalidad requerida:</h4>
+            <ol>
+                <li><strong>Cálculo correcto de porcentajes:</strong> 100% ancho = ancho completo del canvas</li>
+                <li><strong>Prevención de desbordamiento:</strong> Auto-reposicionamiento si el componente se sale</li>
+                <li><strong>Conversión precisa entre px y %:</strong> Mantener precisión en las conversiones</li>
+                <li><strong>Validación en tiempo real:</strong> Mostrar advertencias si hay problemas</li>
+            </ol>
+            
+            <h4>Archivos a revisar/corregir:</h4>
+            <ul>
+                <li><code>DimensionControl.jsx</code> - Lógica de cálculo de porcentajes</li>
+                <li><code>BannerPropertyPanel.jsx</code> - Función getDimensions()</li>
+                <li><code>ComponentRenderer.jsx</code> - Aplicación de estilos convertidos</li>
+                <li><code>positionUtils.js</code> - Utilidades de conversión</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const component = document.getElementById('test-component');
+        
+        // Función para actualizar las dimensiones del componente
+        function updateComponent() {
+            const width = document.getElementById('width-input').value;
+            const widthUnit = document.getElementById('width-unit').value;
+            const height = document.getElementById('height-input').value;
+            const heightUnit = document.getElementById('height-unit').value;
+            const top = document.getElementById('top-input').value;
+            const topUnit = document.getElementById('top-unit').value;
+            const left = document.getElementById('left-input').value;
+            const leftUnit = document.getElementById('left-unit').value;
+            
+            // Aplicar estilos CSS
+            component.style.width = width + widthUnit;
+            component.style.height = height + heightUnit;
+            component.style.top = top + topUnit;
+            component.style.left = left + leftUnit;
+            
+            // Actualizar información
+            updateInfo();
+        }
+        
+        // Función para actualizar la información mostrada
+        function updateInfo() {
+            const canvasRect = canvas.getBoundingClientRect();
+            const compRect = component.getBoundingClientRect();
+            
+            // Canvas info
+            document.getElementById('canvas-width').textContent = Math.round(canvasRect.width);
+            document.getElementById('canvas-height').textContent = Math.round(canvasRect.height);
+            
+            // CSS info
+            document.getElementById('comp-css-width').textContent = component.style.width;
+            document.getElementById('comp-css-height').textContent = component.style.height;
+            document.getElementById('comp-css-top').textContent = component.style.top;
+            document.getElementById('comp-css-left').textContent = component.style.left;
+            
+            // Calculated info
+            document.getElementById('comp-calc-width').textContent = Math.round(compRect.width);
+            document.getElementById('comp-calc-height').textContent = Math.round(compRect.height);
+            document.getElementById('comp-calc-top').textContent = Math.round(compRect.top - canvasRect.top);
+            document.getElementById('comp-calc-left').textContent = Math.round(compRect.left - canvasRect.left);
+            
+            // Percentage verification
+            const widthPercent = (compRect.width / canvasRect.width) * 100;
+            const heightPercent = (compRect.height / canvasRect.height) * 100;
+            document.getElementById('width-percent-calc').textContent = widthPercent.toFixed(1);
+            document.getElementById('height-percent-calc').textContent = heightPercent.toFixed(1);
+            
+            // Overflow check
+            const rightEdge = (compRect.left - canvasRect.left) + compRect.width;
+            const bottomEdge = (compRect.top - canvasRect.top) + compRect.height;
+            const overflowsRight = rightEdge > canvasRect.width;
+            const overflowsBottom = bottomEdge > canvasRect.height;
+            
+            let overflowText = '✅ Dentro del canvas';
+            if (overflowsRight || overflowsBottom) {
+                overflowText = '❌ Se desborda: ';
+                if (overflowsRight) overflowText += 'derecha ';
+                if (overflowsBottom) overflowText += 'abajo';
+            }
+            document.getElementById('overflow-check').textContent = overflowText;
+            
+            // Highlight desbordamiento
+            if (overflowsRight || overflowsBottom) {
+                component.style.borderColor = '#dc2626';
+                component.style.backgroundColor = 'rgba(220, 38, 38, 0.1)';
+                component.style.color = '#dc2626';
+            } else {
+                component.style.borderColor = '#059669';
+                component.style.backgroundColor = 'rgba(5, 150, 105, 0.1)';
+                component.style.color = '#059669';
+            }
+        }
+        
+        // Función para establecer dimensiones específicas
+        function setDimensions(value, unit, property) {
+            if (property === 'width' || property === 'both') {
+                document.getElementById('width-input').value = value;
+                document.getElementById('width-unit').value = unit;
+            }
+            if (property === 'height' || property === 'both') {
+                document.getElementById('height-input').value = value;
+                document.getElementById('height-unit').value = unit;
+            }
+            
+            // Si se pone 100% de ancho/alto, ajustar posición para evitar desbordamiento
+            if (value === 100 && unit === '%') {
+                if (property === 'width' || property === 'both') {
+                    document.getElementById('left-input').value = 0;
+                    document.getElementById('left-unit').value = '%';
+                }
+                if (property === 'height' || property === 'both') {
+                    document.getElementById('top-input').value = 0;
+                    document.getElementById('top-unit').value = '%';
+                }
+            }
+            
+            updateComponent();
+        }
+        
+        // Función para resetear componente
+        function resetComponent() {
+            document.getElementById('width-input').value = 50;
+            document.getElementById('width-unit').value = '%';
+            document.getElementById('height-input').value = 25;
+            document.getElementById('height-unit').value = '%';
+            document.getElementById('top-input').value = 20;
+            document.getElementById('top-unit').value = '%';
+            document.getElementById('left-input').value = 25;
+            document.getElementById('left-unit').value = '%';
+            updateComponent();
+        }
+        
+        // Event listeners para controles
+        document.getElementById('width-input').addEventListener('input', updateComponent);
+        document.getElementById('width-unit').addEventListener('change', updateComponent);
+        document.getElementById('height-input').addEventListener('input', updateComponent);
+        document.getElementById('height-unit').addEventListener('change', updateComponent);
+        document.getElementById('top-input').addEventListener('input', updateComponent);
+        document.getElementById('top-unit').addEventListener('change', updateComponent);
+        document.getElementById('left-input').addEventListener('input', updateComponent);
+        document.getElementById('left-unit').addEventListener('change', updateComponent);
+        
+        // Inicializar
+        updateComponent();
+        
+        // Actualizar info cada segundo para detectar cambios
+        setInterval(updateInfo, 500);
+        
+        console.log('🧪 Test de sistema de porcentajes cargado');
+        console.log('📐 Probar: 100% ancho debería ocupar todo el canvas (600px)');
+        console.log('🎯 Verificar: Auto-reposicionamiento si se desborda');
+    </script>
+</body>
+</html>

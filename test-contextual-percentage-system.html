@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Sistema de Porcentajes Contextual</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .banner-canvas {
+            width: 600px;
+            height: 400px;
+            border: 3px solid #1d4ed8;
+            position: relative;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            overflow: visible;
+            margin: 20px auto;
+        }
+        .banner-canvas::before {
+            content: 'CANVAS 600×400px';
+            position: absolute;
+            top: -25px;
+            left: 0;
+            background: #1d4ed8;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .container-component {
+            position: absolute;
+            border: 2px solid #059669;
+            background: rgba(5, 150, 105, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #059669;
+        }
+        .container-component::before {
+            content: attr(data-label);
+            position: absolute;
+            top: -18px;
+            left: 0;
+            background: #059669;
+            color: white;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+        }
+        .child-component {
+            position: absolute;
+            border: 2px solid #dc2626;
+            background: rgba(220, 38, 38, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #dc2626;
+            font-size: 11px;
+        }
+        .child-component::before {
+            content: attr(data-label);
+            position: absolute;
+            top: -18px;
+            left: 0;
+            background: #dc2626;
+            color: white;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+        }
+        .direct-component {
+            position: absolute;
+            border: 2px solid #7c3aed;
+            background: rgba(124, 58, 237, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #7c3aed;
+            font-size: 11px;
+        }
+        .direct-component::before {
+            content: attr(data-label);
+            position: absolute;
+            top: -18px;
+            left: 0;
+            background: #7c3aed;
+            color: white;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .control-group {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        .control-group h4 {
+            margin: 0 0 10px 0;
+            color: #1e40af;
+            font-size: 14px;
+        }
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0;
+        }
+        .control-row label {
+            font-size: 12px;
+            font-weight: bold;
+            min-width: 60px;
+        }
+        .control-row input, .control-row select {
+            padding: 4px 6px;
+            border: 1px solid #d1d5db;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        .info-panel {
+            background: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .calculation-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        .calculation-table th, .calculation-table td {
+            border: 1px solid #d1d5db;
+            padding: 8px;
+            text-align: left;
+        }
+        .calculation-table th {
+            background: #f3f4f6;
+            font-weight: bold;
+        }
+        .expected {
+            background: #dcfce7;
+            font-weight: bold;
+        }
+        .problem-highlight {
+            background: #fee2e2;
+            color: #dc2626;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>📐 Test Sistema de Porcentajes Contextual</h1>
+    
+    <div class="test-container">
+        <h3>🎯 Objetivo de la Corrección</h3>
+        <div class="info-panel">
+            <p><strong>Lógica correcta implementada:</strong></p>
+            <ul>
+                <li><strong>Componentes fuera de contenedor:</strong> Porcentajes basados en el canvas (600×400px)</li>
+                <li><strong>Componentes dentro de contenedor:</strong> Porcentajes basados en el contenedor padre</li>
+                <li><strong>Conversión a píxeles:</strong> Se realiza internamente para el renderizado correcto</li>
+                <li><strong>100% de ancho/alto:</strong> Auto-reposicionamiento para evitar desbordamiento</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Canvas de prueba -->
+    <div class="test-container">
+        <h3>🎨 Demo Funcional</h3>
+        <div class="banner-canvas" id="canvas">
+            <!-- Componente directo en canvas -->
+            <div class="direct-component" id="direct-comp" 
+                 data-label="Directo 50%" 
+                 style="width: 50%; height: 25%; top: 10%; left: 5%;">
+                50% del Canvas<br>(300×100px)
+            </div>
+            
+            <!-- Contenedor en canvas -->
+            <div class="container-component" id="container" 
+                 data-label="Contenedor 40%" 
+                 style="width: 40%; height: 60%; top: 35%; right: 5%;">
+                Contenedor 40%<br>(240×240px)
+                
+                <!-- Hijo dentro del contenedor -->
+                <div class="child-component" id="child-comp" 
+                     data-label="Hijo 50%" 
+                     style="position: absolute; width: 50%; height: 30%; top: 10%; left: 10%;">
+                    50% del Contenedor<br>(120×72px)
+                </div>
+            </div>
+        </div>
+        
+        <!-- Controles -->
+        <div class="controls">
+            <div class="control-group">
+                <h4>🔷 Componente Directo</h4>
+                <div class="control-row">
+                    <label>Ancho:</label>
+                    <input type="number" id="direct-width" value="50" min="0" max="100" step="5">
+                    <span>% del canvas</span>
+                </div>
+                <div class="control-row">
+                    <label>Alto:</label>
+                    <input type="number" id="direct-height" value="25" min="0" max="100" step="5">
+                    <span>% del canvas</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h4>🟢 Contenedor</h4>
+                <div class="control-row">
+                    <label>Ancho:</label>
+                    <input type="number" id="container-width" value="40" min="0" max="100" step="5">
+                    <span>% del canvas</span>
+                </div>
+                <div class="control-row">
+                    <label>Alto:</label>
+                    <input type="number" id="container-height" value="60" min="0" max="100" step="5">
+                    <span>% del canvas</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h4>🔴 Hijo del Contenedor</h4>
+                <div class="control-row">
+                    <label>Ancho:</label>
+                    <input type="number" id="child-width" value="50" min="0" max="100" step="5">
+                    <span>% del contenedor</span>
+                </div>
+                <div class="control-row">
+                    <label>Alto:</label>
+                    <input type="number" id="child-height" value="30" min="0" max="100" step="5">
+                    <span>% del contenedor</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Botones de prueba rápida -->
+        <div style="text-align: center; margin: 20px 0; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            <button onclick="testCase('direct-100')" style="background: #7c3aed; color: white; border: none; padding: 8px 12px; border-radius: 4px;">
+                Directo 100% Ancho
+            </button>
+            <button onclick="testCase('container-100')" style="background: #059669; color: white; border: none; padding: 8px 12px; border-radius: 4px;">
+                Contenedor 100% Ancho
+            </button>
+            <button onclick="testCase('child-100')" style="background: #dc2626; color: white; border: none; padding: 8px 12px; border-radius: 4px;">
+                Hijo 100% del Contenedor
+            </button>
+            <button onclick="testCase('all-100')" style="background: #1d4ed8; color: white; border: none; padding: 8px 12px; border-radius: 4px;">
+                Todos 100%
+            </button>
+            <button onclick="testCase('reset')" style="background: #6b7280; color: white; border: none; padding: 8px 12px; border-radius: 4px;">
+                Reset
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabla de cálculos -->
+    <div class="test-container">
+        <h3>📊 Cálculos y Verificación</h3>
+        <table class="calculation-table">
+            <thead>
+                <tr>
+                    <th>Componente</th>
+                    <th>Ancho %</th>
+                    <th>Referencia</th>
+                    <th>Píxeles Esperados</th>
+                    <th>Píxeles Reales</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>🔷 Directo</td>
+                    <td id="calc-direct-width">50%</td>
+                    <td>Canvas (600px)</td>
+                    <td id="calc-direct-expected">300px</td>
+                    <td id="calc-direct-actual">300px</td>
+                    <td id="calc-direct-status" class="expected">✅ Correcto</td>
+                </tr>
+                <tr>
+                    <td>🟢 Contenedor</td>
+                    <td id="calc-container-width">40%</td>
+                    <td>Canvas (600px)</td>
+                    <td id="calc-container-expected">240px</td>
+                    <td id="calc-container-actual">240px</td>
+                    <td id="calc-container-status" class="expected">✅ Correcto</td>
+                </tr>
+                <tr>
+                    <td>🔴 Hijo</td>
+                    <td id="calc-child-width">50%</td>
+                    <td>Contenedor (240px)</td>
+                    <td id="calc-child-expected">120px</td>
+                    <td id="calc-child-actual">120px</td>
+                    <td id="calc-child-status" class="expected">✅ Correcto</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="info-panel">
+            <h4>🔍 Verificación de la Lógica:</h4>
+            <p><strong>✅ Comportamiento esperado:</strong></p>
+            <ul>
+                <li>Componente directo 50% = 300px (50% de 600px canvas)</li>
+                <li>Contenedor 40% = 240px (40% de 600px canvas)</li>
+                <li>Hijo 50% = 120px (50% de 240px contenedor)</li>
+            </ul>
+            <p><strong>🎯 Al cambiar a 100%:</strong></p>
+            <ul>
+                <li>Directo 100% = 600px (todo el canvas)</li>
+                <li>Contenedor 100% = 600px (todo el canvas)</li>
+                <li>Hijo 100% = 240px (todo el contenedor padre)</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Referencias a elementos
+        const directComp = document.getElementById('direct-comp');
+        const container = document.getElementById('container');
+        const childComp = document.getElementById('child-comp');
+        const canvas = document.getElementById('canvas');
+        
+        // Función para actualizar dimensiones
+        function updateDimensions() {
+            const directWidth = document.getElementById('direct-width').value;
+            const directHeight = document.getElementById('direct-height').value;
+            const containerWidth = document.getElementById('container-width').value;
+            const containerHeight = document.getElementById('container-height').value;
+            const childWidth = document.getElementById('child-width').value;
+            const childHeight = document.getElementById('child-height').value;
+            
+            // Aplicar estilos
+            directComp.style.width = directWidth + '%';
+            directComp.style.height = directHeight + '%';
+            container.style.width = containerWidth + '%';
+            container.style.height = containerHeight + '%';
+            childComp.style.width = childWidth + '%';
+            childComp.style.height = childHeight + '%';
+            
+            // Actualizar etiquetas
+            directComp.setAttribute('data-label', `Directo ${directWidth}%`);
+            container.setAttribute('data-label', `Contenedor ${containerWidth}%`);
+            childComp.setAttribute('data-label', `Hijo ${childWidth}%`);
+            
+            // Actualizar contenido
+            const canvasRect = canvas.getBoundingClientRect();
+            const directRect = directComp.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            const childRect = childComp.getBoundingClientRect();
+            
+            directComp.innerHTML = `${directWidth}% del Canvas<br>(${Math.round(directRect.width)}×${Math.round(directRect.height)}px)`;
+            container.innerHTML = `Contenedor ${containerWidth}%<br>(${Math.round(containerRect.width)}×${Math.round(containerRect.height)}px)`;
+            childComp.innerHTML = `${childWidth}% del Contenedor<br>(${Math.round(childRect.width)}×${Math.round(childRect.height)}px)`;
+            
+            // Actualizar tabla de cálculos
+            updateCalculationTable();
+        }
+        
+        // Función para actualizar tabla de cálculos
+        function updateCalculationTable() {
+            const canvasRect = canvas.getBoundingClientRect();
+            const directRect = directComp.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            const childRect = childComp.getBoundingClientRect();
+            
+            const directWidth = parseFloat(document.getElementById('direct-width').value);
+            const containerWidth = parseFloat(document.getElementById('container-width').value);
+            const childWidth = parseFloat(document.getElementById('child-width').value);
+            
+            // Cálculos esperados
+            const directExpected = Math.round((directWidth / 100) * canvasRect.width);
+            const containerExpected = Math.round((containerWidth / 100) * canvasRect.width);
+            const childExpected = Math.round((childWidth / 100) * containerRect.width);
+            
+            // Actualizar tabla
+            document.getElementById('calc-direct-width').textContent = directWidth + '%';
+            document.getElementById('calc-direct-expected').textContent = directExpected + 'px';
+            document.getElementById('calc-direct-actual').textContent = Math.round(directRect.width) + 'px';
+            
+            document.getElementById('calc-container-width').textContent = containerWidth + '%';
+            document.getElementById('calc-container-expected').textContent = containerExpected + 'px';
+            document.getElementById('calc-container-actual').textContent = Math.round(containerRect.width) + 'px';
+            
+            document.getElementById('calc-child-width').textContent = childWidth + '%';
+            document.getElementById('calc-child-expected').textContent = childExpected + 'px';
+            document.getElementById('calc-child-actual').textContent = Math.round(childRect.width) + 'px';
+            
+            // Verificar estados
+            const directMatch = Math.abs(directExpected - Math.round(directRect.width)) <= 2;
+            const containerMatch = Math.abs(containerExpected - Math.round(containerRect.width)) <= 2;
+            const childMatch = Math.abs(childExpected - Math.round(childRect.width)) <= 2;
+            
+            document.getElementById('calc-direct-status').textContent = directMatch ? '✅ Correcto' : '❌ Incorrecto';
+            document.getElementById('calc-direct-status').className = directMatch ? 'expected' : 'problem-highlight';
+            
+            document.getElementById('calc-container-status').textContent = containerMatch ? '✅ Correcto' : '❌ Incorrecto';
+            document.getElementById('calc-container-status').className = containerMatch ? 'expected' : 'problem-highlight';
+            
+            document.getElementById('calc-child-status').textContent = childMatch ? '✅ Correcto' : '❌ Incorrecto';
+            document.getElementById('calc-child-status').className = childMatch ? 'expected' : 'problem-highlight';
+        }
+        
+        // Casos de prueba específicos
+        function testCase(caseType) {
+            switch(caseType) {
+                case 'direct-100':
+                    document.getElementById('direct-width').value = 100;
+                    document.getElementById('direct-comp').style.left = '0%';
+                    break;
+                case 'container-100':
+                    document.getElementById('container-width').value = 100;
+                    document.getElementById('container').style.right = 'auto';
+                    document.getElementById('container').style.left = '0%';
+                    break;
+                case 'child-100':
+                    document.getElementById('child-width').value = 100;
+                    document.getElementById('child-comp').style.left = '0%';
+                    break;
+                case 'all-100':
+                    document.getElementById('direct-width').value = 100;
+                    document.getElementById('container-width').value = 100;
+                    document.getElementById('child-width').value = 100;
+                    document.getElementById('direct-comp').style.left = '0%';
+                    document.getElementById('container').style.right = 'auto';
+                    document.getElementById('container').style.left = '0%';
+                    document.getElementById('child-comp').style.left = '0%';
+                    break;
+                case 'reset':
+                    document.getElementById('direct-width').value = 50;
+                    document.getElementById('direct-height').value = 25;
+                    document.getElementById('container-width').value = 40;
+                    document.getElementById('container-height').value = 60;
+                    document.getElementById('child-width').value = 50;
+                    document.getElementById('child-height').value = 30;
+                    document.getElementById('direct-comp').style.left = '5%';
+                    document.getElementById('container').style.left = 'auto';
+                    document.getElementById('container').style.right = '5%';
+                    document.getElementById('child-comp').style.left = '10%';
+                    break;
+            }
+            updateDimensions();
+        }
+        
+        // Event listeners
+        document.getElementById('direct-width').addEventListener('input', updateDimensions);
+        document.getElementById('direct-height').addEventListener('input', updateDimensions);
+        document.getElementById('container-width').addEventListener('input', updateDimensions);
+        document.getElementById('container-height').addEventListener('input', updateDimensions);
+        document.getElementById('child-width').addEventListener('input', updateDimensions);
+        document.getElementById('child-height').addEventListener('input', updateDimensions);
+        
+        // Inicializar
+        updateDimensions();
+        
+        // Actualizar cálculos cada segundo
+        setInterval(updateCalculationTable, 1000);
+        
+        console.log('🧪 Test de sistema de porcentajes contextual cargado');
+        console.log('📐 Verificar: Directo % = canvas, Hijo % = contenedor');
+        console.log('🎯 Test: Probar 100% ancho en cada componente');
+    </script>
+</body>
+</html>
