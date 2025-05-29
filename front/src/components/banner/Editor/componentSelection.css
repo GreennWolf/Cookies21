@@ -1,0 +1,43 @@
+/* Estilos para la selección de componentes que respetan el border-radius */
+
+.banner-component {
+  position: relative;
+}
+
+.banner-component::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: inherit; /* Hereda el border-radius del componente */
+  pointer-events: none;
+  z-index: 1;
+  transition: box-shadow 0.2s ease;
+}
+
+.banner-component.selected::after {
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+.banner-component.selected.locked::after {
+  box-shadow: 0 0 0 2px #9ca3af;
+}
+
+/* Estilos para diferentes tipos de componentes */
+.banner-component[data-component-type="button"]::after {
+  border-radius: inherit;
+}
+
+.banner-component[data-component-type="image"]::after {
+  border-radius: inherit;
+}
+
+.banner-component[data-component-type="text"]::after {
+  border-radius: inherit;
+}
+
+.banner-component[data-component-type="container"]::after {
+  border-radius: inherit;
+}

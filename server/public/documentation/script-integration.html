@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integración del Script - Documentación de Cookie21</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            padding-top: 60px;
+        }
+        .hero-section {
+            background-color: #f8f9fa;
+            padding: 40px 0;
+            margin-bottom: 40px;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .code-block {
+            background-color: #f7f7f7;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #0d6efd;
+            font-family: monospace;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        .nav-pills .nav-link.active {
+            background-color: #0d6efd;
+        }
+        .nav-pills .nav-link {
+            color: #0d6efd;
+        }
+        .card {
+            margin-bottom: 20px;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        .toc {
+            position: sticky;
+            top: 80px;
+        }
+        .highlight {
+            background-color: #fffacd;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="#">Cookie21 Docs</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/documentation">Inicio</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/documentation/script-integration">Integración del Script</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/documentation/banner-customization">Personalización del Banner</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/documentation/compliance">Cumplimiento Normativo</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-8 offset-md-2 text-center">
+                    <h1>Integración del Script</h1>
+                    <p class="lead">Guía completa para integrar el script de Cookie21 en tu sitio web</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="toc">
+                    <div class="list-group">
+                        <a href="#basic-integration" class="list-group-item list-group-item-action">Integración básica</a>
+                        <a href="#cms-integration" class="list-group-item list-group-item-action">Integración en CMS</a>
+                        <a href="#script-blocking" class="list-group-item list-group-item-action">Bloqueo de scripts</a>
+                        <a href="#advanced-options" class="list-group-item list-group-item-action">Opciones avanzadas</a>
+                        <a href="#api" class="list-group-item list-group-item-action">API JavaScript</a>
+                        <a href="#troubleshooting" class="list-group-item list-group-item-action">Solución de problemas</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-9">
+                <section id="basic-integration" class="section">
+                    <h2>Integración básica</h2>
+                    <p>El primer paso para implementar Cookie21 en tu sitio web es añadir el script de configuración. Este script debe colocarse en <span class="highlight">todas las páginas de tu sitio web</span>, justo antes del cierre de la etiqueta <code>&lt;/head&gt;</code>.</p>
+                    
+                    <div class="code-block">
+<pre>&lt;script&gt;
+  (function(w,d,s,l,i){
+    w[l]=w[l]||[];
+    var f=d.getElementsByTagName(s)[0],j=d.createElement(s);
+    j.async=true;j.src=i;
+    f.parentNode.insertBefore(j,f);
+  })(window,document,'script','cmp','https://app.cookie21.com/api/v1/consent/script/YOUR_CLIENT_ID/embed.js');
+&lt;/script&gt;</pre>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3">
+                        <strong>Nota:</strong> Reemplaza <code>YOUR_CLIENT_ID</code> con el ID de cliente único proporcionado en tu panel de Cookie21.
+                    </div>
+                    
+                    <p>Este script carga de forma asíncrona el código necesario para mostrar el banner de consentimiento y gestionar las cookies en tu sitio web. Al cargarse de forma asíncrona, no bloquea la renderización de la página y tiene un impacto mínimo en el rendimiento.</p>
+                    
+                    <div class="card mt-4">
+                        <div class="card-header">Verificación de la instalación</div>
+                        <div class="card-body">
+                            <p>Una vez que hayas añadido el script a tu sitio web, puedes verificar que está funcionando correctamente de la siguiente manera:</p>
+                            <ol>
+                                <li>Abre tu sitio web en una ventana de navegación privada o borra las cookies de tu navegador.</li>
+                                <li>Deberías ver el banner de consentimiento aparecer automáticamente.</li>
+                                <li>Abre la consola de desarrollador (F12 en la mayoría de navegadores) y busca mensajes que comiencen con "CMP:" para confirmar que el script se está ejecutando.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="cms-integration" class="section">
+                    <h2>Integración en CMS</h2>
+                    <p>A continuación se detallan las instrucciones específicas para integrar el script de Cookie21 en los CMS más populares:</p>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header">WordPress</div>
+                        <div class="card-body">
+                            <p>Para WordPress, tienes varias opciones:</p>
+                            <ol>
+                                <li><strong>Editar el tema</strong>: Añade el script en el archivo <code>header.php</code> de tu tema, justo antes de <code>&lt;/head&gt;</code>.</li>
+                                <li><strong>Usar un plugin</strong>: Puedes utilizar plugins como "Header and Footer Scripts" o "Insert Headers and Footers" para añadir el script sin editar archivos de tema.</li>
+                                <li><strong>Tema Personalizado</strong>: Si utilizas temas como Divi, Elementor, o similar, busca la opción para añadir código en el &lt;head&gt; en la configuración del tema.</li>
+                            </ol>
+                        </div>
+                    </div>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header">Shopify</div>
+                        <div class="card-body">
+                            <ol>
+                                <li>Ve a Tienda online > Temas.</li>
+                                <li>Haz clic en "Acciones" > "Editar código".</li>
+                                <li>Abre el archivo <code>theme.liquid</code>.</li>
+                                <li>Añade el script justo antes de <code>&lt;/head&gt;</code>.</li>
+                                <li>Guarda los cambios.</li>
+                            </ol>
+                        </div>
+                    </div>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header">Wix</div>
+                        <div class="card-body">
+                            <ol>
+                                <li>Ve a Configuración > Avanzado > Código personalizado en el encabezado.</li>
+                                <li>Añade el script de Cookie21 en el área de código.</li>
+                                <li>Haz clic en "Aplicar" y "Guardar".</li>
+                            </ol>
+                            <p><strong>Nota</strong>: En Wix, asegúrate de aplicar el código a todas las páginas seleccionando la opción correspondiente.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">Google Tag Manager</div>
+                        <div class="card-body">
+                            <ol>
+                                <li>Inicia sesión en tu cuenta de Google Tag Manager.</li>
+                                <li>Selecciona tu contenedor y ve a "Etiquetas" > "Nueva".</li>
+                                <li>Elige "Etiqueta HTML personalizada".</li>
+                                <li>Pega el script de Cookie21 en el campo de HTML.</li>
+                                <li>En "Activación", selecciona "All Pages" o crea un activador específico.</li>
+                                <li>Guarda la etiqueta y publica los cambios.</li>
+                            </ol>
+                            <div class="alert alert-warning">
+                                <strong>Importante:</strong> Al usar Google Tag Manager, asegúrate de que el script de Cookie21 se cargue <em>antes</em> que cualquier otra etiqueta que establezca cookies.
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="script-blocking" class="section">
+                    <h2>Bloqueo de scripts</h2>
+                    <p>Una de las características más importantes de Cookie21 es la capacidad de bloquear scripts hasta que el usuario dé su consentimiento. Esto es esencial para cumplir con las normativas de privacidad.</p>
+                    
+                    <h4 class="mt-4">Scripts inline</h4>
+                    <p>Para bloquear scripts inline (scripts directamente en el HTML), cambia el atributo <code>type</code> de "text/javascript" a "text/plain" y añade una clase que indique la categoría de la cookie:</p>
+                    
+                    <div class="code-block">
+<pre>&lt;!-- Este script solo se ejecutará si el usuario acepta cookies de análisis --&gt;
+&lt;script type="text/plain" class="cmp-analytics"&gt;
+  // Tu código de analytics aquí
+  gtag('config', 'UA-XXXXX-Y');
+&lt;/script&gt;</pre>
+                    </div>
+                    
+                    <h4 class="mt-4">Scripts externos</h4>
+                    <p>Para scripts externos (los que se cargan desde un archivo), usa el mismo enfoque:</p>
+                    
+                    <div class="code-block">
+<pre>&lt;!-- Este script solo se cargará si el usuario acepta cookies de marketing --&gt;
+&lt;script type="text/plain" class="cmp-marketing" src="https://example.com/marketing-script.js"&gt;&lt;/script&gt;</pre>
+                    </div>
+                    
+                    <h4 class="mt-4">Categorías disponibles</h4>
+                    <p>Cookie21 soporta las siguientes categorías por defecto:</p>
+                    <ul>
+                        <li><code>cmp-necessary</code> - Cookies necesarias (siempre activadas)</li>
+                        <li><code>cmp-analytics</code> - Cookies de analítica</li>
+                        <li><code>cmp-marketing</code> - Cookies de marketing y publicidad</li>
+                        <li><code>cmp-preferences</code> - Cookies de preferencias</li>
+                        <li><code>cmp-unclassified</code> - Cookies sin clasificar</li>
+                    </ul>
+                </section>
+
+                <section id="advanced-options" class="section">
+                    <h2>Opciones avanzadas</h2>
+                    <p>El script de Cookie21 permite configurar varias opciones avanzadas para adaptarse a tus necesidades específicas.</p>
+                    
+                    <h4 class="mt-4">Configuración personalizada</h4>
+                    <p>Puedes personalizar el comportamiento del script añadiendo un objeto de configuración antes de cargar el script principal:</p>
+                    
+                    <div class="code-block">
+<pre>&lt;script&gt;
+  // Configuración personalizada
+  window.cookie21Config = {
+    autoShow: true,              // Mostrar banner automáticamente
+    autoAcceptNonGDPR: true,     // Aceptar automáticamente para usuarios fuera de la UE
+    cookieExpiry: 180,           // Días de validez del consentimiento
+    language: 'auto',            // Detección automática del idioma
+    defaultLang: 'es'            // Idioma por defecto
+  };
+  
+  // Script de carga
+  (function(w,d,s,l,i){
+    w[l]=w[l]||[];
+    var f=d.getElementsByTagName(s)[0],j=d.createElement(s);
+    j.async=true;j.src=i;
+    f.parentNode.insertBefore(j,f);
+  })(window,document,'script','cmp','https://app.cookie21.com/api/v1/consent/script/YOUR_CLIENT_ID/embed.js');
+&lt;/script&gt;</pre>
+                    </div>
+                    
+                    <h4 class="mt-4">Opciones disponibles</h4>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Opción</th>
+                                    <th>Tipo</th>
+                                    <th>Defecto</th>
+                                    <th>Descripción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>autoShow</code></td>
+                                    <td>Boolean</td>
+                                    <td>true</td>
+                                    <td>Mostrar el banner automáticamente cuando no se ha dado consentimiento</td>
+                                </tr>
+                                <tr>
+                                    <td><code>autoAcceptNonGDPR</code></td>
+                                    <td>Boolean</td>
+                                    <td>false</td>
+                                    <td>Aceptar automáticamente todas las cookies para usuarios fuera de la UE</td>
+                                </tr>
+                                <tr>
+                                    <td><code>cookieExpiry</code></td>
+                                    <td>Number</td>
+                                    <td>365</td>
+                                    <td>Días de validez del consentimiento</td>
+                                </tr>
+                                <tr>
+                                    <td><code>language</code></td>
+                                    <td>String</td>
+                                    <td>"auto"</td>
+                                    <td>Idioma del banner ("auto", "es", "en", "fr", etc.)</td>
+                                </tr>
+                                <tr>
+                                    <td><code>defaultLang</code></td>
+                                    <td>String</td>
+                                    <td>"es"</td>
+                                    <td>Idioma por defecto si no se puede detectar</td>
+                                </tr>
+                                <tr>
+                                    <td><code>enableTCF</code></td>
+                                    <td>Boolean</td>
+                                    <td>false</td>
+                                    <td>Habilitar soporte para IAB TCF 2.2</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section id="api" class="section">
+                    <h2>API JavaScript</h2>
+                    <p>Cookie21 proporciona una API JavaScript completa que te permite interactuar con el sistema de consentimiento desde tu propio código.</p>
+                    
+                    <h4 class="mt-4">Métodos disponibles</h4>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Método</th>
+                                    <th>Descripción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>window.CMP.showBanner()</code></td>
+                                    <td>Muestra el banner de consentimiento</td>
+                                </tr>
+                                <tr>
+                                    <td><code>window.CMP.hideBanner()</code></td>
+                                    <td>Oculta el banner de consentimiento</td>
+                                </tr>
+                                <tr>
+                                    <td><code>window.CMP.showPreferences()</code></td>
+                                    <td>Muestra el panel de preferencias</td>
+                                </tr>
+                                <tr>
+                                    <td><code>window.CMP.acceptAll()</code></td>
+                                    <td>Acepta todas las categorías de cookies</td>
+                                </tr>
+                                <tr>
+                                    <td><code>window.CMP.rejectAll()</code></td>
+                                    <td>Rechaza todas las categorías de cookies opcionales</td>
+                                </tr>
+                                <tr>
+                                    <td><code>window.CMP.getConsentState()</code></td>
+                                    <td>Obtiene el estado actual del consentimiento</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <h4 class="mt-4">Ejemplos de uso</h4>
+                    <div class="code-block">
+<pre>// Añadir un botón para mostrar las preferencias de cookies
+document.getElementById('cookiePrefsButton').addEventListener('click', function() {
+  window.CMP.showPreferences();
+});
+
+// Comprobar si el usuario ha aceptado cookies analíticas
+if (window.CMP.getConsentState().purposes[2]) {
+  // El usuario ha aceptado cookies analíticas (propósito 2)
+  initAnalytics();
+}
+
+// Escuchar cambios en el consentimiento
+window.addEventListener('CMP_EVENT', function(event) {
+  if (event.detail.event === 'consent-updated') {
+    console.log('El usuario ha actualizado sus preferencias de cookies');
+    // Actualizar los scripts según las nuevas preferencias
+  }
+});</pre>
+                    </div>
+                </section>
+
+                <section id="troubleshooting" class="section">
+                    <h2>Solución de problemas</h2>
+                    <p>Si encuentras problemas al integrar el script de Cookie21, aquí hay algunas soluciones comunes:</p>
+                    
+                    <div class="accordion mt-4" id="troubleshootingAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#trouble1">
+                                    El banner no aparece
+                                </button>
+                            </h2>
+                            <div id="trouble1" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <ol>
+                                        <li>Verifica que el script se ha añadido correctamente en todas las páginas.</li>
+                                        <li>Asegúrate de que has reemplazado <code>YOUR_CLIENT_ID</code> con tu ID real.</li>
+                                        <li>Borra las cookies de tu navegador para asegurarte de que no hay una cookie de consentimiento guardada.</li>
+                                        <li>Comprueba la consola de desarrollador (F12) para ver si hay errores.</li>
+                                        <li>Verifica que no hay bloqueadores de scripts o extensiones que puedan estar interfiriendo.</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#trouble2">
+                                    Los scripts bloqueados no se activan con el consentimiento
+                                </button>
+                            </h2>
+                            <div id="trouble2" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <ol>
+                                        <li>Verifica que has usado el atributo <code>type="text/plain"</code> correctamente.</li>
+                                        <li>Asegúrate de que la clase de categoría (<code>cmp-analytics</code>, etc.) es correcta.</li>
+                                        <li>Comprueba que el script de Cookie21 se carga antes que los scripts bloqueados.</li>
+                                        <li>Verifica en la consola si hay errores relacionados con la activación de scripts.</li>
+                                        <li>Asegúrate de que el formato del script bloqueado es correcto y no tiene errores sintácticos.</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#trouble3">
+                                    Problemas con el desempeño del sitio
+                                </button>
+                            </h2>
+                            <div id="trouble3" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <ol>
+                                        <li>Verifica que el script se carga de forma asíncrona (el atributo <code>async</code> está incluido en la carga del script).</li>
+                                        <li>Comprueba que no hay múltiples instancias del script en la misma página.</li>
+                                        <li>Si usas sistemas de optimización como minificación o combinación de JS, asegúrate de que el script de Cookie21 no se incluye en estos procesos.</li>
+                                        <li>Utiliza herramientas como Lighthouse o WebPageTest para identificar si hay problemas específicos de rendimiento relacionados con el script.</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#trouble4">
+                                    Problemas con aplicaciones de una sola página (SPA)
+                                </button>
+                            </h2>
+                            <div id="trouble4" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <p>Para aplicaciones React, Angular, Vue, etc., necesitas asegurarte de que el script de Cookie21 se carga una sola vez y que los eventos de cambio de ruta no reinician el sistema de consentimiento.</p>
+                                    <ol>
+                                        <li>Añade el script en el <code>index.html</code> principal que envuelve la aplicación SPA.</li>
+                                        <li>Si necesitas interactuar con el CMP desde tu aplicación, asegúrate de comprobar que <code>window.CMP</code> existe antes de usarlo.</li>
+                                        <li>Para scripts que se cargan dinámicamente después de la carga inicial, puedes usar <code>window.CMP.executeScripts()</code> para asegurarte de que se activan correctamente según el consentimiento.</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mt-4">
+                        <strong>¿Necesitas más ayuda?</strong> Contacta con nuestro equipo de soporte en <a href="mailto:soporte@cookie21.com">soporte@cookie21.com</a> o visita el <a href="#">Centro de Ayuda</a>.
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <p>&copy; 2023 Cookie21. Todos los derechos reservados.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <a href="/politica-privacidad" class="text-decoration-none me-3">Política de Privacidad</a>
+                    <a href="/aviso-legal" class="text-decoration-none">Aviso Legal</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Active scrollspy
+        document.addEventListener('DOMContentLoaded', function() {
+            const sections = document.querySelectorAll('section');
+            const navLinks = document.querySelectorAll('.toc .list-group-item');
+            
+            window.addEventListener('scroll', function() {
+                let current = '';
+                
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    const sectionHeight = section.clientHeight;
+                    
+                    if (pageYOffset >= sectionTop - 200) {
+                        current = section.getAttribute('id');
+                    }
+                });
+                
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href').substring(1) === current) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

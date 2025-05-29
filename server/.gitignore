@@ -1,0 +1,9 @@
+node_modules/
+.env
+.DS_Store
+coverage/
+logs/
+*.log
+.vscode/
+front/node_modules/
+server/node_modules/

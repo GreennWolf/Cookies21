@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo de Banner de Consentimiento de Cookies</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    h1, h2 {
+      color: #333;
+    }
+    
+    h1 {
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 10px;
+    }
+    
+    pre {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+    
+    .demo-buttons {
+      margin: 20px 0;
+    }
+    
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    
+    button:hover {
+      background: #45a049;
+    }
+    
+    .example-section {
+      margin: 30px 0;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background: #f9f9f9;
+    }
+    
+    .status {
+      margin-top: 20px;
+      padding: 10px;
+      background: #e8f5e9;
+      border-radius: 4px;
+    }
+    
+    .note {
+      padding: 10px;
+      background: #fff3e0;
+      border-left: 4px solid #ff9800;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Demostración de Banner de Consentimiento de Cookies</h1>
+  <p>Esta página muestra cómo integrar y usar el banner de consentimiento de cookies en tu sitio web.</p>
+  
+  <div class="note">
+    <strong>Nota:</strong> Para utilizar este banner en tu sitio, necesitas reemplazar <code>TEMPLATE_ID</code> en los ejemplos con el ID real de tu plantilla de banner.
+  </div>
+  
+  <h2>1. Integración Básica</h2>
+  <div class="example-section">
+    <p>Añade el siguiente código justo antes del cierre de la etiqueta <code>&lt;/body&gt;</code> de tu sitio:</p>
+    <pre>&lt;script&gt;
+  (function() {
+    var script = document.createElement('script');
+    script.src = "https://tu-servidor.com/api/v1/banner-templates/TEMPLATE_ID/export-script";
+    script.async = true;
+    document.head.appendChild(script);
+  })();
+&lt;/script&gt;</pre>
+
+    <p>El banner se mostrará automáticamente cuando un usuario visite tu sitio por primera vez.</p>
+  </div>
+  
+  <h2>2. Control del Banner</h2>
+  <div class="example-section">
+    <p>Puedes controlar el banner con JavaScript usando el API expuesto:</p>
+    
+    <div class="demo-buttons">
+      <button onclick="if(window.cookieConsent) window.cookieConsent.showBanner()">Mostrar Banner</button>
+      <button onclick="if(window.cookieConsent) window.cookieConsent.showPreferences()">Mostrar Preferencias</button>
+      <button onclick="if(window.cookieConsent) window.cookieConsent.acceptAll()">Aceptar Todo</button>
+      <button onclick="if(window.cookieConsent) window.cookieConsent.rejectAll()">Rechazar Todo</button>
+      <button onclick="if(window.cookieConsent) window.cookieConsent.reset()">Reset</button>
+      <button onclick="showConsentState()">Mostrar Estado</button>
+    </div>
+    
+    <div id="consent-status" class="status" style="display: none;">
+      <h3>Estado Actual de Consentimiento:</h3>
+      <pre id="consent-state-json">No hay datos de consentimiento</pre>
+    </div>
+    
+    <script>
+      function showConsentState() {
+        var status = document.getElementById('consent-status');
+        var stateJson = document.getElementById('consent-state-json');
+        
+        if (window.cookieConsent) {
+          var state = window.cookieConsent.getState();
+          stateJson.textContent = JSON.stringify(state, null, 2);
+          status.style.display = 'block';
+        } else {
+          stateJson.textContent = "El banner aún no está inicializado";
+          status.style.display = 'block';
+        }
+      }
+    </script>
+  </div>
+  
+  <h2>3. Scripts Condicionales</h2>
+  <div class="example-section">
+    <p>Para que los scripts solo se carguen cuando el usuario ha dado su consentimiento, debes modificarlos así:</p>
+    
+    <h3>3.1 Google Analytics</h3>
+    <pre>&lt;!-- Script de Google Analytics con consentimiento --&gt;
+&lt;script type="text/plain" data-category="analytics"&gt;
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+  
+  ga('create', 'UA-XXXXX-Y', 'auto');
+  ga('send', 'pageview');
+&lt;/script&gt;</pre>
+
+    <h3>3.2 Facebook Pixel</h3>
+    <pre>&lt;!-- Script de Facebook Pixel con consentimiento --&gt;
+&lt;script type="text/plain" data-category="marketing"&gt;
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', 'PIXEL-ID-HERE');
+  fbq('track', 'PageView');
+&lt;/script&gt;</pre>
+
+    <h3>3.3 Cookies Necesarias</h3>
+    <pre>&lt;!-- Script de cookies necesarias (siempre se ejecuta) --&gt;
+&lt;script type="text/plain" data-category="necessary"&gt;
+  console.log('Este script siempre se ejecuta porque es necesario');
+&lt;/script&gt;</pre>
+
+    <p>Las categorías soportadas son:</p>
+    <ul>
+      <li><strong>necessary</strong> - Cookies técnicas necesarias (siempre activadas)</li>
+      <li><strong>analytics</strong> - Cookies de análisis (estadísticas, análisis de uso)</li>
+      <li><strong>marketing</strong> - Cookies de marketing y publicidad</li>
+      <li><strong>personalization</strong> - Cookies de personalización de contenido</li>
+    </ul>
+  </div>
+  
+  <h2>4. Google Consent Mode</h2>
+  <div class="example-section">
+    <p>Para integrar con Google Consent Mode, añade esto antes del banner:</p>
+    
+    <pre>&lt;!-- Google Consent Mode Setup --&gt;
+&lt;script&gt;
+  window.dataLayer = window.dataLayer || [];
+  function gtag() { dataLayer.push(arguments); }
+  
+  // Estados por defecto
+  gtag('consent', 'default', {
+    'ad_storage': 'denied',
+    'analytics_storage': 'denied',
+    'personalization_storage': 'denied',
+    'functionality_storage': 'denied',
+    'security_storage': 'granted' // Siempre permitido
+  });
+&lt;/script&gt;</pre>
+    
+    <p>El banner actualizará automáticamente estos valores según el consentimiento del usuario.</p>
+  </div>
+  
+  <h2>5. Prueba el Banner Ahora</h2>
+  <div class="example-section">
+    <p>Un ejemplo del banner está incluido en esta página. Intenta usar los botones de arriba para interactuar con él.</p>
+    
+    <p>Algunos ejemplos de scripts condicionales están incluidos:</p>
+    
+    <script type="text/plain" data-category="necessary">
+      console.log('Script necesario activado - Este mensaje debería aparecer siempre');
+      
+      // Actualizar el estado en el DOM
+      document.addEventListener('DOMContentLoaded', function() {
+        var necessaryStatus = document.getElementById('necessary-status');
+        if (necessaryStatus) {
+          necessaryStatus.textContent = 'ACTIVADO';
+          necessaryStatus.style.color = 'green';
+        }
+      });
+    </script>
+    
+    <script type="text/plain" data-category="analytics">
+      console.log('Script de analytics activado - Este mensaje aparecerá si has aceptado cookies de analytics');
+      
+      // Actualizar el estado en el DOM
+      document.addEventListener('DOMContentLoaded', function() {
+        var analyticsStatus = document.getElementById('analytics-status');
+        if (analyticsStatus) {
+          analyticsStatus.textContent = 'ACTIVADO';
+          analyticsStatus.style.color = 'green';
+        }
+      });
+    </script>
+    
+    <script type="text/plain" data-category="marketing">
+      console.log('Script de marketing activado - Este mensaje aparecerá si has aceptado cookies de marketing');
+      
+      // Actualizar el estado en el DOM
+      document.addEventListener('DOMContentLoaded', function() {
+        var marketingStatus = document.getElementById('marketing-status');
+        if (marketingStatus) {
+          marketingStatus.textContent = 'ACTIVADO';
+          marketingStatus.style.color = 'green';
+        }
+      });
+    </script>
+    
+    <div style="margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
+      <h3>Estado de los Scripts:</h3>
+      <p><strong>Script Necesario:</strong> <span id="necessary-status">NO ACTIVADO</span></p>
+      <p><strong>Script Analytics:</strong> <span id="analytics-status">NO ACTIVADO</span></p>
+      <p><strong>Script Marketing:</strong> <span id="marketing-status">NO ACTIVADO</span></p>
+    </div>
+  </div>
+  
+  <!-- Incluir el banner de cookies real -->
+  <script>
+    (function() {
+      // Reemplaza TEMPLATE_ID con el ID real de tu plantilla
+      // Este script cargará y mostrará el banner de consentimiento
+      var script = document.createElement('script');
+      script.src = "/api/v1/banner-templates/TEMPLATE_ID/export-script";
+      script.async = true;
+      document.head.appendChild(script);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.banner-list {
+    padding: 20px;
+  }
+  
+  .banner-list ul {
+    list-style: none;
+    padding: 0;
+  }
+  
+  .banner-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+  }
+  
+  .toolbar {
+    margin-bottom: 10px;
+  }
+  
+  .canvas {
+    position: relative;
+    width: 100%;
+    height: 500px;
+    background-color: #f0f0f0;
+    border: 1px dashed #ccc;
+  }
+  
+  .element {
+    position: absolute;
+    cursor: move;
+  }
+  
+  .element.text {
+    background: white;
+    padding: 5px;
+    border-radius: 5px;
+  }
+  
+  .element img {
+    width: 100px;
+    height: auto;
+  }
+  
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5);
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(156, 163, 175, 0.7);
+  }
+
+/* Estilo para el manejador de redimensionamiento */
+.resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  background-color: rgba(59, 130, 246, 0.7);
+  cursor: nwse-resize;
+  border-radius: 0 0 2px 0;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
+}
+
+/* Mostrar el manejador cuando se hace hover en el componente */
+[data-id]:hover .resize-handle {
+  opacity: 1;
+}
+
+/* Estilo activo cuando se está redimensionando */
+.resize-handle:active,
+.resize-handle:hover {
+  opacity: 1;
+  background-color: rgba(59, 130, 246, 0.9);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+/* Estilos para el componente de imagen */
+[data-component-type="image"] {
+  min-width: 80px;
+  min-height: 40px;
+  position: relative;
+}
+
+/* Estilo para la imagen dentro del componente */
+[data-component-type="image"] img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block; /* Elimina el espacio extra debajo de las imágenes */
+  vertical-align: top; /* Alineación superior para evitar descender de texto */
+}
+
+/* Añadir un borde sutil cuando se selecciona una imagen */
+[data-component-type="image"].selected {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+/* Modo de edición para redimensionamiento */
+.resize-mode {
+  cursor: nwse-resize !important;
+}
+
+/* Estilos para contenedores - evitar espacios extra */
+[data-component-type="container"] {
+  line-height: 0; /* Eliminar espacios de línea */
+  font-size: 0; /* Eliminar espacios entre elementos inline */
+}
+
+/* Restaurar estilos normales para contenido dentro de contenedores */
+[data-component-type="container"] > div {
+  line-height: normal;
+  font-size: initial;
+}
+
+/* Asegurar que las imágenes dentro de contenedores no tengan márgenes extra */
+[data-component-type="container"] [data-component-type="image"] {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+[data-component-type="container"] [data-component-type="image"] img {
+  margin: 0;
+  padding: 0;
+  display: block;
+  vertical-align: top;
+}
+
+/* FASE 4: Animaciones para drag & drop en contenedores */
+@keyframes pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
