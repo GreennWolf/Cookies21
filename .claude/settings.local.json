@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)",
+      "Bash(npm run dev:*)",
+      "Bash(yarn install)",
+      "Bash(find src -name \"*.jsx\" -exec grep -l \"BannerPropertyPanel\" {} ;)",
+      "Bash(find:*)",
+      "Bash(rg:*)",
+      "Bash(yarn dev)",
+      "Bash(node:*)",
+      "Bash(yarn lint)",
+      "Bash(rm:*)",
+      "Bash(yarn cache clean)",
+      "Bash(yarn add:*)",
+      "Bash(timeout:*)",
+      "Bash(yarn install:*)",
+      "Bash(yarn remove:*)",
+      "Bash(cat:*)",
+      "Bash(yarn list)",
+      "Bash(powershell.exe:*)",
+      "Bash(npm run lint:*)",
+      "Bash(cp:*)",
+      "Bash(npm test:*)",
+      "Bash(npx puppeteer browsers:*)",
+      "Bash(awk:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx eslint:*)"
+    ],
+    "deny": []
+  }
+}

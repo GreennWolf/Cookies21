@@ -1,0 +1,35 @@
+{
+  "name": "cookie-analyzer-pro",
+  "version": "3.0.0",
+  "description": "Professional Cookie Analyzer with IAB TCF 2.2 Compliance - Captures ALL cookies from any website",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "node test-analyzer.js",
+    "test:batch": "node test-analyzer.js --batch",
+    "analyze": "node test-analyzer.js"
+  },
+  "keywords": [
+    "cookies",
+    "privacy",
+    "gdpr",
+    "tcf",
+    "compliance",
+    "analytics",
+    "tracking"
+  ],
+  "author": "Cookie Analyzer Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "puppeteer": "^21.0.0",
+    "node-fetch": "^2.6.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
