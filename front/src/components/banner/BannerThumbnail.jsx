@@ -212,7 +212,7 @@ const BannerThumbnail = ({ bannerConfig, className = '', deviceView = 'desktop' 
       position: 'relative',
       borderRadius: layout.borderRadius || '6px',
       boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-      overflow: 'hidden',
+      overflow: 'hidden', // Mantener overflow hidden en el banner principal
       border: '1px solid rgba(0,0,0,0.05)'
     };
 
@@ -308,22 +308,24 @@ const BannerThumbnail = ({ bannerConfig, className = '', deviceView = 'desktop' 
       {...deviceStyle};
     
     // Convertir estilos con porcentajes a píxeles con factor de escala para reducir tamaño
-    const componentScaleFactor = 0.45; // Reducir componentes al 45% para un balance mejor
+    const componentScaleFactor = isChild ? 0.65 : 0.45; // Menos escala para componentes hijos
     const convertedProcessedStyle = convertPercentageToPixels(processedStyle, bannerRef.current, componentScaleFactor);
     
     // Calcular dimensiones mínimas para mejor visibilidad en thumbnail (reducidas)
     const getMinDimensions = (type) => {
       // Aplicar el factor de escala a las dimensiones mínimas
       const scale = componentScaleFactor;
+      // Para componentes hijos, usar dimensiones ligeramente más generosas
+      const baseScale = isChild ? scale * 1.1 : scale;
       switch (type) {
         case 'image':
-          return { minWidth: `${Math.round(40 * scale)}px`, minHeight: `${Math.round(32 * scale)}px` }; // 20px/16px con escala
+          return { minWidth: `${Math.round(35 * baseScale)}px`, minHeight: `${Math.round(28 * baseScale)}px` };
         case 'button':
-          return { minWidth: `${Math.round(48 * scale)}px`, minHeight: `${Math.round(24 * scale)}px` }; // 24px/12px con escala
+          return { minWidth: `${Math.round(45 * baseScale)}px`, minHeight: `${Math.round(22 * baseScale)}px` }; // Más balanceado
         case 'text':
-          return { minWidth: `${Math.round(36 * scale)}px`, minHeight: `${Math.round(20 * scale)}px` }; // 18px/10px con escala
+          return { minWidth: `${Math.round(30 * baseScale)}px`, minHeight: `${Math.round(16 * baseScale)}px` };
         default:
-          return { minWidth: `${Math.round(24 * scale)}px`, minHeight: `${Math.round(20 * scale)}px` }; // 12px/10px con escala
+          return { minWidth: `${Math.round(20 * baseScale)}px`, minHeight: `${Math.round(16 * baseScale)}px` };
       }
     };
     
@@ -360,11 +362,14 @@ const BannerThumbnail = ({ bannerConfig, className = '', deviceView = 'desktop' 
       // Para botones, mejorar apariencia (el fontSize ya viene escalado)
       ...(component.type === 'button' && {
         fontSize: convertedProcessedStyle.fontSize ? 
-          `${Math.max(7, parseFloat(convertedProcessedStyle.fontSize))}px` : '7px',
-        padding: convertedProcessedStyle.padding || '2px 4px',
+          `${Math.max(6, parseFloat(convertedProcessedStyle.fontSize))}px` : '6px',
+        padding: convertedProcessedStyle.padding || '1px 3px',
         textAlign: 'center',
         cursor: 'default',
-        whiteSpace: 'nowrap'
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        boxSizing: 'border-box'
       })
     } : {
       // Para componentes raíz: usar position absolute con conversión de posición
@@ -411,7 +416,16 @@ const BannerThumbnail = ({ bannerConfig, className = '', deviceView = 'desktop' 
         return (
           <button
             key={component.id}
-            style={{ ...baseStyles, cursor: 'pointer' }}
+            style={{ 
+              ...baseStyles, 
+              cursor: 'pointer',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              boxSizing: 'border-box',
+              fontSize: baseStyles.fontSize || '6px',
+              padding: baseStyles.padding || '1px 3px'
+            }}
           >
             {displayContent}
           </button>
@@ -491,8 +505,8 @@ const BannerThumbnail = ({ bannerConfig, className = '', deviceView = 'desktop' 
           left: devicePos.left || '0px',
           width: convertedProcessedStyle.width || 'auto',
           height: convertedProcessedStyle.height || 'auto',
-          minWidth: convertedProcessedStyle.minWidth || '40px',
-          minHeight: convertedProcessedStyle.minHeight || '40px',
+          minWidth: convertedProcessedStyle.minWidth || '60px', // Aumentar ancho mínimo
+          minHeight: convertedProcessedStyle.minHeight || '50px', // Aumentar altura mínima
           visibility: 'visible',
           opacity: 1,
           zIndex: 1,
@@ -508,7 +522,8 @@ const BannerThumbnail = ({ bannerConfig, className = '', deviceView = 'desktop' 
           backgroundColor: processedStyle.backgroundColor || 'rgba(59, 130, 246, 0.05)',
           border: processedStyle.border || '1px solid rgba(59, 130, 246, 0.3)',
           borderRadius: processedStyle.borderRadius || '4px',
-          padding: convertedProcessedStyle.padding || '4px',
+          padding: convertedProcessedStyle.padding || '3px', // Padding moderado
+          boxSizing: 'border-box',
           // Layout del contenedor
           display: displayMode === 'flex' ? 'flex' : displayMode === 'grid' ? 'grid' : 'block',
           // Propiedades específicas del modo

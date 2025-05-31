@@ -742,9 +742,8 @@ function BannerCanvas({
           return;
         }
         
-        // MOVER el componente al contenedor (no copiar)
+        // MOVER el componente al contenedor
         if (onMoveToContainer) {
-          
           // Usar la función moveComponentToContainer que mueve sin duplicar
           onMoveToContainer(componentId, foundComponent.id, position);
           
@@ -1105,6 +1104,7 @@ function BannerCanvas({
                 onUpdateChildPosition={onUpdateChildPosition}
                 onUnattach={onUnattachFromContainer}
                 onReorderChildren={onReorderChildren} // CORREGIDO: Usar la prop pasada correctamente
+                onMoveToContainer={onMoveToContainer} // Agregar la prop para mover a contenedores
                 allComponents={components}
               />
             </div>

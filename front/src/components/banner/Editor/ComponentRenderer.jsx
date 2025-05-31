@@ -62,6 +62,7 @@ const ComponentRenderer = ({
   onUpdateChildPosition, // NUEVA PROP - FASE 4: Para actualizar posición de componentes hijos
   onUnattach, // NUEVA PROP: Para desadjuntar componentes de contenedores
   onReorderChildren, // NUEVA PROP: Para reordenar hijos de contenedores
+  onMoveToContainer, // NUEVA PROP: Para mover componentes existentes a contenedores
   allComponents = [], // NUEVA PROP - FASE 4: Todos los componentes para validación de anidamiento
   resizeStep = 5,
   isChild = false, // NUEVA PROP: Indica si es un componente hijo
@@ -1311,6 +1312,15 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
       return;
     }
     
+    // Verificar si es un componente existente siendo arrastrado
+    const existingComponentId = e.dataTransfer.types.includes('component-id');
+    if (existingComponentId) {
+      // Mostrar indicadores de drop para componentes existentes
+      setIsDragOver(true);
+      setDropValidation({ isValid: true, showError: false });
+      return;
+    }
+    
     // Obtener datos del drag
     const dragData = window.__dragData;
     // DEBUG:('  - DragData:', dragData);
@@ -1368,6 +1378,27 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
       return;
     }
     
+    // Verificar si es un componente existente siendo arrastrado
+    const existingComponentId = e.dataTransfer.getData('component-id');
+    if (existingComponentId) {
+      // Mover el componente existente al contenedor
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const x = e.clientX - containerRect.left;
+      const y = e.clientY - containerRect.top;
+      const position = {
+        top: `${(y / containerRect.height) * 100}%`,
+        left: `${(x / containerRect.width) * 100}%`
+      };
+      
+      // Llamar a la función para mover al contenedor
+      if (onMoveToContainer) {
+        onMoveToContainer(existingComponentId, component.id, position);
+      }
+      
+      setIsDragOver(false);
+      return;
+    }
+    
     const dragData = window.__dragData;
     
     if (!dragData || !dropValidation.isValid) {
@@ -1387,7 +1418,7 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
     };
     const position = calculateOptimalPosition(component, dropPosition, deviceView);
     
-    // Agregar el componente al contenedor
+    // Agregar el componente al contenedor (solo para nuevos componentes del sidebar)
     if (onAddChild) {
       const childData = {
         ...dragData,

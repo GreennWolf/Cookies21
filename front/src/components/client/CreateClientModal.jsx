@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { getSubscriptionPlans } from '../../api/subscription';
 import SubscriptionPlanCards from '../subscription/SubscriptionPlanCards';
-import BannerConfigStepV2 from './BannerConfigStepV2';
+import SimpleBannerConfigStep from './SimpleBannerConfigStep';
 
 const CreateClientModal = ({ onClose, onClientCreated }) => {
   const [step, setStep] = useState(1);
@@ -219,11 +219,7 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
         toast.error('Debe seleccionar una plantilla base para el banner');
         return;
       }
-      if (!formData.bannerConfig?.name) {
-        toast.error('Debe proporcionar un nombre para el banner');
-        return;
-      }
-      
+      // El nombre se genera automáticamente en el nuevo componente
       console.log("🔍 CreateClientModal: Configuración de banner válida, avanzando al paso 4", formData.bannerConfig);
     }
     
@@ -335,11 +331,7 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
         setStep(3); // Regresar al paso de configuración del banner
         return;
       }
-      if (!formData.bannerConfig?.name) {
-        toast.error('Debe proporcionar un nombre para el banner');
-        setStep(3); // Regresar al paso de configuración del banner
-        return;
-      }
+      // El nombre se genera automáticamente en el nuevo componente
     }
     
     // Preparar datos finales
@@ -402,11 +394,54 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
       
       onClose();
     } catch (error) {
-      // El error ya se maneja en el componente padre
       console.error('Error creating client:', error);
       
-      // Mostrar toast de error general
-      toast.error('Ha ocurrido un error durante la creación. Por favor inténtelo de nuevo.');
+      // Manejo detallado de errores según el tipo
+      let errorMessage = 'Ha ocurrido un error durante la creación. Por favor inténtelo de nuevo.';
+      
+      if (error.response) {
+        // Error de respuesta del servidor
+        const status = error.response.status;
+        const data = error.response.data;
+        
+        switch (status) {
+          case 400:
+            errorMessage = data.message || 'Datos inválidos. Revise la información e inténtelo nuevamente.';
+            break;
+          case 409:
+            errorMessage = data.message || 'Ya existe un cliente con ese email o dominio.';
+            break;
+          case 422:
+            errorMessage = data.message || 'Error de validación. Revise todos los campos.';
+            break;
+          case 500:
+            errorMessage = 'Error interno del servidor. Por favor contacte al administrador.';
+            break;
+          default:
+            errorMessage = data.message || `Error ${status}: ${error.response.statusText}`;
+        }
+      } else if (error.request) {
+        // Error de red
+        errorMessage = 'Error de conexión. Verifique su conexión a internet e inténtelo nuevamente.';
+      } else if (error.message) {
+        // Error de configuración u otro
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage, { autoClose: 5000 });
+      
+      // Si es error de validación, regresar al paso apropiado
+      if (error.response?.status === 400 || error.response?.status === 422) {
+        // Intentar identificar qué paso tiene el error
+        const errorMsg = error.response.data.message?.toLowerCase() || '';
+        if (errorMsg.includes('email') || errorMsg.includes('dominio') || errorMsg.includes('name')) {
+          setStep(1);
+        } else if (errorMsg.includes('plan') || errorMsg.includes('subscription')) {
+          setStep(2);
+        } else if (errorMsg.includes('banner') || errorMsg.includes('template')) {
+          setStep(3);
+        }
+      }
     } finally {
       setIsLoading(false);
     }
@@ -430,41 +465,55 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
         
         {/* Pasos de progreso */}
         <div className="px-4 pt-4">
-          <div className="flex items-center justify-between mb-6">
-            <div className={`flex items-center ${step >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
-                1
+          {(() => {
+            const hasValidDomains = formData.domains.some(d => d.trim() !== '');
+            const showBannerStep = hasValidDomains;
+            
+            return (
+              <div className="flex items-center justify-between mb-6">
+                <div className={`flex items-center ${step >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                    1
+                  </div>
+                  <span className="ml-2 text-sm font-medium">Datos del cliente</span>
+                </div>
+                <div className="flex-grow mx-4 h-0.5 bg-gray-200">
+                  <div className={`h-full ${step >= 2 ? 'bg-blue-500' : 'bg-gray-200'}`} style={{ width: `${step > 1 ? '100%' : '0%'}` }}></div>
+                </div>
+                <div className={`flex items-center ${step >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                    2
+                  </div>
+                  <span className="ml-2 text-sm font-medium">Plan de suscripción</span>
+                </div>
+                
+                {/* Paso 3: Solo mostrar si hay dominios válidos */}
+                {showBannerStep && (
+                  <>
+                    <div className="flex-grow mx-4 h-0.5 bg-gray-200">
+                      <div className={`h-full ${step >= 3 ? 'bg-blue-500' : 'bg-gray-200'}`} style={{ width: `${step > 2 ? '100%' : '0%'}` }}></div>
+                    </div>
+                    <div className={`flex items-center ${step >= 3 ? 'text-blue-600' : 'text-gray-400'}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                        3
+                      </div>
+                      <span className="ml-2 text-sm font-medium">Banner de cookies</span>
+                    </div>
+                  </>
+                )}
+                
+                <div className="flex-grow mx-4 h-0.5 bg-gray-200">
+                  <div className={`h-full ${step >= 4 ? 'bg-blue-500' : 'bg-gray-200'}`} style={{ width: `${step > (showBannerStep ? 3 : 2) ? '100%' : '0%'}` }}></div>
+                </div>
+                <div className={`flex items-center ${step >= 4 ? 'text-blue-600' : 'text-gray-400'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 4 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                    {showBannerStep ? '4' : '3'}
+                  </div>
+                  <span className="ml-2 text-sm font-medium">Configuración de administrador</span>
+                </div>
               </div>
-              <span className="ml-2 text-sm font-medium">Datos del cliente</span>
-            </div>
-            <div className="flex-grow mx-4 h-0.5 bg-gray-200">
-              <div className={`h-full ${step >= 2 ? 'bg-blue-500' : 'bg-gray-200'}`} style={{ width: `${step > 1 ? '100%' : '0%'}` }}></div>
-            </div>
-            <div className={`flex items-center ${step >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
-                2
-              </div>
-              <span className="ml-2 text-sm font-medium">Plan de suscripción</span>
-            </div>
-            <div className="flex-grow mx-4 h-0.5 bg-gray-200">
-              <div className={`h-full ${step >= 3 ? 'bg-blue-500' : 'bg-gray-200'}`} style={{ width: `${step > 2 ? '100%' : '0%'}` }}></div>
-            </div>
-            <div className={`flex items-center ${step >= 3 ? 'text-blue-600' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
-                3
-              </div>
-              <span className="ml-2 text-sm font-medium">Configuración de banner</span>
-            </div>
-            <div className="flex-grow mx-4 h-0.5 bg-gray-200">
-              <div className={`h-full ${step >= 4 ? 'bg-blue-500' : 'bg-gray-200'}`} style={{ width: `${step > 3 ? '100%' : '0%'}` }}></div>
-            </div>
-            <div className={`flex items-center ${step >= 4 ? 'text-blue-600' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 4 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
-                4
-              </div>
-              <span className="ml-2 text-sm font-medium">Configuración de administrador</span>
-            </div>
-          </div>
+            );
+          })()}
         </div>
         
         <form onSubmit={handleSubmit} id="createClientForm">
@@ -706,16 +755,71 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
             
             {/* Paso 3: Configuración del banner */}
             {step === 3 && (
-              <BannerConfigStepV2 
-                formData={formData} 
-                onChange={(field, value) => {
-                  setFormData(prev => ({
-                    ...prev,
-                    [field]: value
-                  }));
-                }}
-                selectedDomain={formData.domains[0] || ''}
-              />
+              <div>
+                <h3 className="text-lg font-medium mb-4">Configuración del Banner de Cookies</h3>
+                
+                {/* Checkbox para configurar banner */}
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={formData.configureBanner}
+                      onChange={(e) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          configureBanner: e.target.checked,
+                          bannerConfig: e.target.checked ? prev.bannerConfig : null
+                        }));
+                      }}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-gray-700">
+                        Configurar banner de cookies personalizado
+                      </span>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Si no marca esta opción, el cliente podrá configurar su banner posteriormente desde su panel de control.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+                
+                {/* Configuración del banner (solo si está marcado) */}
+                {formData.configureBanner && (
+                  <SimpleBannerConfigStep 
+                    formData={formData} 
+                    onChange={(field, value) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        [field]: value
+                      }));
+                    }}
+                    selectedDomain={formData.domains[0] || ''}
+                  />
+                )}
+                
+                {/* Mensaje cuando no se configura banner */}
+                {!formData.configureBanner && (
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-start gap-3">
+                      <div className="text-blue-500 mt-0.5">
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-blue-700">
+                          Banner no configurado
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          El cliente podrá configurar su banner de cookies más tarde desde su panel de administración. 
+                          Se le proporcionará acceso completo a todas las plantillas y opciones de personalización.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
             
             {/* Paso 4: Configuración del administrador */}
