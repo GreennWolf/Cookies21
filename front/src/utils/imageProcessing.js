@@ -112,8 +112,18 @@ export const getImageUrl = (component, deviceView = 'desktop', context = 'previe
         // Usar URL absoluta con servidor actual
         const baseUrl = window.location.origin;
         const fullUrl = `${baseUrl}/templates/images/${relativePath}${cacheBuster}`;
+        console.log(`✓ ${context}: URL de template construida: ${fullUrl}`);
         return fullUrl;
       }
+    }
+    
+    // CASO 6.5: Rutas que ya incluyen el dominio completo con /templates/images/
+    if (typeof component.content === 'string' && component.content.startsWith('http') && component.content.includes('/templates/images/')) {
+      // Si ya es una URL completa, solo añadir cache busting si no lo tiene
+      if (!component.content.includes('?t=')) {
+        return component.content + cacheBuster;
+      }
+      return component.content;
     }
     
     // CASO 7: Otras rutas relativas
@@ -177,7 +187,18 @@ export const getImageUrl = (component, deviceView = 'desktop', context = 'previe
       }
     }
     
-    // CASO 10: Fallback - usar placeholder
+    // CASO 10: Debug - mostrar qué estamos recibiendo cuando no podemos procesar
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`⚠️ ${context}: No se pudo procesar el contenido de imagen:`, {
+        componentId: component.id,
+        contentType: typeof component.content,
+        content: component.content,
+        hasStyle: !!component.style,
+        deviceView
+      });
+    }
+    
+    // CASO 11: Fallback - usar placeholder
     return ImagePlaceholders.default;
   } catch (error) {
     console.error(`❌ ${context}: Error al procesar URL de imagen:`, error);
@@ -422,11 +443,30 @@ export const processImageStyles = (component, deviceView = 'desktop') => {
     }
   });
   
-  // Definir dimensiones que funcionarán
+  // Definir dimensiones que funcionarán RESPETANDO LOS CONTENEDORES
   // Extraer valores originales para asegurar dimensiones mínimas
   if (!processedStyle.width && !processedStyle.height) {
-    processedStyle.width = '200px';  // Aumentamos el ancho predeterminado
-    processedStyle.height = '150px'; // Aumentamos la altura predeterminada
+    // IMPORTANTE: Usar auto para que la imagen se ajuste al contenedor
+    processedStyle.width = 'auto';
+    processedStyle.height = 'auto';
+    // Establecer máximos para evitar desbordamiento
+    processedStyle.maxWidth = '100%';
+    processedStyle.maxHeight = '100%';
+  }
+  
+  // Si las dimensiones son muy pequeñas en porcentajes, convertir a píxeles mínimos
+  if (processedStyle.width && typeof processedStyle.width === 'string' && processedStyle.width.includes('%')) {
+    const percentValue = parseFloat(processedStyle.width);
+    if (percentValue < 10) { // Si es menos del 10%, usar píxeles
+      processedStyle.width = '200px';
+    }
+  }
+  
+  if (processedStyle.height && typeof processedStyle.height === 'string' && processedStyle.height.includes('%')) {
+    const percentValue = parseFloat(processedStyle.height);
+    if (percentValue < 10) { // Si es menos del 10%, usar píxeles
+      processedStyle.height = '150px';
+    }
   }
   
   // Si el estilo tiene dimensiones, intentar usarlas con seguridad
@@ -471,6 +511,15 @@ export const processImageStyles = (component, deviceView = 'desktop') => {
   // Agregar propiedades críticas para comportamiento correcto
   processedStyle.boxSizing = 'border-box';
   processedStyle.objectFit = processedStyle.objectFit || 'contain';
+  processedStyle.objectPosition = processedStyle.objectPosition || 'center';
+  
+  // CRÍTICO: Asegurar que la imagen NUNCA se desborde del contenedor
+  if (!processedStyle.maxWidth) {
+    processedStyle.maxWidth = '100%';
+  }
+  if (!processedStyle.maxHeight) {
+    processedStyle.maxHeight = '100%';
+  }
   
   return processedStyle;
 };

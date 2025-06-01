@@ -267,11 +267,24 @@ class ImageProcessorService {
    * @param {Array} components - Componentes del banner con las imágenes actuales
    * @returns {Object} - Resultado de la limpieza
    */
-  async cleanupUnusedImages(bannerId, components) {
+  async cleanupUnusedImages(bannerId, components, templateInfo = null) {
     try {
       if (!bannerId) {
         logger.error('No se proporcionó ID de banner para limpieza de imágenes');
         return { success: false, error: 'Banner ID required' };
+      }
+
+      // PROTECCIÓN: No limpiar imágenes de plantillas del sistema o borradores
+      if (templateInfo) {
+        if (templateInfo.type === 'system') {
+          logger.info(`🛡️ PROTEGIDO: Plantilla del sistema - no se limpiarán imágenes (ID: ${bannerId})`);
+          return { success: true, deleted: 0, kept: 0, protected: true, reason: 'system template' };
+        }
+        
+        if (templateInfo.status === 'draft') {
+          logger.info(`🛡️ PROTEGIDO: Plantilla en borrador - no se limpiarán imágenes (ID: ${bannerId})`);
+          return { success: true, deleted: 0, kept: 0, protected: true, reason: 'draft template' };
+        }
       }
 
       // Obtener todas las imágenes utilizadas en los componentes actuales

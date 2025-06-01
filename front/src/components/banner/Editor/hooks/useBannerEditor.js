@@ -1741,13 +1741,23 @@ export function useBannerEditor() {
 
   // NUEVO: Función para encontrar y actualizar un componente hijo
   const findAndUpdateChild = useCallback((componentId, updateFn) => {
+    console.log(`🔍 FIND_UPDATE: Buscando componente hijo ${componentId}`);
+    
     setBannerConfig(prev => {
+      let componentFound = false;
+      
       // Función recursiva para buscar y actualizar el hijo
       const updateComponents = (components) => {
         return components.map(comp => {
           // Si es el componente que buscamos, actualizarlo
           if (comp.id === componentId) {
-            return updateFn(comp);
+            componentFound = true;
+            const updatedComp = updateFn(comp);
+            console.log(`✅ FIND_UPDATE: Componente ${componentId} actualizado:`, {
+              before: comp.style,
+              after: updatedComp.style
+            });
+            return updatedComp;
           }
           
           // Si tiene hijos, buscar recursivamente
@@ -1762,9 +1772,18 @@ export function useBannerEditor() {
         });
       };
       
+      const newComponents = updateComponents(prev.components);
+      
+      if (!componentFound) {
+        console.warn(`⚠️ FIND_UPDATE: Componente ${componentId} no encontrado`);
+        return prev;
+      }
+      
+      console.log(`🔄 FIND_UPDATE: Estado del banner actualizado para ${componentId}`);
+      
       return {
         ...prev,
-        components: updateComponents(prev.components)
+        components: newComponents
       };
     });
   }, []);
@@ -2351,6 +2370,11 @@ export function useBannerEditor() {
 
   // NUEVO: Actualizar estilo de componente hijo
   const updateChildStyleForDevice = useCallback((componentId, device, newStyle) => {
+    console.log(`📝 CHILD: updateChildStyleForDevice llamado para ${componentId}:`, {
+      device,
+      newStyle
+    });
+    
     // NUEVA VALIDACIÓN: Si se están actualizando dimensiones, verificar límites
     let finalStyle = { ...newStyle };
     if (newStyle.width || newStyle.height) {
@@ -2373,21 +2397,27 @@ export function useBannerEditor() {
         if (newStyle.width) newSize.width = newStyle.width;
         if (newStyle.height) newSize.height = newStyle.height;
         
-        const validationResult = validateComponentBounds(componentId, currentPosition, newSize);
-        if (!validationResult.isValid && validationResult.adjustedSize) {
-          if (validationResult.adjustedSize.width) {
-            finalStyle.width = validationResult.adjustedSize.width;
-          }
-          if (validationResult.adjustedSize.height) {
-            finalStyle.height = validationResult.adjustedSize.height;
-          }
-        }
+        // TEMPORALMENTE DESHABILITADO para depuración
+        // const validationResult = validateComponentBounds(componentId, currentPosition, newSize);
+        // if (!validationResult.isValid && validationResult.adjustedSize) {
+        //   if (validationResult.adjustedSize.width) {
+        //     finalStyle.width = validationResult.adjustedSize.width;
+        //   }
+        //   if (validationResult.adjustedSize.height) {
+        //     finalStyle.height = validationResult.adjustedSize.height;
+        //   }
+        // }
+        console.log(`🔍 CHILD: Validación de límites DESHABILITADA temporalmente`);
+        console.log(`📏 CHILD: Dimensiones finales sin validación:`, { width: finalStyle.width, height: finalStyle.height });
       }
     }
     
     findAndUpdateChild(componentId, (component) => {
       // Crear una copia profunda del componente para evitar mutaciones
       const updatedComponent = JSON.parse(JSON.stringify(component));
+      
+      // Detectar si es componente de imagen
+      const isChildImageComponent = updatedComponent.type === 'image';
       
       // Asegurar que existe la estructura de estilos para el dispositivo
       if (!updatedComponent.style) updatedComponent.style = { desktop: {}, tablet: {}, mobile: {} };
@@ -2399,18 +2429,16 @@ export function useBannerEditor() {
       // Procesar las dimensiones para componentes de imagen si se están actualizando
       let processedStyle = { ...finalStyle };
       
-      // CORRECCIÓN: NO aplicar dimensiones por defecto a imágenes hijas - deben mantener aspect ratio natural
-      if (updatedComponent.type === 'image' && updatedComponent.parentId) {
+      // Para componentes de imagen, validar las dimensiones
+      if (isChildImageComponent && ('width' in finalStyle || 'height' in finalStyle)) {
+        console.log(`🔄 CHILD: Actualizando dimensiones de imagen ${componentId}:`, {
+          width: finalStyle.width,
+          height: finalStyle.height
+        });
         
-        // Para imágenes hijas, NO forzar dimensiones fijas
-        // Solo permitir que el CSS natural (auto + maxWidth/maxHeight) maneje el aspecto ratio
-        if ('width' in finalStyle || 'height' in finalStyle) {
-          // Remover las dimensiones forzadas del estilo procesado
-          if ('width' in processedStyle) delete processedStyle.width;
-          if ('height' in processedStyle) delete processedStyle.height;
-          
-          // Asegurar que no hay objectFit que interfiera
-          if ('objectFit' in processedStyle) delete processedStyle.objectFit;
+        // Asegurar que objectFit está configurado para imágenes
+        if (!currentDeviceStyle.objectFit && !processedStyle.objectFit) {
+          processedStyle.objectFit = 'contain';
         }
       }
       
@@ -2420,12 +2448,67 @@ export function useBannerEditor() {
         ...processedStyle
       };
       
+      // IMPORTANTE: Si es componente de imagen hijo y se actualizaron dimensiones, actualizar _imageSettings
+      if (isChildImageComponent && (finalStyle.width || finalStyle.height || finalStyle.objectFit || finalStyle.objectPosition)) {
+          // Inicializar _imageSettings si no existe
+          if (!updatedComponent._imageSettings) {
+            updatedComponent._imageSettings = {};
+          }
+          
+          // Extraer valores numéricos de las dimensiones
+          const parseSize = (size) => {
+            if (!size) return null;
+            const match = size.toString().match(/^(\d+)(px|%)?$/);
+            return match ? parseInt(match[1], 10) : null;
+          };
+          
+          // Actualizar dimensiones en _imageSettings
+          if (finalStyle.width) {
+            const widthPx = parseSize(finalStyle.width);
+            if (widthPx) {
+              updatedComponent._imageSettings.width = finalStyle.width;
+              updatedComponent._imageSettings.widthRaw = widthPx;
+              console.log(`💾 CHILD: Guardando width en _imageSettings: ${finalStyle.width} (${widthPx}px)`);
+            }
+          }
+          
+          if (finalStyle.height) {
+            const heightPx = parseSize(finalStyle.height);
+            if (heightPx) {
+              updatedComponent._imageSettings.height = finalStyle.height;
+              updatedComponent._imageSettings.heightRaw = heightPx;
+              console.log(`💾 CHILD: Guardando height en _imageSettings: ${finalStyle.height} (${heightPx}px)`);
+            }
+          }
+          
+          // Actualizar objectFit y objectPosition si se proporcionan
+          if (finalStyle.objectFit) {
+            updatedComponent._imageSettings.objectFit = finalStyle.objectFit;
+            console.log(`💾 CHILD: Guardando objectFit en _imageSettings: ${finalStyle.objectFit}`);
+          }
+          
+          if (finalStyle.objectPosition) {
+            updatedComponent._imageSettings.objectPosition = finalStyle.objectPosition;
+            console.log(`💾 CHILD: Guardando objectPosition en _imageSettings: ${finalStyle.objectPosition}`);
+          }
+          
+          console.log(`📊 CHILD: _imageSettings actualizado para ${componentId}:`, updatedComponent._imageSettings);
+      }
+      
+      console.log(`✅ CHILD: Componente actualizado:`, {
+        id: updatedComponent.id,
+        style: updatedComponent.style[device],
+        _imageSettings: updatedComponent._imageSettings
+      });
+      
       return updatedComponent;
     });
     
     // Actualizar también el componente seleccionado si es el mismo
     setSelectedComponent(prev => {
       if (!prev || prev.id !== componentId) return prev;
+      
+      const isSelectedImageComponent = prev.type === 'image';
       
       // Crear una copia profunda de los estilos
       const updatedStyle = JSON.parse(JSON.stringify(prev.style || { desktop: {}, tablet: {}, mobile: {} }));
@@ -2439,13 +2522,63 @@ export function useBannerEditor() {
       // Actualizar solo el estilo para el dispositivo específico
       updatedStyle[device] = {
         ...currentDeviceStyle,
-        ...newStyle
+        ...finalStyle
       };
       
-      return {
+      // Crear copia actualizada del componente seleccionado
+      let updatedSelectedComponent = {
         ...prev,
         style: updatedStyle
       };
+      
+      // IMPORTANTE: Si es componente de imagen, actualizar también _imageSettings
+      if (isSelectedImageComponent && (finalStyle.width || finalStyle.height || finalStyle.objectFit || finalStyle.objectPosition)) {
+        // Inicializar _imageSettings si no existe
+        if (!updatedSelectedComponent._imageSettings) {
+          updatedSelectedComponent._imageSettings = {};
+        }
+        
+        // Extraer valores numéricos de las dimensiones
+        const parseSize = (size) => {
+          if (!size) return null;
+          const match = size.toString().match(/^(\d+)(px|%)?$/);
+          return match ? parseInt(match[1], 10) : null;
+        };
+        
+        // Actualizar dimensiones en _imageSettings
+        if (finalStyle.width) {
+          const widthPx = parseSize(finalStyle.width);
+          if (widthPx) {
+            updatedSelectedComponent._imageSettings.width = finalStyle.width;
+            updatedSelectedComponent._imageSettings.widthRaw = widthPx;
+            console.log(`💾 SELECTED_CHILD: Guardando width en _imageSettings: ${finalStyle.width} (${widthPx}px)`);
+          }
+        }
+        
+        if (finalStyle.height) {
+          const heightPx = parseSize(finalStyle.height);
+          if (heightPx) {
+            updatedSelectedComponent._imageSettings.height = finalStyle.height;
+            updatedSelectedComponent._imageSettings.heightRaw = heightPx;
+            console.log(`💾 SELECTED_CHILD: Guardando height en _imageSettings: ${finalStyle.height} (${heightPx}px)`);
+          }
+        }
+        
+        // Actualizar objectFit y objectPosition si se proporcionan
+        if (finalStyle.objectFit) {
+          updatedSelectedComponent._imageSettings.objectFit = finalStyle.objectFit;
+          console.log(`💾 SELECTED_CHILD: Guardando objectFit en _imageSettings: ${finalStyle.objectFit}`);
+        }
+        
+        if (finalStyle.objectPosition) {
+          updatedSelectedComponent._imageSettings.objectPosition = finalStyle.objectPosition;
+          console.log(`💾 SELECTED_CHILD: Guardando objectPosition en _imageSettings: ${finalStyle.objectPosition}`);
+        }
+        
+        console.log(`📊 SELECTED: _imageSettings actualizado para selectedComponent ${componentId}:`, updatedSelectedComponent._imageSettings);
+      }
+      
+      return updatedSelectedComponent;
     });
   }, [findAndUpdateChild, bannerConfig.components, deviceView, validateComponentBounds]);
 
@@ -2662,9 +2795,57 @@ export function useBannerEditor() {
         ...processedNewStyle
       };
       
-      // Debug: Si estamos actualizando dimensiones de imagen, mostrar información más específica
-      if (isImageComponent && (newStyle.width || newStyle.height)) {
-        // Image dimensions updated
+      console.log(`🔄 EDITOR: Actualizando estilo para ${componentId} en ${device}:`, {
+        antes: currentDeviceStyle,
+        nuevo: processedNewStyle,
+        resultado: updatedComponent.style[device]
+      });
+      
+      // IMPORTANTE: Si es componente de imagen y se actualizaron dimensiones, actualizar _imageSettings
+      if (isImageComponent && (newStyle.width || newStyle.height || newStyle.objectFit || newStyle.objectPosition)) {
+        // Inicializar _imageSettings si no existe
+        if (!updatedComponent._imageSettings) {
+          updatedComponent._imageSettings = {};
+        }
+        
+        // Extraer valores numéricos de las dimensiones
+        const parseSize = (size) => {
+          if (!size) return null;
+          const match = size.toString().match(/^(\d+)(px|%)?$/);
+          return match ? parseInt(match[1], 10) : null;
+        };
+        
+        // Actualizar dimensiones en _imageSettings
+        if (newStyle.width) {
+          const widthPx = parseSize(newStyle.width);
+          if (widthPx) {
+            updatedComponent._imageSettings.width = newStyle.width;
+            updatedComponent._imageSettings.widthRaw = widthPx;
+            console.log(`💾 EDITOR: Guardando width en _imageSettings: ${newStyle.width} (${widthPx}px)`);
+          }
+        }
+        
+        if (newStyle.height) {
+          const heightPx = parseSize(newStyle.height);
+          if (heightPx) {
+            updatedComponent._imageSettings.height = newStyle.height;
+            updatedComponent._imageSettings.heightRaw = heightPx;
+            console.log(`💾 EDITOR: Guardando height en _imageSettings: ${newStyle.height} (${heightPx}px)`);
+          }
+        }
+        
+        // Actualizar objectFit y objectPosition si se proporcionan
+        if (newStyle.objectFit) {
+          updatedComponent._imageSettings.objectFit = newStyle.objectFit;
+          console.log(`💾 EDITOR: Guardando objectFit en _imageSettings: ${newStyle.objectFit}`);
+        }
+        
+        if (newStyle.objectPosition) {
+          updatedComponent._imageSettings.objectPosition = newStyle.objectPosition;
+          console.log(`💾 EDITOR: Guardando objectPosition en _imageSettings: ${newStyle.objectPosition}`);
+        }
+        
+        console.log(`📊 EDITOR: _imageSettings actualizado para ${componentId}:`, updatedComponent._imageSettings);
       }
       
       // Crear una copia del array de componentes
@@ -2680,6 +2861,8 @@ export function useBannerEditor() {
     // Actualizar también el componente seleccionado si es el mismo
     setSelectedComponent(prev => {
       if (!prev || prev.id !== componentId) return prev;
+      
+      console.log(`🔄 EDITOR: Actualizando selectedComponent para ${componentId}`);
       
       // Determinar si es un componente de imagen
       const isImageComponent = prev.type === 'image';
@@ -3765,15 +3948,45 @@ const handleImageUpload = async (componentId, file) => {
   const collectImageFiles = useCallback(() => {
     const imageFiles = new Map();
     
+    console.log('🔍 COLLECT: Iniciando recolección de archivos de imagen...');
+    
     // Función recursiva para buscar referencias temporales
     const collectImageRefs = (components) => {
       if (!components || !Array.isArray(components)) return;
       
       for (const comp of components) {
         if (comp.type === 'image' && typeof comp.content === 'string') {
-          // Si hay una referencia temporal asociada a un archivo
-          if (comp.content.startsWith('__IMAGE_REF__') && comp._imageFile) {
-            imageFiles.set(comp.content, comp._imageFile);
+          // Si hay una referencia temporal
+          if (comp.content.startsWith('__IMAGE_REF__')) {
+            console.log(`📂 COLLECT: Encontrado componente imagen con referencia: ${comp.content}`);
+            
+            // MÉTODO 1: Buscar en el componente mismo
+            if (comp._imageFile) {
+              console.log(`✅ COLLECT: Archivo encontrado en componente para ${comp.content}`);
+              imageFiles.set(comp.content, comp._imageFile);
+              continue;
+            }
+            
+            // MÉTODO 2: Buscar en window._imageFiles (respaldo)
+            if (window._imageFiles && window._imageFiles[comp.content]) {
+              console.log(`✅ COLLECT: Archivo encontrado en window._imageFiles para ${comp.content}`);
+              imageFiles.set(comp.content, window._imageFiles[comp.content]);
+              continue;
+            }
+            
+            // MÉTODO 3: Buscar en imageMemoryManager (respaldo adicional)
+            try {
+              const fileData = imageMemoryManager.getTempFile(comp.content);
+              if (fileData && fileData.file) {
+                console.log(`✅ COLLECT: Archivo encontrado en imageMemoryManager para ${comp.content}`);
+                imageFiles.set(comp.content, fileData.file);
+                continue;
+              }
+            } catch (error) {
+              console.warn(`⚠️ COLLECT: Error accediendo imageMemoryManager para ${comp.content}:`, error);
+            }
+            
+            console.warn(`❌ COLLECT: No se encontró archivo para ${comp.content}`);
           }
         }
         
@@ -3786,6 +3999,11 @@ const handleImageUpload = async (componentId, file) => {
     
     // Recopilar todas las referencias de imagen
     collectImageRefs(bannerConfig.components);
+    
+    console.log(`📊 COLLECT: Total de archivos recolectados: ${imageFiles.size}`);
+    imageFiles.forEach((file, ref) => {
+      console.log(`  - ${ref}: ${file.name} (${file.size} bytes)`);
+    });
     
     return imageFiles;
   }, [bannerConfig.components]);

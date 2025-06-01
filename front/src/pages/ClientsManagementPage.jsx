@@ -60,6 +60,11 @@ const ClientsManagementPage = () => {
   };
 
   const handleCreateClient = async (clientData) => {
+    // Variables para tracking de recursos creados para rollback
+    let createdClient = null;
+    let createdDomains = [];
+    let createdTemplate = null;
+    
     try {
       // 1. Crear el cliente
       console.log("📝 Creando cliente...", clientData.name);
@@ -70,7 +75,7 @@ const ClientsManagementPage = () => {
       const response = await createClient(clientData);
       
       // El API devuelve el ID en 'id' en vez de '_id'
-      const createdClient = response.data.client;
+      createdClient = response.data.client;
       console.log("📋 Objeto cliente completo:", createdClient);
       
       // Verificar que el cliente tiene un ID válido (puede estar en 'id' o '_id')
@@ -98,8 +103,31 @@ const ClientsManagementPage = () => {
           // Prepara los datos del banner
           let bannerData;
           
-          // Verificar si tenemos la configuración completa del editor (nuevo formato)
-          if (clientData.bannerConfig.editorConfig) {
+          // Verificar si tenemos el template personalizado del SimpleBannerConfigStep
+          if (clientData.bannerConfig.customizedTemplate) {
+            console.log("✅ Usando template personalizado del SimpleBannerConfigStep");
+            
+            // Usar directamente el template personalizado que ya tiene todos los cambios aplicados
+            const templateCopy = JSON.parse(JSON.stringify(clientData.bannerConfig.customizedTemplate));
+            
+            // Procesar el ID del cliente para asegurar que sea una cadena válida
+            const clientId = createdClient._id || createdClient.id || createdClient;
+            const clientIdStr = typeof clientId === 'object' && clientId.toString ? 
+                                clientId.toString() : String(clientId);
+                                
+            console.log(`📊 ID del cliente para el banner: ${clientIdStr} (${typeof clientIdStr})`);
+            
+            // Prepara los datos del banner con todas las personalizaciones ya aplicadas
+            bannerData = {
+              ...templateCopy,
+              name: clientData.bannerConfig.name || `${createdClient.name} - defecto`,
+              clientId: clientIdStr, // Usar el ID como string
+              type: 'custom' // Asegurar que es un banner personalizado
+            };
+            
+            console.log(`📋 Datos de banner preparados con ${bannerData.components?.length || 0} componentes`);
+            
+          } else if (clientData.bannerConfig.editorConfig) {
             console.log("✅ Usando configuración completa del editor");
             
             // Usar directamente la configuración del editor que ya tiene todos los cambios aplicados
@@ -617,6 +645,7 @@ const ClientsManagementPage = () => {
               // Si se ha creado correctamente, guardar el ID
               if (bannerResponse.data && bannerResponse.data.template && bannerResponse.data.template._id) {
                 templateId = bannerResponse.data.template._id;
+                createdTemplate = bannerResponse.data.template;
                 console.log(`✅ Banner creado exitosamente con ID: ${templateId}`);
                 toast.success("Banner creado exitosamente con imágenes");
               } else {
@@ -638,6 +667,7 @@ const ClientsManagementPage = () => {
                 const fallbackResponse = await createTemplate(bannerWithoutImages);
                 if (fallbackResponse.data && fallbackResponse.data.template && fallbackResponse.data.template._id) {
                   templateId = fallbackResponse.data.template._id;
+                  createdTemplate = fallbackResponse.data.template;
                   console.log(`✅ Banner creado sin imágenes como fallback, ID: ${templateId}`);
                   toast.warning("Banner creado sin imágenes (las imágenes fallaron al procesarse)");
                 }
@@ -655,6 +685,7 @@ const ClientsManagementPage = () => {
               // Si se ha creado correctamente, guardar el ID
               if (bannerResponse.data && bannerResponse.data.template && bannerResponse.data.template._id) {
                 templateId = bannerResponse.data.template._id;
+                createdTemplate = bannerResponse.data.template;
                 console.log(`✅ Banner creado exitosamente, ID: ${templateId}`);
                 toast.success("Banner creado exitosamente");
               } else {
@@ -677,7 +708,7 @@ const ClientsManagementPage = () => {
         const validDomains = clientData.domains.filter(domain => domain.trim() !== '');
         
         // Dominios creados para referencia posterior
-        const createdDomains = [];
+        // const createdDomains = []; // Comentado para usar la variable del scope superior
         
         if (validDomains.length > 0) {
           console.log(`📝 Creando ${validDomains.length} dominios y asignando banner...`);
@@ -722,15 +753,16 @@ const ClientsManagementPage = () => {
               try {
                 const domainResponse = await createDomain(domainData);
                 console.log(`✅ Dominio creado exitosamente:`, domainResponse);
+                
+                // Track domain for rollback
+                createdDomains.push(domainResponse.data.domain);
+                
+                return { success: true, domain: domainName, domainData: domainResponse.data.domain };
               } catch (error) {
                 console.error(`❌ Error detallado al crear dominio ${domainName}:`, error);
                 console.error(`❌ Status: ${error.response?.status}, Data:`, error.response?.data);
                 throw error;
               }
-              console.log(`✅ Dominio creado: ${domainName}`);
-              
-              createdDomains.push(domainResponse.data.domain);
-              return { success: true, domain: domainName, domainData: domainResponse.data.domain };
             } catch (err) {
               console.error(`❌ Error al crear dominio ${domainName}:`, err);
               return { success: false, domain: domainName, error: err.message };
@@ -818,7 +850,77 @@ const ClientsManagementPage = () => {
       fetchClients();
       return response;
     } catch (error) {
-      toast.error(error.message || 'Error al crear cliente');
+      console.error('❌ Error durante la creación del cliente:', error);
+      
+      // Implementar rollback: limpiar recursos creados
+      let rollbackErrors = [];
+      
+      toast.error('Error al crear cliente. Iniciando limpieza automática...');
+      
+      try {
+        // 1. Eliminar template creado si existe
+        if (createdTemplate && createdTemplate._id) {
+          try {
+            console.log(`🧹 Eliminando template creado: ${createdTemplate._id}`);
+            // Use direct API call since deleteTemplate might not exist
+            const apiClient = (await import('../utils/apiClient')).default;
+            await apiClient.delete(`/api/v1/banner-templates/${createdTemplate._id}`);
+            console.log(`✅ Template ${createdTemplate._id} eliminado exitosamente`);
+          } catch (templateError) {
+            console.error('❌ Error al eliminar template:', templateError);
+            rollbackErrors.push(`template ${createdTemplate._id}: ${templateError.message}`);
+          }
+        }
+        
+        // 2. Eliminar dominios creados si existen
+        if (createdDomains.length > 0) {
+          console.log(`🧹 Eliminando ${createdDomains.length} dominios creados`);
+          const apiClient = (await import('../utils/apiClient')).default;
+          
+          for (const domain of createdDomains) {
+            try {
+              const domainId = domain._id || domain.id;
+              if (domainId) {
+                await apiClient.delete(`/api/v1/domains/${domainId}`);
+                console.log(`✅ Dominio ${domain.domain} eliminado exitosamente`);
+              }
+            } catch (domainError) {
+              console.error(`❌ Error al eliminar dominio ${domain.domain}:`, domainError);
+              rollbackErrors.push(`dominio ${domain.domain}: ${domainError.message}`);
+            }
+          }
+        }
+        
+        // 3. Eliminar cliente creado si existe
+        if (createdClient && (createdClient._id || createdClient.id)) {
+          try {
+            const clientId = createdClient._id || createdClient.id;
+            console.log(`🧹 Eliminando cliente creado: ${clientId}`);
+            const apiClient = (await import('../utils/apiClient')).default;
+            await apiClient.delete(`/api/v1/clients/${clientId}`);
+            console.log(`✅ Cliente ${createdClient.name} eliminado exitosamente`);
+          } catch (clientError) {
+            console.error('❌ Error al eliminar cliente:', clientError);
+            rollbackErrors.push(`cliente ${createdClient.name}: ${clientError.message}`);
+          }
+        }
+        
+        // Mostrar resultado del rollback
+        if (rollbackErrors.length === 0) {
+          toast.success('Limpieza automática completada exitosamente');
+        } else {
+          console.warn('⚠️ Algunos recursos no pudieron ser eliminados:', rollbackErrors);
+          toast.warning(`Limpieza parcial completada. ${rollbackErrors.length} recursos requieren eliminación manual.`);
+        }
+        
+      } catch (rollbackError) {
+        console.error('❌ Error durante el rollback:', rollbackError);
+        toast.error('Error durante la limpieza automática. Contacte al administrador.');
+      }
+      
+      // Mostrar error original al usuario
+      const errorMessage = error.response?.data?.message || error.message || 'Error desconocido al crear cliente';
+      toast.error(`Error: ${errorMessage}`);
       throw error;
     }
   };

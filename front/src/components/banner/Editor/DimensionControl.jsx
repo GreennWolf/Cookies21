@@ -257,18 +257,28 @@ const DimensionControl = ({
       return;
     }
     
-    // Realizar la conversión entre unidades SIEMPRE usando el tamaño del canvas como referencia
+    // CORRECCIÓN: Obtener las dimensiones reales para determinar el contenedor de referencia
+    const dimensions = getComponentDimensions();
+    const referenceSize = dimensions.isChildComponent && dimensions.containerRect
+      ? dimensions.containerRect.width // Usar contenedor padre para hijos
+      : containerSize; // Usar canvas para componentes principales
+    
+    if (dimensions.isChildComponent) {
+      console.log(`🔄 Conversión de unidades para hijo ${componentId}: usando contenedor padre (${Math.round(referenceSize)}px)`);
+    }
+    
+    // Realizar la conversión entre unidades usando la referencia correcta
     let convertedValue;
-    if (containerSize > 0) {
+    if (referenceSize > 0) {
       // De px a %
       if (oldUnit === 'px' && newUnit === '%') {
-        // Porcentaje relativo al canvas completo
-        convertedValue = (parseFloat(numValue) / containerSize) * 100;
+        // Porcentaje relativo al contenedor de referencia
+        convertedValue = (parseFloat(numValue) / referenceSize) * 100;
       } 
       // De % a px
       else if (oldUnit === '%' && newUnit === 'px') {
-        // Píxeles basados en % del canvas
-        convertedValue = (parseFloat(numValue) * containerSize) / 100;
+        // Píxeles basados en % del contenedor de referencia
+        convertedValue = (parseFloat(numValue) * referenceSize) / 100;
       }
       else {
         convertedValue = parseFloat(numValue);
@@ -310,9 +320,27 @@ const DimensionControl = ({
         };
       }
       
-      // Buscar el contenedor (canvas)
-      const containerEl = componentEl.closest('.banner-container');
-      if (!containerEl) {
+      // CORRECCIÓN: Detectar si es un componente hijo y buscar su contenedor padre
+      let referenceContainer = null;
+      let isChildComponent = false;
+      
+      // Buscar el contenedor padre inmediato (si es un hijo)
+      let parentContainer = componentEl.parentElement;
+      while (parentContainer && parentContainer.getAttribute('data-component-type') !== 'container') {
+        parentContainer = parentContainer.parentElement;
+      }
+      
+      if (parentContainer && parentContainer.getAttribute('data-component-type') === 'container') {
+        // Es un componente hijo, usar el contenedor padre como referencia
+        referenceContainer = parentContainer;
+        isChildComponent = true;
+        console.log(`📐 DimensionControl: Usando contenedor padre para ${componentId}`);
+      } else {
+        // Es un componente principal, usar el banner container
+        referenceContainer = componentEl.closest('.banner-container');
+      }
+      
+      if (!referenceContainer) {
         return {
           containerRect: { width: containerSize, height: containerSize * 0.75 }
         };
@@ -320,7 +348,7 @@ const DimensionControl = ({
       
       // Obtener dimensiones reales
       const compRect = componentEl.getBoundingClientRect();
-      const containerRect = containerEl.getBoundingClientRect();
+      const containerRect = referenceContainer.getBoundingClientRect();
       
       return {
         compRect,
@@ -328,9 +356,11 @@ const DimensionControl = ({
         componentEl,
         width: compRect.width,
         height: compRect.height,
-        // Calcular porcentajes
+        // Calcular porcentajes respecto al contenedor correcto
         widthPercent: (compRect.width / containerRect.width) * 100,
-        heightPercent: (compRect.height / containerRect.height) * 100
+        heightPercent: (compRect.height / containerRect.height) * 100,
+        isChildComponent,
+        referenceContainer
       };
     } catch (error) {
       console.error('Error al obtener dimensiones:', error);
@@ -435,16 +465,36 @@ const DimensionControl = ({
         )}
         
         {/* En caso de porcentaje, mostrar equivalente en px para mejor contexto */}
-        {unit === '%' && numValue !== '' && !isNaN(parseFloat(numValue)) && containerSize > 0 && (
+        {unit === '%' && numValue !== '' && !isNaN(parseFloat(numValue)) && (
           <div className="text-gray-500">
-            ≈ {Math.round((parseFloat(numValue) * containerSize) / 100)}px de {containerSize}px
+            {(() => {
+              const dimensions = getComponentDimensions();
+              const referenceSize = dimensions.isChildComponent && dimensions.containerRect
+                ? dimensions.containerRect.width
+                : containerSize;
+              const referenceName = dimensions.isChildComponent ? 'contenedor' : 'canvas';
+              if (referenceSize > 0) {
+                return `≈ ${Math.round((parseFloat(numValue) * referenceSize) / 100)}px de ${Math.round(referenceSize)}px del ${referenceName}`;
+              }
+              return null;
+            })()}
           </div>
         )}
         
         {/* En caso de píxeles, mostrar equivalente en % */}
-        {unit === 'px' && numValue !== '' && !isNaN(parseFloat(numValue)) && containerSize > 0 && (
+        {unit === 'px' && numValue !== '' && !isNaN(parseFloat(numValue)) && (
           <div className="text-gray-500">
-            ≈ {((parseFloat(numValue) / containerSize) * 100).toFixed(1)}% del canvas
+            {(() => {
+              const dimensions = getComponentDimensions();
+              const referenceSize = dimensions.isChildComponent && dimensions.containerRect
+                ? dimensions.containerRect.width
+                : containerSize;
+              const referenceName = dimensions.isChildComponent ? 'contenedor' : 'canvas';
+              if (referenceSize > 0) {
+                return `≈ ${((parseFloat(numValue) / referenceSize) * 100).toFixed(1)}% del ${referenceName}`;
+              }
+              return null;
+            })()}
           </div>
         )}
       </div>

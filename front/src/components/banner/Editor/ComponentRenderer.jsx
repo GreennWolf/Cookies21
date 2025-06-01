@@ -224,16 +224,18 @@ const ComponentRenderer = ({
               // Actualizar estilo visual
               containerRef.current.style.height = `${roundedHeight}px`;
               
+              // TEMPORALMENTE DESHABILITADO - esto sobrescribe el resize
               // Notificar cambio
-              if (isChild && onUpdateChildStyle) {
-                onUpdateChildStyle(component.id, deviceView, {
-                  height: `${roundedHeight}px`
-                });
-              } else if (onUpdateStyle) {
-                onUpdateStyle(component.id, {
-                  height: `${roundedHeight}px`
-                });
-              }
+              // if (isChild && onUpdateChildStyle) {
+              //   onUpdateChildStyle(component.id, deviceView, {
+              //     height: `${roundedHeight}px`
+              //   });
+              // } else if (onUpdateStyle) {
+              //   onUpdateStyle(component.id, {
+              //     height: `${roundedHeight}px`
+              //   });
+              // }
+              console.log(`⚠️ ASPECT_RATIO: Auto-ajuste de altura deshabilitado para ${component.id}`);
             }
           }
         }
@@ -307,32 +309,36 @@ const ComponentRenderer = ({
                 containerRef.current.style.width = `${proportionalWidth}px`;
                 containerRef.current.style.height = `${roundedHeight}px`;
                 
+                // TEMPORALMENTE DESHABILITADO - esto sobrescribe el resize
                 // Notificar cambio con ambas dimensiones
-                if (isChild && onUpdateChildStyle) {
-                  onUpdateChildStyle(component.id, deviceView, {
-                    width: `${proportionalWidth}px`,
-                    height: `${roundedHeight}px`
-                  });
-                } else if (onUpdateStyle) {
-                  onUpdateStyle(component.id, {
-                    width: `${proportionalWidth}px`,
-                    height: `${roundedHeight}px`
-                  });
-                }
+                // if (isChild && onUpdateChildStyle) {
+                //   onUpdateChildStyle(component.id, deviceView, {
+                //     width: `${proportionalWidth}px`,
+                //     height: `${roundedHeight}px`
+                //   });
+                // } else if (onUpdateStyle) {
+                //   onUpdateStyle(component.id, {
+                //     width: `${proportionalWidth}px`,
+                //     height: `${roundedHeight}px`
+                //   });
+                // }
+                console.log(`⚠️ ASPECT_RATIO: Auto-ajuste de dimensiones deshabilitado para ${component.id}`);
               } else {
                 // Solo actualizar altura
                 containerRef.current.style.height = `${roundedHeight}px`;
                 
+                // TEMPORALMENTE DESHABILITADO - esto sobrescribe el resize
                 // Notificar cambio - usar la función correcta según si es hijo o no
-                if (isChild && onUpdateChildStyle) {
-                  onUpdateChildStyle(component.id, deviceView, {
-                    height: `${roundedHeight}px`
-                  });
-                } else if (onUpdateStyle) {
-                  onUpdateStyle(component.id, {
-                    height: `${roundedHeight}px`
-                  });
-                }
+                // if (isChild && onUpdateChildStyle) {
+                //   onUpdateChildStyle(component.id, deviceView, {
+                //     height: `${roundedHeight}px`
+                //   });
+                // } else if (onUpdateStyle) {
+                //   onUpdateStyle(component.id, {
+                //     height: `${roundedHeight}px`
+                //   });
+                // }
+                console.log(`⚠️ ASPECT_RATIO: Auto-ajuste de altura solo deshabilitado para ${component.id}`);
               }
             }
           }
@@ -828,6 +834,82 @@ const handleResizeStart = (e, forceKeepAspectRatio = null) => {
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
     
+    // CRÍTICO: Asegurar que el estado final coincide con la visualización
+    if (containerRef.current) {
+      const finalWidth = containerRef.current.clientWidth;
+      const finalHeight = containerRef.current.clientHeight;
+      
+      // Calcular referencia correcta para porcentajes
+      let calculationReferenceWidth, calculationReferenceHeight;
+      
+      if (isChild && parentElement) {
+        calculationReferenceWidth = originalParentWidth || parentElement.clientWidth;
+        calculationReferenceHeight = originalParentHeight || parentElement.clientHeight;
+      } else {
+        const bannerElement = containerRef.current.closest('.banner-container');
+        calculationReferenceWidth = bannerElement ? bannerElement.clientWidth : 1000;
+        calculationReferenceHeight = bannerElement ? bannerElement.clientHeight : 600;
+      }
+      
+      const finalWidthPercent = (finalWidth / calculationReferenceWidth) * 100;
+      const finalHeightPercent = (finalHeight / calculationReferenceHeight) * 100;
+      
+      // Actualizar el estado final del componente
+      const isChildComponent = isChild || !!component.parentId || !!parentId;
+      
+      if (isChildComponent && onUpdateChildStyle) {
+        console.log('🎯 ComponentRenderer: Actualizando estado final hijo:', {
+          id: component.id,
+          finalWidth: `${finalWidthPercent}%`,
+          finalHeight: `${finalHeightPercent}%`
+        });
+        onUpdateChildStyle(component.id, deviceView, {
+          width: `${finalWidthPercent}%`,
+          height: `${finalHeightPercent}%`
+        });
+      } else if (onUpdateStyle) {
+        console.log('🎯 ComponentRenderer: Actualizando estado final raíz:', {
+          id: component.id,
+          finalWidth: `${finalWidthPercent}%`,
+          finalHeight: `${finalHeightPercent}%`,
+          deviceView: deviceView,
+          componentType: component.type
+        });
+        onUpdateStyle(component.id, {
+          [deviceView]: {
+            width: `${finalWidthPercent}%`,
+            height: `${finalHeightPercent}%`
+          }
+        });
+      }
+      
+      // Para imágenes, también actualizar _imageSettings si existe
+      if (component.type === 'image' && onUpdateStyle) {
+        const updatedImageSettings = {
+          ...component._imageSettings,
+          width: `${finalWidthPercent}%`,
+          height: `${finalHeightPercent}%`,
+          widthRaw: finalWidth,
+          heightRaw: finalHeight
+        };
+        
+        console.log('🖼️ ComponentRenderer: Actualizando _imageSettings:', updatedImageSettings);
+        
+        if (isChildComponent && onUpdateChildStyle) {
+          // Para componentes hijo, necesitamos una forma de actualizar _imageSettings
+          // Por ahora usamos onUpdateStyle si está disponible
+          if (onUpdateStyle) {
+            onUpdateStyle(component.id, {
+              _imageSettings: updatedImageSettings
+            });
+          }
+        } else {
+          onUpdateStyle(component.id, {
+            _imageSettings: updatedImageSettings
+          });
+        }
+      }
+    }
   }
 
   document.addEventListener('mousemove', onMouseMove);
@@ -837,11 +919,37 @@ const handleResizeStart = (e, forceKeepAspectRatio = null) => {
   // Get device-specific styles 
   const deviceStyle = component.style?.[deviceView] || {};
   
+  // Debug para componentes de imagen
+  if (component.type === 'image') {
+    console.log(`🖼️ ComponentRenderer: Renderizando imagen ${component.id}:`, {
+      deviceView,
+      deviceStyle,
+      componentStyle: component.style,
+      _imageSettings: component._imageSettings
+    });
+  }
+  
   // Force re-render when style changes for image components
   useEffect(() => {
     if (component.type === 'image') {
+      console.log(`🔄 IMAGE_EFFECT: Re-render forzado para imagen ${component.id}:`, {
+        width: deviceStyle.width,
+        height: deviceStyle.height,
+        _imageSettings: component._imageSettings
+      });
     }
-  }, [component.id, component.type, deviceStyle._previewUrl, deviceStyle._tempFile]);
+  }, [component.id, component.type, component._imageSettings, deviceStyle._previewUrl, deviceStyle._tempFile, deviceStyle.width, deviceStyle.height]);
+
+  // Efecto para detectar cambios en el componente completo
+  useEffect(() => {
+    if (component.type === 'image') {
+      console.log(`📦 COMPONENT_CHANGE: Componente imagen ${component.id} cambió:`, {
+        componentStyle: component.style,
+        deviceStyle: component.style?.[deviceView],
+        _imageSettings: component._imageSettings
+      });
+    }
+  }, [component, deviceView]);
 
   // Efecto para aplicar estilos inmediatamente en la primera carga - SOLO PARA CONTENEDORES
   useEffect(() => {
@@ -935,15 +1043,47 @@ const handleResizeStart = (e, forceKeepAspectRatio = null) => {
       const componentEl = containerRef.current;
       if (!componentEl) return null;
       
-      // Si es un componente hijo, usar las dimensiones del contenedor padre
-      if (isChild && parentId) {
-        const parentContainer = componentEl.closest(`[data-component-id="${parentId}"]`);
+      // CORRECCIÓN: Para componentes hijos, buscar el contenedor padre más cercano
+      if (isChild || component.parentId) {
+        // Buscar el contenedor padre inmediato
+        let parentContainer = componentEl.parentElement;
+        
+        // Subir en el DOM hasta encontrar un contenedor con data-component-type="container"
+        while (parentContainer && parentContainer.getAttribute('data-component-type') !== 'container') {
+          parentContainer = parentContainer.parentElement;
+        }
+        
         if (parentContainer) {
           const parentRect = parentContainer.getBoundingClientRect();
+          console.log(`📏 Usando contenedor padre para ${component.id}:`, {
+            width: parentRect.width,
+            height: parentRect.height,
+            parentId: parentContainer.getAttribute('data-id')
+          });
           return {
             width: parentRect.width,
-            height: parentRect.height
+            height: parentRect.height,
+            isParentContainer: true
           };
+        }
+        
+        // Si no encontramos contenedor pero es hijo, intentar con parentId
+        if (parentId || component.parentId) {
+          const parentByIdSelector = `[data-id="${parentId || component.parentId}"]`;
+          const parentById = document.querySelector(parentByIdSelector);
+          if (parentById) {
+            const parentRect = parentById.getBoundingClientRect();
+            console.log(`📏 Usando contenedor padre por ID para ${component.id}:`, {
+              width: parentRect.width,
+              height: parentRect.height,
+              parentId: parentId || component.parentId
+            });
+            return {
+              width: parentRect.width,
+              height: parentRect.height,
+              isParentContainer: true
+            };
+          }
         }
       }
       
@@ -953,12 +1093,14 @@ const handleResizeStart = (e, forceKeepAspectRatio = null) => {
         const rect = bannerContainer.getBoundingClientRect();
         return {
           width: rect.width,
-          height: rect.height
+          height: rect.height,
+          isParentContainer: false
         };
       }
       
       return null;
     } catch (error) {
+      console.error('Error obteniendo dimensiones de referencia:', error);
       return null;
     }
   };
@@ -968,18 +1110,36 @@ const handleResizeStart = (e, forceKeepAspectRatio = null) => {
   
   // Obtener dimensiones del canvas (usar función ya definida arriba)
 
+// CORRECCIÓN: Aplicar validación de límites para componentes hijos
+const applyBoundsValidation = (value, isWidth = true) => {
+  const referenceSize = getReferenceSize();
+  if (!referenceSize || !referenceSize.isParentContainer) {
+    return value; // Solo aplicar límites si es hijo de contenedor
+  }
+  
+  // Límites del 95% del contenedor padre
+  const maxLimit = isWidth ? referenceSize.width * 0.95 : referenceSize.height * 0.95;
+  return Math.min(value, maxLimit);
+};
+
 // Convertir width si es porcentaje y verificar reposicionamiento
 if (deviceStyle.width && typeof deviceStyle.width === 'string' && deviceStyle.width.includes('%')) {
   const referenceSize = getReferenceSize();
   if (referenceSize) {
     const percentValue = parseFloat(deviceStyle.width);
     const pixelValue = (percentValue * referenceSize.width) / 100;
-    convertedDeviceStyle.width = `${Math.round(pixelValue)}px`;
     
+    // CORRECCIÓN: Aplicar límites si es componente hijo
+    const validatedPixelValue = applyBoundsValidation(pixelValue, true);
+    convertedDeviceStyle.width = `${Math.round(validatedPixelValue)}px`;
+    
+    if (validatedPixelValue !== pixelValue) {
+      console.log(`⚠️ Ancho limitado para ${component.id}: ${Math.round(pixelValue)}px → ${Math.round(validatedPixelValue)}px`);
+    }
     
     // REPOSICIONAMIENTO: Verificar si el componente se sale con el nuevo tamaño
     setTimeout(() => {
-      checkAndRepositionComponent('width', pixelValue, referenceSize.width);
+      checkAndRepositionComponent('width', validatedPixelValue, referenceSize.width);
     }, 50);
   }
 }
@@ -990,12 +1150,18 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
   if (referenceSize) {
     const percentValue = parseFloat(deviceStyle.height);
     const pixelValue = (percentValue * referenceSize.height) / 100;
-    convertedDeviceStyle.height = `${Math.round(pixelValue)}px`;
     
+    // CORRECCIÓN: Aplicar límites si es componente hijo
+    const validatedPixelValue = applyBoundsValidation(pixelValue, false);
+    convertedDeviceStyle.height = `${Math.round(validatedPixelValue)}px`;
+    
+    if (validatedPixelValue !== pixelValue) {
+      console.log(`⚠️ Alto limitado para ${component.id}: ${Math.round(pixelValue)}px → ${Math.round(validatedPixelValue)}px`);
+    }
     
     // REPOSICIONAMIENTO: Verificar si el componente se sale con el nuevo tamaño
     setTimeout(() => {
-      checkAndRepositionComponent('height', pixelValue, referenceSize.height);
+      checkAndRepositionComponent('height', validatedPixelValue, referenceSize.height);
     }, 50);
   }
 }
@@ -1008,15 +1174,21 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
       const percentValue = parseFloat(convertedDeviceStyle[prop]);
       const isWidthProp = prop.includes('Width');
       const pixelValue = (percentValue * (isWidthProp ? referenceSize.width : referenceSize.height)) / 100;
-      convertedDeviceStyle[prop] = `${Math.round(pixelValue)}px`;
       
+      // CORRECCIÓN: Aplicar límites para max properties si es hijo
+      let validatedPixelValue = pixelValue;
+      if ((prop === 'maxWidth' || prop === 'maxHeight') && referenceSize.isParentContainer) {
+        validatedPixelValue = applyBoundsValidation(pixelValue, isWidthProp);
+      }
+      
+      convertedDeviceStyle[prop] = `${Math.round(validatedPixelValue)}px`;
       
       // REPOSICIONAMIENTO para maxWidth y maxHeight también pueden causar desbordamiento
       if (prop === 'maxWidth' || prop === 'maxHeight') {
         setTimeout(() => {
           const dimension = prop === 'maxWidth' ? 'width' : 'height'; 
           const maxReferenceSize = isWidthProp ? referenceSize.width : referenceSize.height;
-          checkAndRepositionComponent(dimension, pixelValue, maxReferenceSize);
+          checkAndRepositionComponent(dimension, validatedPixelValue, maxReferenceSize);
         }, 50);
       }
     }
@@ -2170,19 +2342,20 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
       );
       break;
     case 'button':
-      // Asegurar que el botón tenga estilos mínimos para ser visible
+      // CORRECCIÓN: Respetar las dimensiones definidas para botones
       const buttonStyle = {
         ...convertedDeviceStyle,
-        minWidth: convertedDeviceStyle.minWidth || '100px',
-        minHeight: convertedDeviceStyle.minHeight || '30px',
-        // Para componentes hijos, adaptarse al contenedor padre
-        width: isChild ? '100%' : (convertedDeviceStyle.width || 'auto'),
-        height: isChild ? '100%' : (convertedDeviceStyle.height || 'auto'),
+        // Eliminar propiedades que interfieren con el tamaño del contenedor
+        width: '100%',
+        height: '100%',
+        // Mantener estilos visuales pero no dimensiones
+        minWidth: 'unset',
+        minHeight: 'unset',
+        boxSizing: 'border-box',
         // Asegurar que los bordes sean visibles si se han configurado
         borderWidth: convertedDeviceStyle.borderWidth || '2px',
         borderStyle: convertedDeviceStyle.borderStyle || 'solid',
         borderColor: convertedDeviceStyle.borderColor || '#2563eb',
-        position: 'relative', // Importante para el control de resize
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -2193,20 +2366,17 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
         <div 
           ref={containerRef}
           style={{
-            position: 'relative', 
+            position: 'relative',
+            // IMPORTANTE: Usar las dimensiones convertidas directamente
             width: convertedDeviceStyle.width || '150px',
             height: convertedDeviceStyle.height || '40px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
+            minWidth: '80px',
+            minHeight: '30px',
+            boxSizing: 'border-box'
           }}
         >
           <button 
-            style={{
-              ...buttonStyle,
-              width: '100%',
-              height: '100%'
-            }}
+            style={buttonStyle}
             onDoubleClick={handleDoubleClick}
           >
             {displayContent || 'Botón'}
@@ -2499,14 +2669,17 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
       break;
     case 'text':
     default:
-      // Asegurar que el contenedor de texto tenga estilos mínimos para ser visible
+      // CORRECCIÓN: Respetar las dimensiones definidas para textos
       const textStyle = {
         ...convertedDeviceStyle,
-        minWidth: convertedDeviceStyle.minWidth || '50px',
-        minHeight: convertedDeviceStyle.minHeight || '20px',
-        // Para componentes hijos, adaptarse al contenedor padre
-        width: isChild ? '100%' : (convertedDeviceStyle.width || 'auto'),
-        height: isChild ? '100%' : (convertedDeviceStyle.height || 'auto'),
+        // IMPORTANTE: Usar las dimensiones convertidas directamente
+        width: convertedDeviceStyle.width || '150px',
+        height: convertedDeviceStyle.height || '40px',
+        // Establecer mínimos razonables
+        minWidth: '50px',
+        minHeight: '20px',
+        // Asegurar que el contenedor sea de tamaño fijo (box-sizing)
+        boxSizing: 'border-box',
         // Permitir bordes personalizados si se configuran
         borderWidth: convertedDeviceStyle.borderWidth || '0px',
         borderStyle: convertedDeviceStyle.borderStyle || 'solid',
@@ -2515,6 +2688,10 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
         overflow: 'hidden',
         wordWrap: 'break-word',
         position: 'relative', // Importante para posicionar el control de resize
+        display: 'flex',
+        alignItems: convertedDeviceStyle.textAlign === 'center' ? 'center' : 'flex-start',
+        justifyContent: convertedDeviceStyle.textAlign === 'center' ? 'center' : 
+                       convertedDeviceStyle.textAlign === 'right' ? 'flex-end' : 'flex-start',
       };
       
       content = (
@@ -2523,7 +2700,14 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
           style={textStyle}
           onDoubleClick={handleDoubleClick}
         >
-          {displayContent || 'Texto'}
+          <div style={{
+            width: '100%',
+            textAlign: convertedDeviceStyle.textAlign || 'left',
+            wordBreak: 'break-word',
+            overflow: 'hidden'
+          }}>
+            {displayContent || 'Texto'}
+          </div>
           
           {/* Control de resize para texto */}
           {!component.locked && (

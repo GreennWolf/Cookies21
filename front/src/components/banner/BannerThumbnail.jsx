@@ -435,6 +435,14 @@ const BannerThumbnail = ({ bannerConfig, className = '', deviceView = 'desktop' 
         const imageUrl = getImageUrl(component, deviceView, 'thumbnail');
         const hasError = imageErrors[component.id];
         
+        console.log(`🖼️ Thumbnail: Procesando imagen ${component.id}:`, {
+          imageUrl,
+          hasError,
+          contentType: typeof component.content,
+          content: component.content,
+          hasPreviewUrl: !!component.style?.[deviceView]?._previewUrl
+        });
+        
         // Show error placeholder if image failed to load
         if (hasError) {
           return (

@@ -514,6 +514,15 @@ const bannerTemplateValidation = {
     body: Joi.object({
       testConfig: Joi.object().required() // La validación detallada se hará en el controlador
     })
+  },
+
+  deleteTemplate: {
+    params: Joi.object({
+      id: Joi.string().required().regex(/^[0-9a-fA-F]{24}$/)
+    }),
+    query: Joi.object({
+      permanentDelete: Joi.boolean().optional().default(true)
+    })
   }
 };
 

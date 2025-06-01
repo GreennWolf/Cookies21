@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { ImageOff } from 'lucide-react';
-import { getImageUrl, handleImageError, processImageStyles } from '../../utils/imageProcessing';
+import { getImageUrl, processImageStyles } from '../../utils/imageProcessing';
 
 function InteractiveBannerPreview({ 
   bannerConfig = { layout: { desktop: {} }, components: [] }, 
@@ -9,12 +9,86 @@ function InteractiveBannerPreview({
   onUpdateComponent = null
 }) {
   const [imageErrors, setImageErrors] = useState({});
-  const [dragging, setDragging] = useState(null);
-  const [resizing, setResizing] = useState(null);
+  const [dragState, setDragState] = useState(null);
+  const [resizeState, setResizeState] = useState(null);
+  const [localUpdates, setLocalUpdates] = useState({});
   const bannerContainerRef = useRef(null);
+  const isDraggingRef = useRef(false);
 
-  // Función de estilos para vista previa (sin posicionamiento fijo)
-  const getLayoutStyles = () => {
+  // Memoizar la conversión de porcentajes
+  const convertPercentageToPixels = useCallback((styleObj, referenceContainer, isChildComponent = false) => {
+    if (!referenceContainer || !styleObj) return styleObj;
+    
+    const converted = { ...styleObj };
+    
+    try {
+      const containerRect = referenceContainer.getBoundingClientRect();
+      
+      // Convertir width si es porcentaje
+      if (converted.width && typeof converted.width === 'string' && converted.width.includes('%')) {
+        let percentValue = parseFloat(converted.width);
+        if (isChildComponent && percentValue > 95) percentValue = 95;
+        const pixelValue = (percentValue * containerRect.width) / 100;
+        converted.width = `${Math.round(pixelValue)}px`;
+      }
+      
+      // Convertir height si es porcentaje
+      if (converted.height && typeof converted.height === 'string' && converted.height.includes('%')) {
+        let percentValue = parseFloat(converted.height);
+        if (isChildComponent && percentValue > 95) percentValue = 95;
+        const pixelValue = (percentValue * containerRect.height) / 100;
+        converted.height = `${Math.round(pixelValue)}px`;
+      }
+      
+      // Convertir otras propiedades
+      ['maxWidth', 'minWidth', 'maxHeight', 'minHeight'].forEach(prop => {
+        if (converted[prop] && typeof converted[prop] === 'string' && converted[prop].includes('%')) {
+          let percentValue = parseFloat(converted[prop]);
+          if (isChildComponent && percentValue > 95) percentValue = 95;
+          const isWidthProp = prop.includes('Width');
+          const pixelValue = (percentValue * (isWidthProp ? containerRect.width : containerRect.height)) / 100;
+          converted[prop] = `${Math.round(pixelValue)}px`;
+        }
+      });
+      
+    } catch (error) {
+      // Silently handle errors
+    }
+    
+    return converted;
+  }, []);
+
+  // Función simplificada para obtener URL de imagen
+  const getImageUrlSimple = useCallback((component) => {
+    try {
+      // Usar _previewUrl del style si existe
+      if (component.style?.[deviceView]?._previewUrl) {
+        return component.style[deviceView]._previewUrl;
+      }
+      
+      // Usar content directo
+      if (typeof component.content === 'string') {
+        if (component.content.startsWith('data:') || 
+            component.content.startsWith('blob:') ||
+            component.content.startsWith('http')) {
+          return component.content;
+        }
+        
+        if (component.content.startsWith('/')) {
+          return `${window.location.origin}${component.content}`;
+        }
+      }
+      
+      // Placeholder por defecto
+      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDIwMCAxNTAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSIxMDAiIHk9Ijc1IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkltYWdlbjwvdGV4dD48L3N2Zz4=';
+    } catch (error) {
+      console.error('Error obteniendo URL de imagen:', error);
+      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDIwMCAxNTAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiNmZmNjY2MiLz48dGV4dCB4PSIxMDAiIHk9Ijc1IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjAwMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkVycm9yPC90ZXh0Pjwvc3ZnPg==';
+    }
+  }, [deviceView]);
+
+  // Memoizar estilos del layout
+  const layoutStyles = useMemo(() => {
     const layout = bannerConfig.layout[deviceView] || {};
     const type = layout.type || 'banner';
     
@@ -29,7 +103,6 @@ function InteractiveBannerPreview({
       overflow: 'visible'
     };
 
-    // Aplicar estilos específicos según el tipo
     if (type === 'banner') {
       baseStyles = {
         ...baseStyles,
@@ -56,137 +129,44 @@ function InteractiveBannerPreview({
     }
 
     return baseStyles;
-  };
+  }, [bannerConfig.layout, deviceView]);
 
-  // Get image URL with proper fallback handling
-  // Función para convertir porcentajes a píxeles (copiada del BannerPreview original)
-  const convertPercentageToPixels = (styleObj, bannerContainerRef) => {
-    if (!bannerContainerRef || !styleObj) return styleObj;
-    
-    const converted = { ...styleObj };
-    
-    try {
-      const containerRect = bannerContainerRef.getBoundingClientRect();
-      
-      // Convertir width si es porcentaje
-      if (converted.width && typeof converted.width === 'string' && converted.width.includes('%')) {
-        const percentValue = parseFloat(converted.width);
-        const pixelValue = (percentValue * containerRect.width) / 100;
-        converted.width = `${Math.round(pixelValue)}px`;
-      }
-      
-      // Convertir height si es porcentaje
-      if (converted.height && typeof converted.height === 'string' && converted.height.includes('%')) {
-        const percentValue = parseFloat(converted.height);
-        const pixelValue = (percentValue * containerRect.height) / 100;
-        converted.height = `${Math.round(pixelValue)}px`;
-      }
-      
-      // Convertir otras propiedades
-      ['maxWidth', 'minWidth', 'maxHeight', 'minHeight'].forEach(prop => {
-        if (converted[prop] && typeof converted[prop] === 'string' && converted[prop].includes('%')) {
-          const percentValue = parseFloat(converted[prop]);
-          const isWidthProp = prop.includes('Width');
-          const pixelValue = (percentValue * (isWidthProp ? containerRect.width : containerRect.height)) / 100;
-          converted[prop] = `${Math.round(pixelValue)}px`;
-        }
-      });
-      
-    } catch (error) {
-      // Silently handle errors
-    }
-    
-    return converted;
-  };
-
-  const getImageUrl = (component) => {
-    try {
-      console.log('🔍 InteractiveBanner getImageUrl:', { 
-        componentId: component.id, 
-        previewUrl: component.style?.desktop?._previewUrl,
-        content: component.content,
-        deviceView: deviceView
-      });
-      
-      const cacheBuster = `?cb=${Date.now()}`;
-      
-      // Check for preview URL in styles (usando deviceView en lugar de desktop)
-      if (component.style?.[deviceView]?._previewUrl) {
-        const previewUrl = component.style[deviceView]._previewUrl;
-        console.log('✅ Usando _previewUrl:', previewUrl, 'type:', typeof previewUrl);
-        
-        // Asegurar que _previewUrl es un string
-        if (typeof previewUrl === 'string') {
-          return previewUrl;
-        } else {
-          console.warn('⚠️ _previewUrl no es string, es:', typeof previewUrl, previewUrl);
-          // Intentar extraer URL si es un objeto
-          if (previewUrl && typeof previewUrl === 'object') {
-            if (previewUrl.url) return previewUrl.url;
-            if (previewUrl.src) return previewUrl.src;
-            if (previewUrl.href) return previewUrl.href;
-          }
-        }
-      }
-      
-      // Handle data URIs and blob URLs
-      if (typeof component.content === 'string') {
-        if (component.content.startsWith('data:') || 
-            component.content.startsWith('blob:')) {
-          return component.content;
-        }
-        
-        // Handle relative URLs
-        if (component.content.startsWith('/')) {
-          return `${window.location.origin}${component.content}${cacheBuster}`;
-        }
-        
-        // Handle HTTP/HTTPS URLs
-        if (component.content.startsWith('http://') || 
-            component.content.startsWith('https://')) {
-          return component.content;
-        }
-      }
-      
-      // Fallback placeholder
-      console.log('⚠️ Usando placeholder para imagen:', component.id);
-      const placeholder = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCIgeT0iNTAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlbjwvdGV4dD48L3N2Zz4=';
-      return placeholder;
-    } catch (error) {
-      console.error('❌ Error en getImageUrl:', error);
-      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNmZmNjY2MiLz48dGV4dCB4PSI1MCIgeT0iNTAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iI2ZmMDAwMCIgdGV4dC1hbancho3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkVycm9yPC90ZXh0Pjwvc3ZnPg==';
-    }
-  };
-
-  // Handle mouse events for dragging and resizing
+  // Manejadores de mouse optimizados
   const handleMouseDown = useCallback((e, component, action) => {
-    console.log('handleMouseDown called:', { componentId: component.id, action, hasUpdateComponent: !!onUpdateComponent });
-    
     e.preventDefault();
     e.stopPropagation();
     
-    // Verificar si es hijo de contenedor (igual que BannerPreview original)
+    if (!onUpdateComponent) return;
+    
+    // Verificar si es hijo de contenedor y su modo
     const isChildOfContainer = component.parentId;
     
-    console.log('isChildOfContainer:', isChildOfContainer);
-    
-    if (!onUpdateComponent || isChildOfContainer) {
-      console.log('Returning early - no update component or is child of container');
-      return; // Solo para componentes libres
+    if (isChildOfContainer) {
+      const parentContainer = bannerConfig.components.find(c => c.id === component.parentId);
+      const parentDisplayMode = parentContainer?.containerConfig?.[deviceView]?.displayMode || 'libre';
+      
+      // En flex/grid containers, solo permitir resize, no drag
+      if (parentDisplayMode === 'flex' || parentDisplayMode === 'grid') {
+        if (action === 'drag') {
+          return; // No permitir dragging en contenedores flex/grid
+        }
+      }
     }
-    
+
     const rect = bannerContainerRef.current?.getBoundingClientRect();
     if (!rect) return;
     
     const startX = e.clientX;
     const startY = e.clientY;
     
+    isDraggingRef.current = true;
+    
     if (action === 'drag') {
       const devicePos = component.position?.[deviceView] || {};
       const currentLeft = parseInt(devicePos.left || '0px');
       const currentTop = parseInt(devicePos.top || '0px');
       
-      setDragging({
+      setDragState({
         id: component.id,
         startX,
         startY,
@@ -195,10 +175,10 @@ function InteractiveBannerPreview({
       });
     } else if (action === 'resize') {
       const deviceStyle = component.style?.[deviceView] || {};
-      const currentWidth = parseInt(deviceStyle.width || '100px');
-      const currentHeight = parseInt(deviceStyle.height || '100px');
+      const currentWidth = parseInt(deviceStyle.width || '200px');
+      const currentHeight = parseInt(deviceStyle.height || '150px');
       
-      setResizing({
+      setResizeState({
         id: component.id,
         startX,
         startY,
@@ -206,109 +186,160 @@ function InteractiveBannerPreview({
         startHeight: currentHeight
       });
     }
-  }, [onUpdateComponent, deviceView]);
+  }, [onUpdateComponent, deviceView, bannerConfig.components]);
 
-  // Handle mouse move
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      if (dragging) {
-        const deltaX = e.clientX - dragging.startX;
-        const deltaY = e.clientY - dragging.startY;
-        
-        const newLeft = Math.max(0, dragging.startLeft + deltaX);
-        const newTop = Math.max(0, dragging.startTop + deltaY);
-        
-        
-        // Update component position
-        if (onUpdateComponent) {
-          onUpdateComponent(dragging.id, {
-            position: {
-              [deviceView]: {
-                left: `${newLeft}px`,
-                top: `${newTop}px`
-              }
-            }
-          });
-        }
-      }
+  // Usar mousemove global
+  const handleGlobalMouseMove = useCallback((e) => {
+    if (!isDraggingRef.current) return;
+    
+    if (dragState) {
+      const deltaX = e.clientX - dragState.startX;
+      const deltaY = e.clientY - dragState.startY;
       
-      if (resizing) {
-        const deltaX = e.clientX - resizing.startX;
-        const deltaY = e.clientY - resizing.startY;
-        
-        const newWidth = Math.max(50, resizing.startWidth + deltaX);
-        const newHeight = Math.max(50, resizing.startHeight + deltaY);
-        
-        
-        // Update component size
-        if (onUpdateComponent) {
-          onUpdateComponent(resizing.id, {
-            style: {
-              [deviceView]: {
-                width: `${newWidth}px`,
-                height: `${newHeight}px`
-              }
+      const newLeft = Math.max(0, dragState.startLeft + deltaX);
+      const newTop = Math.max(0, dragState.startTop + deltaY);
+      
+      // Actualización local inmediata para feedback visual
+      setLocalUpdates(prev => ({
+        ...prev,
+        [dragState.id]: {
+          position: {
+            [deviceView]: {
+              left: `${newLeft}px`,
+              top: `${newTop}px`
             }
-          });
+          }
         }
+      }));
+    }
+    
+    if (resizeState) {
+      const deltaX = e.clientX - resizeState.startX;
+      const deltaY = e.clientY - resizeState.startY;
+      
+      const newWidth = Math.max(100, resizeState.startWidth + deltaX);
+      const newHeight = Math.max(80, resizeState.startHeight + deltaY);
+      
+      // Actualización local inmediata para feedback visual
+      setLocalUpdates(prev => ({
+        ...prev,
+        [resizeState.id]: {
+          ...prev[resizeState.id],
+          style: {
+            [deviceView]: {
+              width: `${newWidth}px`,
+              height: `${newHeight}px`
+            }
+          }
+        }
+      }));
+    }
+  }, [dragState, resizeState, deviceView]);
+
+  const handleGlobalMouseUp = useCallback(() => {
+    if (!isDraggingRef.current) return;
+    
+    // Enviar actualización final al componente padre
+    if (dragState && onUpdateComponent) {
+      const localUpdate = localUpdates[dragState.id];
+      if (localUpdate?.position) {
+        onUpdateComponent(dragState.id, { position: localUpdate.position });
       }
-    };
+    }
+    
+    if (resizeState && onUpdateComponent) {
+      const localUpdate = localUpdates[resizeState.id];
+      if (localUpdate?.style) {
+        onUpdateComponent(resizeState.id, { style: localUpdate.style });
+      }
+    }
+    
+    // Limpiar estados
+    setDragState(null);
+    setResizeState(null);
+    setLocalUpdates({});
+    isDraggingRef.current = false;
+  }, [dragState, resizeState, localUpdates, onUpdateComponent]);
 
-    const handleMouseUp = () => {
-      setDragging(null);
-      setResizing(null);
-    };
-
-    if (dragging || resizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+  // Eventos globales de mouse
+  React.useEffect(() => {
+    if (dragState || resizeState) {
+      document.addEventListener('mousemove', handleGlobalMouseMove);
+      document.addEventListener('mouseup', handleGlobalMouseUp);
       
       return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('mousemove', handleGlobalMouseMove);
+        document.removeEventListener('mouseup', handleGlobalMouseUp);
       };
     }
-  }, [dragging, resizing, onUpdateComponent, deviceView]);
+  }, [dragState, resizeState, handleGlobalMouseMove, handleGlobalMouseUp]);
 
-  const renderComponent = (component) => {
+  // Función para renderizar componentes optimizada
+  const renderComponent = useCallback((component, parentContainerRef = null) => {
     if (!component) return null;
     
     const devicePos = component.position?.[deviceView] || {};
     const deviceStyle = component.style?.[deviceView] || {};
     
-    // Usar la función centralizada para procesar estilos de imagen
+    // Procesar estilos de imagen si es necesario
     const processedStyle = component.type === 'image' ? 
       processImageStyles(component, deviceView) : 
       {...deviceStyle};
 
-    // Convertir estilos con porcentajes a píxeles (igual que en BannerPreview original)
-    const convertedProcessedStyle = convertPercentageToPixels(processedStyle, bannerContainerRef.current);
+    // Aplicar actualizaciones locales
+    const localUpdate = localUpdates[component.id] || {};
+    const localPosition = localUpdate.position?.[deviceView] || {};
+    const localStyle = localUpdate.style?.[deviceView] || {};
 
-    // Determinar si es hijo de contenedor basándose en la estructura real (igual que original)
+    // Convertir porcentajes a píxeles
     const isChildOfContainer = component.parentId;
+    const convertedProcessedStyle = component.parentId && parentContainerRef ? 
+      convertPercentageToPixels(processedStyle, parentContainerRef, true) : 
+      bannerContainerRef.current ? 
+        convertPercentageToPixels(processedStyle, bannerContainerRef.current, false) :
+        processedStyle;
 
-    // Base styles with positioning (igual que BannerPreview original)
+    // Determinar capacidades de interacción
+    let parentDisplayMode = 'libre';
+    if (isChildOfContainer) {
+      const parentContainer = bannerConfig.components.find(c => c.id === component.parentId);
+      parentDisplayMode = parentContainer?.containerConfig?.[deviceView]?.displayMode || 'libre';
+    }
+
+    const canDrag = onUpdateComponent && (!isChildOfContainer || parentDisplayMode === 'libre');
+    const canResize = onUpdateComponent;
+    const isInteractive = canDrag || canResize;
+
+    // Estilos base con mejoras de tamaño para imágenes
     const baseStyles = isChildOfContainer ? {
-      // Para hijos de contenedores: NO usar position absolute
       ...convertedProcessedStyle,
+      ...localStyle,
       visibility: 'visible',
       opacity: 1,
       position: 'static',
-      width: convertedProcessedStyle.width || 'auto',
-      height: convertedProcessedStyle.height || 'auto'
+      width: localStyle.width || convertedProcessedStyle.width || (component.type === 'image' ? '200px' : 'auto'),
+      height: localStyle.height || convertedProcessedStyle.height || (component.type === 'image' ? '150px' : 'auto'),
+      minWidth: component.type === 'image' ? '100px' : undefined,
+      minHeight: component.type === 'image' ? '80px' : undefined,
+      maxWidth: component.type === 'image' ? '100%' : undefined,
+      maxHeight: component.type === 'image' ? '100%' : undefined
     } : {
-      // Para componentes raíz: usar position absolute normal
       position: 'absolute',
-      top: devicePos.top || '0px',
-      left: devicePos.left || '0px',
+      top: localPosition.top || devicePos.top || '0px',
+      left: localPosition.left || devicePos.left || '0px',
       ...convertedProcessedStyle,
+      ...localStyle,
       transform: 'translate(0, 0)',
       willChange: 'transform',
       visibility: 'visible',
-      opacity: 1
+      opacity: 1,
+      width: localStyle.width || convertedProcessedStyle.width || (component.type === 'image' ? '200px' : undefined),
+      height: localStyle.height || convertedProcessedStyle.height || (component.type === 'image' ? '150px' : undefined),
+      minWidth: component.type === 'image' ? '100px' : undefined,
+      minHeight: component.type === 'image' ? '80px' : undefined
     };
 
-    // Extract content text for display
+    // Contenido de texto
     let displayContent = '';
     if (typeof component.content === 'string') {
       displayContent = component.content;
@@ -320,9 +351,7 @@ function InteractiveBannerPreview({
       }
     }
 
-    const isInteractive = onUpdateComponent && !isChildOfContainer;
-
-    // Render based on component type
+    // Renderizado por tipo de componente
     switch (component.type) {
       case 'text':
         return (
@@ -343,19 +372,9 @@ function InteractiveBannerPreview({
         );
         
       case 'image': {
-        console.log('🔍 InteractiveBanner renderComponent image:', { 
-          componentId: component.id, 
-          deviceView,
-          previewUrl: component.style?.[deviceView]?._previewUrl,
-          content: component.content,
-          fullStyle: component.style
-        });
-        
-        const imageUrl = getImageUrl(component);
-        console.log('🖼️ ImageUrl obtenida:', { componentId: component.id, imageUrl });
+        const imageUrl = getImageUrlSimple(component);
         const hasError = imageErrors[component.id];
         
-        // Show error placeholder if image failed to load
         if (hasError) {
           return (
             <div 
@@ -378,58 +397,66 @@ function InteractiveBannerPreview({
           );
         }
         
-        // Render the image with interactive controls if available
         return (
           <div
             key={component.id}
             style={{
               ...baseStyles,
+              position: baseStyles.position,
+              cursor: canDrag ? 'move' : 'default',
+              userSelect: 'none',
+              padding: '0'
+            }}
+            onMouseDown={canDrag ? (e) => handleMouseDown(e, component, 'drag') : undefined}
+          >
+            <div style={{
+              position: 'relative',
+              width: '100%',
+              height: '100%',
               border: isInteractive ? '2px dashed #3b82f6' : 'none',
               borderRadius: '4px',
-              position: baseStyles.position,
-              cursor: isInteractive ? 'move' : 'default',
-              userSelect: 'none'
-            }}
-            onMouseDown={isInteractive ? (e) => handleMouseDown(e, component, 'drag') : undefined}
-          >
-            <img
-              src={imageUrl}
-              alt=""
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-                pointerEvents: 'none', // Prevent image drag
-                userSelect: 'none'
-              }}
-              onError={(e) => {
-                setImageErrors(prev => ({
-                  ...prev,
-                  [component.id]: true
-                }));
-              }}
-            />
-            
-            {/* Resize handle para imágenes libres */}
-            {isInteractive && (
-              <div
+              overflow: 'visible'
+            }}>
+              <img
+                src={imageUrl}
+                alt=""
                 style={{
-                  position: 'absolute',
-                  bottom: '-2px',
-                  right: '-2px',
-                  width: '16px',
-                  height: '16px',
-                  backgroundColor: '#3b82f6',
-                  cursor: 'se-resize',
-                  borderRadius: '0 0 4px 0',
-                  border: '2px solid white'
+                  width: '100%',
+                  height: '100%',
+                  objectFit: convertedProcessedStyle.objectFit || 'contain',
+                  display: 'block',
+                  pointerEvents: 'none',
+                  userSelect: 'none'
                 }}
-                onMouseDown={(e) => handleMouseDown(e, component, 'resize')}
+                onError={() => {
+                  setImageErrors(prev => ({
+                    ...prev,
+                    [component.id]: true
+                  }));
+                }}
               />
-            )}
+              
+              {/* Resize handle */}
+              {canResize && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: '-8px',
+                    right: '-8px',
+                    width: '16px',
+                    height: '16px',
+                    backgroundColor: '#3b82f6',
+                    cursor: 'se-resize',
+                    borderRadius: '50%',
+                    border: '2px solid white',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                  }}
+                  onMouseDown={(e) => handleMouseDown(e, component, 'resize')}
+                />
+              )}
+            </div>
             
-            {/* Debug info para imágenes interactivas */}
+            {/* Debug info */}
             {isInteractive && (
               <div
                 style={{
@@ -444,7 +471,9 @@ function InteractiveBannerPreview({
                   pointerEvents: 'none'
                 }}
               >
-                Arrastrable
+                {canDrag && canResize ? 'Arrastrable y redimensionable' : 
+                 canResize ? 'Solo redimensionable' : 
+                 'No editable'}
               </div>
             )}
           </div>
@@ -480,18 +509,22 @@ function InteractiveBannerPreview({
         return (
           <div
             key={component.id}
+            ref={(el) => {
+              // Crear referencia dinámica para el contenedor
+              component._containerRef = el;
+            }}
             style={{
               ...baseStyles,
               ...containerLayoutStyles,
               position: displayMode === 'libre' ? baseStyles.position : 'relative'
             }}
           >
-            {containerChildren.map(child => {
+            {containerChildren.map((child, index) => {
               if (typeof child === 'string') {
                 const childComponent = bannerConfig.components.find(c => c.id === child);
-                return childComponent ? renderComponent(childComponent) : null;
+                return childComponent ? renderComponent(childComponent, component._containerRef) : null;
               }
-              return renderComponent(child);
+              return renderComponent(child, component._containerRef);
             })}
           </div>
         );
@@ -500,34 +533,56 @@ function InteractiveBannerPreview({
       default:
         return null;
     }
-  };
+  }, [
+    deviceView, 
+    localUpdates, 
+    convertPercentageToPixels, 
+    bannerConfig.components, 
+    onUpdateComponent, 
+    handleMouseDown, 
+    imageErrors, 
+    getImageUrlSimple
+  ]);
 
   return (
     <div className="relative" style={{ minHeight: height, padding: '20px' }}>
-      {/* Banner con la misma lógica que BannerPreview */}
       <div 
         ref={bannerContainerRef} 
         style={{
-          ...getLayoutStyles(),
+          ...layoutStyles,
           minHeight: height === 'auto' ? 'auto' : `calc(${height} - 40px)`,
-          userSelect: 'none' // Prevent text selection during drag
+          userSelect: 'none'
         }} 
         className="relative"
       >
-        {bannerConfig.components
-          ?.filter(comp => !comp.parentId)
-          .map(comp => renderComponent(comp))}
+        {(() => {
+          const rootComponents = bannerConfig.components?.filter(comp => !comp.parentId) || [];
+          
+          // ORDENAR POR POSICIÓN Y para mantener el orden visual correcto (como en BannerThumbnail)
+          const sortedComponents = rootComponents.sort((a, b) => {
+            const aTop = parseFloat(a.position?.[deviceView]?.top || '0');
+            const bTop = parseFloat(b.position?.[deviceView]?.top || '0');
+            return aTop - bTop;
+          });
+          
+          // DEBUG: Verificar orden de componentes en InteractiveBannerPreview
+          console.log('🔄 InteractiveBanner: Orden de componentes (ANTES ordenar):', rootComponents.map(c => ({
+            id: c.id,
+            type: c.type,
+            top: c.position?.[deviceView]?.top || '0%',
+            content: typeof c.content === 'string' ? c.content.substring(0, 30) + '...' : 'object'
+          })));
+          
+          console.log('🔄 InteractiveBanner: Orden de componentes (DESPUÉS ordenar):', sortedComponents.map(c => ({
+            id: c.id,
+            type: c.type,
+            top: c.position?.[deviceView]?.top || '0%',
+            content: typeof c.content === 'string' ? c.content.substring(0, 30) + '...' : 'object'
+          })));
+          
+          return sortedComponents.map(comp => renderComponent(comp));
+        })()}
       </div>
-      
-      {/* Cursor styles */}
-      <style jsx>{`
-        .dragging {
-          cursor: grabbing !important;
-        }
-        .resizing {
-          cursor: se-resize !important;
-        }
-      `}</style>
     </div>
   );
 }

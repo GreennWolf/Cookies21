@@ -327,25 +327,77 @@ const FullScreenPreview = ({
   };
 
   // Función para convertir porcentajes a píxeles en vista previa
-  const convertPercentageToPixels = (styleObj, bannerContainerRef) => {
+  const convertPercentageToPixels = (styleObj, bannerContainerRef, isChild = false, parentComponent = null) => {
     if (!bannerContainerRef || !styleObj) return styleObj;
     
     const converted = { ...styleObj };
     
     try {
-      const containerRect = bannerContainerRef.getBoundingClientRect();
+      let containerRect = bannerContainerRef.getBoundingClientRect();
       
-      // Convertir width si es porcentaje
-      if (converted.width && typeof converted.width === 'string' && converted.width.includes('%')) {
-        const percentValue = parseFloat(converted.width);
-        const pixelValue = (percentValue * containerRect.width) / 100;
+      // Si es hijo y tenemos el componente padre, intentar usar las dimensiones del contenedor padre
+      if (isChild && parentComponent) {
+        // Buscar el elemento del contenedor padre en el DOM
+        const parentElement = document.querySelector(`[data-component-id="${parentComponent.id}"]`);
+        if (parentElement) {
+          const parentInnerElement = parentElement.querySelector('div:nth-child(1)'); // El div interno del contenedor
+          if (parentInnerElement) {
+            containerRect = parentInnerElement.getBoundingClientRect();
+            console.log(`🔍 Usando contenedor padre para ${parentComponent.id}:`, { width: containerRect.width, height: containerRect.height });
+          }
+        }
+      }
+      
+      // CORRECCIÓN: Aplicar límites para componentes hijos
+      const applyChildLimits = (value, isWidth = true) => {
+        if (!isChild) return value;
+        // Límite del 95% del contenedor para hijos
+        const maxLimit = isWidth ? containerRect.width * 0.95 : containerRect.height * 0.95;
+        const limited = Math.min(value, maxLimit);
+        
+        // DEBUG: Log cuando se aplican límites
+        if (limited !== value) {
+          console.log(`⚠️ FullScreen Preview: ${isWidth ? 'Ancho' : 'Alto'} limitado: ${value}px → ${limited}px (contenedor: ${isWidth ? containerRect.width : containerRect.height}px)`);
+        }
+        
+        return limited;
+      };
+      
+      // Convertir width - aplicar límites tanto para porcentajes como píxeles
+      if (converted.width && typeof converted.width === 'string') {
+        let pixelValue;
+        
+        if (converted.width.includes('%')) {
+          const percentValue = parseFloat(converted.width);
+          pixelValue = (percentValue * containerRect.width) / 100;
+        } else if (converted.width.includes('px')) {
+          pixelValue = parseFloat(converted.width);
+        } else {
+          pixelValue = parseFloat(converted.width) || 0;
+        }
+        
+        // Aplicar límites si es hijo (tanto para % como px)
+        pixelValue = applyChildLimits(pixelValue, true);
+        
         converted.width = `${Math.round(pixelValue)}px`;
       }
       
-      // Convertir height si es porcentaje
-      if (converted.height && typeof converted.height === 'string' && converted.height.includes('%')) {
-        const percentValue = parseFloat(converted.height);
-        const pixelValue = (percentValue * containerRect.height) / 100;
+      // Convertir height - aplicar límites tanto para porcentajes como píxeles
+      if (converted.height && typeof converted.height === 'string') {
+        let pixelValue;
+        
+        if (converted.height.includes('%')) {
+          const percentValue = parseFloat(converted.height);
+          pixelValue = (percentValue * containerRect.height) / 100;
+        } else if (converted.height.includes('px')) {
+          pixelValue = parseFloat(converted.height);
+        } else {
+          pixelValue = parseFloat(converted.height) || 0;
+        }
+        
+        // Aplicar límites si es hijo (tanto para % como px)
+        pixelValue = applyChildLimits(pixelValue, false);
+        
         converted.height = `${Math.round(pixelValue)}px`;
       }
       
@@ -354,7 +406,13 @@ const FullScreenPreview = ({
         if (converted[prop] && typeof converted[prop] === 'string' && converted[prop].includes('%')) {
           const percentValue = parseFloat(converted[prop]);
           const isWidthProp = prop.includes('Width');
-          const pixelValue = (percentValue * (isWidthProp ? containerRect.width : containerRect.height)) / 100;
+          let pixelValue = (percentValue * (isWidthProp ? containerRect.width : containerRect.height)) / 100;
+          
+          // Aplicar límites para max properties si es hijo
+          if ((prop === 'maxWidth' || prop === 'maxHeight') && isChild) {
+            pixelValue = applyChildLimits(pixelValue, isWidthProp);
+          }
+          
           converted[prop] = `${Math.round(pixelValue)}px`;
         }
       });
@@ -367,7 +425,7 @@ const FullScreenPreview = ({
   };
 
   // Render component function (copied from BannerPreview)
-  const renderComponent = (component) => {
+  const renderComponent = (component, parentComponent = null) => {
     if (!component) return null;
     
     const devicePos = component.position?.[currentDevice] || {};
@@ -379,7 +437,14 @@ const FullScreenPreview = ({
       {...deviceStyle};
     
     // Convertir estilos con porcentajes a píxeles para todos los componentes
-    const convertedProcessedStyle = convertPercentageToPixels(processedStyle, bannerContainerRef.current);
+    // Pasar información del padre si es un componente hijo
+    const isChild = !!parentComponent;
+    const convertedProcessedStyle = convertPercentageToPixels(
+      processedStyle, 
+      bannerContainerRef.current, 
+      isChild, 
+      parentComponent
+    );
     
     // Base styles with positioning - CORREGIDO para hijos de contenedores
     const baseStyles = component.parentId ? {
@@ -429,12 +494,55 @@ const FullScreenPreview = ({
   
     // Render based on component type
     switch (component.type) {
-      case 'text':
+      case 'text': {
+        // CORRECCIÓN: Aplicar mismo estilo que ComponentRenderer pero sin límites complejos por ahora
+        const textStyle = {
+          ...baseStyles,
+          // IMPORTANTE: Usar las dimensiones convertidas directamente
+          width: baseStyles.width || '150px',
+          height: baseStyles.height || '40px',
+          // Establecer mínimos razonables
+          minWidth: '50px',
+          minHeight: '20px',
+          // CRÍTICO: Forzar que no se salga del contenedor
+          maxWidth: baseStyles.width || '150px',
+          maxHeight: baseStyles.height || '40px',
+          // Asegurar que el contenedor sea de tamaño fijo
+          boxSizing: 'border-box',
+          // Permitir bordes personalizados si se configuran
+          borderWidth: baseStyles.borderWidth || '0px',
+          borderStyle: baseStyles.borderStyle || 'solid',
+          borderColor: baseStyles.borderColor || 'transparent',
+          padding: baseStyles.padding || '10px',
+          overflow: 'hidden',
+          wordWrap: 'break-word',
+          wordBreak: 'break-word',
+          position: 'relative',
+          display: 'flex',
+          alignItems: baseStyles.textAlign === 'center' ? 'center' : 'flex-start',
+          justifyContent: baseStyles.textAlign === 'center' ? 'center' : 
+                         baseStyles.textAlign === 'right' ? 'flex-end' : 'flex-start',
+          // CRÍTICO: Evitar que flex lo estire
+          flexShrink: 0,
+          flexGrow: 0
+        };
+        
         return (
-          <div key={component.id} style={baseStyles}>
-            {displayContent}
+          <div key={component.id} style={textStyle}>
+            <div style={{
+              width: '100%',
+              maxWidth: '100%',
+              textAlign: baseStyles.textAlign || 'left',
+              wordBreak: 'break-word',
+              overflow: 'hidden',
+              whiteSpace: 'normal',
+              overflowWrap: 'break-word'
+            }}>
+              {displayContent}
+            </div>
           </div>
         );
+      }
       case 'button':
         return (
           <button
@@ -527,7 +635,13 @@ const FullScreenPreview = ({
         const displayMode = containerConfig.displayMode || 'libre';
         
         // Convertir estilos con porcentajes a píxeles
-        const convertedProcessedStyle = convertPercentageToPixels(processedStyle, bannerContainerRef.current);
+        // Para contenedores, usar la misma lógica que para otros componentes
+        const convertedProcessedStyle = convertPercentageToPixels(
+          processedStyle, 
+          bannerContainerRef.current, 
+          isChild, 
+          parentComponent
+        );
         
         // Estilos del contenedor EXTERNO (posicionamiento en canvas)
         const containerOuterStyles = {
@@ -576,6 +690,7 @@ const FullScreenPreview = ({
           <div 
             key={component.id} 
             style={containerOuterStyles}
+            data-component-id={component.id}
           >
             <div style={containerInnerStyles}>
               {/* Renderizar hijos del contenedor */}
@@ -599,7 +714,7 @@ const FullScreenPreview = ({
               
               return (
                 <div key={child.id} style={childWrapperStyle}>
-                  {renderComponent(child)}
+                  {renderComponent(child, component)}
                 </div>
               );
             })}

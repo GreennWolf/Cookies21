@@ -375,14 +375,20 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
         // Para píxeles, validar que sea un número positivo
         const numValue = parseInt(value);
         if (!isNaN(numValue) && numValue > 0) {
-          // Mantener un mínimo razonable
-          const minHeight = 30; // Mínimo de 30px
-          const limitedValue = Math.max(minHeight, numValue);
-          setHeightValue(limitedValue.toString());
-          handleUpdateLayoutForDevice(deviceView, 'height', `${limitedValue}px`);
-          handleUpdateLayoutForDevice(deviceView, 'data-height', limitedValue.toString());
+          // Permitir cualquier valor, pero mostrar advertencia si es menor a 30px
+          setHeightValue(value);
+          handleUpdateLayoutForDevice(deviceView, 'height', `${numValue}px`);
+          handleUpdateLayoutForDevice(deviceView, 'data-height', numValue.toString());
+          
+          // Mostrar advertencia si es menor al mínimo recomendado
+          if (numValue < 30) {
+            console.warn('⚠️ Advertencia: La altura del banner es menor a 30px, esto puede afectar la visibilidad');
+          }
+        } else if (value === '' || value === '0') {
+          // Permitir campo vacío para edición
+          setHeightValue(value);
         } else {
-          // Si el valor no es válido o está vacío, establecer a auto
+          // Si el valor no es válido, establecer a auto
           handleUpdateLayoutForDevice(deviceView, 'height', 'auto');
         }
       }
@@ -521,6 +527,24 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
 
   // Función unificada para actualizar estilo (hijo o principal)
   const handleUpdateStyle = (componentId, style) => {
+    // Si el estilo viene con un deviceView como clave, extraerlo
+    if (style && typeof style === 'object' && style[deviceView]) {
+      style = style[deviceView];
+    }
+    
+    // Manejo especial para _imageSettings - SOLO actualizar _imageSettings, no sobrescribir style
+    if (style && style._imageSettings) {
+      console.log(`🖼️ BannerEditor: Actualizando solo _imageSettings para ${componentId}:`, style._imageSettings);
+      
+      // NO sobrescribir width y height del estilo, solo actualizar _imageSettings
+      if (isChildComponent(componentId)) {
+        updateChildStyleForDevice(componentId, deviceView, { _imageSettings: style._imageSettings });
+      } else {
+        updateComponentStyleForDevice(componentId, deviceView, { _imageSettings: style._imageSettings });
+      }
+      return;
+    }
+    
     if (isChildComponent(componentId)) {
       updateChildStyleForDevice(componentId, deviceView, style);
     } else {
@@ -1031,13 +1055,24 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
                 <option value="%">Porcentaje</option>
               </select>
               {heightUnit !== 'auto' && (
-                <input
-                  type="number"
-                  value={heightValue}
-                  onChange={handleHeightValueChange}
-                  className="w-20 text-sm border rounded px-2 py-1"
-                  placeholder="ej: 200"
-                />
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={heightValue}
+                    onChange={handleHeightValueChange}
+                    className={`w-20 text-sm border rounded px-2 py-1 ${
+                      heightUnit === 'px' && parseInt(heightValue) < 30 && parseInt(heightValue) > 0 
+                        ? 'border-yellow-400 bg-yellow-50' 
+                        : ''
+                    }`}
+                    placeholder="ej: 200"
+                  />
+                  {heightUnit === 'px' && parseInt(heightValue) < 30 && parseInt(heightValue) > 0 && (
+                    <div className="absolute -bottom-6 left-0 text-xs text-yellow-600 whitespace-nowrap">
+                      ⚠️ Menor a 30px
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             

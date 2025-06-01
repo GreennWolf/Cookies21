@@ -27,7 +27,10 @@
       "Bash(npx puppeteer browsers:*)",
       "Bash(awk:*)",
       "Bash(npm run build:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(/home/wolf/.claude/local/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"deleteTemplate|delete.*template\" src/controllers/BannerTemplateController.js)",
+      "Bash(curl:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   }

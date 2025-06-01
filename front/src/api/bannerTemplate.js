@@ -202,11 +202,6 @@ export const createTemplate = async (bannerConfig, isSystemTemplate = false) => 
     let response;
     let endpoint = '/api/v1/banner-templates';
     
-    // Si es una plantilla del sistema, usar el endpoint correspondiente
-    if (isSystemTemplate) {
-      endpoint = '/api/v1/banner-templates/system';
-    }
-    
     if (isFormData) {
       // IMPORTANTE: NO extraer JSON para plantillas del sistema
       // El backend manejará el FormData correctamente
@@ -215,6 +210,11 @@ export const createTemplate = async (bannerConfig, isSystemTemplate = false) => 
       // Si es plantilla del sistema, asegurar que el flag esté en el FormData
       if (isSystemTemplate && !bannerConfig.has('isSystemTemplate')) {
         bannerConfig.append('isSystemTemplate', 'true');
+      }
+      
+      // También agregar el tipo si no existe
+      if (isSystemTemplate && !bannerConfig.has('type')) {
+        bannerConfig.append('type', 'system');
       }
       
       response = await apiClient.post(endpoint, bannerConfig, {
@@ -228,7 +228,8 @@ export const createTemplate = async (bannerConfig, isSystemTemplate = false) => 
       const payload = {
         ...bannerConfig,
         name: bannerConfig.name || 'Mi Banner por Defecto',
-        isSystemTemplate: isSystemTemplate
+        isSystemTemplate: isSystemTemplate,
+        type: isSystemTemplate ? 'system' : (bannerConfig.type || 'custom')
       };
       
       response = await apiClient.post(endpoint, payload);

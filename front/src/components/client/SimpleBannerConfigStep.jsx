@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { getSystemTemplates } from '../../api/bannerTemplate';
 import BannerThumbnail from '../banner/BannerThumbnail';
@@ -26,7 +26,9 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     preferencesButton: { backgroundColor: '#6b7280', textColor: '#ffffff' },
     textColor: '#374151',
     otherButtons: {},
-    images: {}
+    images: {},
+    // NUEVO: Almacenar cambios de posición/tamaño por separado
+    componentUpdates: {}
   });
 
   const previewRef = useRef(null);
@@ -35,24 +37,6 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
   useEffect(() => {
     fetchTemplates();
   }, []);
-
-  // Analizar componentes cuando se selecciona una plantilla
-  useEffect(() => {
-    if (selectedTemplate) {
-      analyzeTemplateComponents(selectedTemplate);
-    }
-  }, [selectedTemplate]);
-
-  // Actualizar formData cuando cambien las customizations
-  useEffect(() => {
-    if (selectedTemplate && formData.bannerConfig) {
-      onChange('bannerConfig', {
-        ...formData.bannerConfig,
-        customizations: customizations,
-        customizedTemplate: applyCustomizations(selectedTemplate, customizations)
-      });
-    }
-  }, [customizations]);
 
   // Función para aplicar customizations al template
   const applyCustomizations = (template, customizations) => {
@@ -64,6 +48,59 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     const applyToComponents = (components) => {
       return components.map(component => {
         const newComponent = { ...component };
+        
+        // NUEVO: Aplicar componentUpdates (resize/drag) PRIMERO
+        const componentUpdate = customizations.componentUpdates?.[component.id];
+        if (componentUpdate) {
+          console.log(`🔄 APLICANDO componentUpdate a ${component.id}:`, componentUpdate);
+          console.log(`🔄 Componente ANTES:`, { 
+            position: component.position, 
+            style: component.style?.desktop 
+          });
+          
+          // Aplicar cambios de posición (estructura: { desktop: {...}, tablet: {...}, mobile: {...} })
+          if (componentUpdate.position) {
+            newComponent.position = {
+              ...newComponent.position,
+              desktop: {
+                ...newComponent.position?.desktop,
+                ...componentUpdate.position.desktop
+              },
+              tablet: {
+                ...newComponent.position?.tablet,
+                ...componentUpdate.position.tablet
+              },
+              mobile: {
+                ...newComponent.position?.mobile,
+                ...componentUpdate.position.mobile
+              }
+            };
+          }
+          
+          // Aplicar cambios de estilo (tamaño, etc.) (estructura: { desktop: {...}, tablet: {...}, mobile: {...} })
+          if (componentUpdate.style) {
+            newComponent.style = {
+              ...newComponent.style,
+              desktop: {
+                ...newComponent.style?.desktop,
+                ...componentUpdate.style.desktop
+              },
+              tablet: {
+                ...newComponent.style?.tablet,
+                ...componentUpdate.style.tablet
+              },
+              mobile: {
+                ...newComponent.style?.mobile,
+                ...componentUpdate.style.mobile
+              }
+            };
+          }
+          
+          console.log(`🔄 Componente DESPUÉS:`, { 
+            position: newComponent.position, 
+            style: newComponent.style?.desktop 
+          });
+        }
         
         // Aplicar estilos según tipo de componente
         if (component.type === 'button') {
@@ -81,64 +118,64 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
             buttonCustomization = customizations.otherButtons[component.id];
           }
           
-          // Aplicar estilos del botón
+          // Aplicar estilos del botón PRESERVANDO los cambios de resize
           if (buttonCustomization) {
-            newComponent.style = {
-              ...newComponent.style,
-              desktop: {
-                ...newComponent.style?.desktop,
-                backgroundColor: buttonCustomization.backgroundColor,
-                color: buttonCustomization.textColor
-              }
-            };
+            // Solo actualizar propiedades de color, NO dimensiones ni posición
+            if (!newComponent.style) newComponent.style = {};
+            if (!newComponent.style.desktop) newComponent.style.desktop = {};
+            
+            newComponent.style.desktop.backgroundColor = buttonCustomization.backgroundColor;
+            newComponent.style.desktop.color = buttonCustomization.textColor;
           }
         } else if (component.type === 'text') {
-          // Aplicar color de texto general
-          newComponent.style = {
-            ...newComponent.style,
-            desktop: {
-              ...newComponent.style?.desktop,
-              color: customizations.textColor
-            }
-          };
+          // Aplicar color de texto general PRESERVANDO los cambios de resize
+          // Solo actualizar color, NO dimensiones ni posición
+          if (!newComponent.style) newComponent.style = {};
+          if (!newComponent.style.desktop) newComponent.style.desktop = {};
+          
+          newComponent.style.desktop.color = customizations.textColor;
         } else if (component.type === 'image') {
           // Aplicar customizations de imagen PRESERVANDO la imagen original
           const imageCustomization = customizations.images[component.id];
           
-          // Siempre preservar la imagen original si no hay customization
-          if (!imageCustomization) {
-            // Asegurar que la imagen original se mantenga visible
-            if (component.content && !newComponent.style?.desktop?._previewUrl) {
-              // Procesar la URL de la imagen correctamente
-              let imageUrl = component.content;
-              console.log('🖼️ Procesando imagen original:', { componentId: component.id, originalUrl: imageUrl });
-              
-              // Si no es una URL completa, construir la URL correcta
-              if (typeof imageUrl === 'string' && !imageUrl.startsWith('data:') && !imageUrl.startsWith('blob:') && !imageUrl.startsWith('http')) {
-                if (imageUrl.startsWith('/')) {
-                  imageUrl = `${window.location.origin}${imageUrl}`;
-                } else {
-                  // Asumir que es una ruta relativa del servidor
-                  imageUrl = `${window.location.origin}/${imageUrl}`;
-                }
-                console.log('🔗 URL procesada:', { componentId: component.id, processedUrl: imageUrl });
-              }
-              
-              // Validar que imageUrl sea string antes de asignar
-              if (typeof imageUrl === 'string') {
-                newComponent.style = {
-                  ...newComponent.style,
-                  desktop: {
-                    ...newComponent.style?.desktop,
-                    _previewUrl: imageUrl
-                  }
-                };
-                console.log('✅ Asignada _previewUrl como string:', imageUrl);
+          // SIEMPRE procesar la URL de la imagen original para que se vea
+          if (component.content && typeof component.content === 'string') {
+            let imageUrl = component.content;
+            console.log('🖼️ SimpleBanner: Procesando imagen:', { componentId: component.id, originalContent: imageUrl });
+            
+            // Procesar diferentes tipos de URLs
+            if (!imageUrl.startsWith('data:') && !imageUrl.startsWith('blob:') && !imageUrl.startsWith('http')) {
+              if (imageUrl.startsWith('/')) {
+                // URL absoluta relativa al servidor
+                imageUrl = `${window.location.origin}${imageUrl}`;
               } else {
-                console.error('❌ imageUrl no es string:', typeof imageUrl, imageUrl);
+                // Ruta relativa, asumimos que es del servidor
+                imageUrl = `${window.location.origin}/${imageUrl}`;
               }
+              console.log('🔗 SimpleBanner: URL procesada:', { componentId: component.id, processedUrl: imageUrl });
             }
-          } else {
+            
+            // IMPORTANTE: SIEMPRE asignar _previewUrl para que la imagen se vea en TODOS los dispositivos
+            newComponent.style = {
+              ...newComponent.style,
+              desktop: {
+                ...newComponent.style?.desktop,
+                _previewUrl: imageUrl
+              },
+              tablet: {
+                ...newComponent.style?.tablet,
+                _previewUrl: imageUrl
+              },
+              mobile: {
+                ...newComponent.style?.mobile,
+                _previewUrl: imageUrl
+              }
+            };
+            console.log('✅ SimpleBanner: _previewUrl asignada para todos los dispositivos:', imageUrl);
+          }
+          
+          // Luego aplicar customizations si las hay
+          if (imageCustomization) {
             // Aplicar customizations
             if (imageCustomization.position) {
               newComponent.position = {
@@ -179,33 +216,8 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
                   _previewUrl: imageCustomization.tempUrl
                 }
               };
-            } else {
-              // Si no hay nueva imagen, preservar la original
-              let imageUrl = component.content;
-              
-              // Procesar la URL de la imagen correctamente
-              if (typeof imageUrl === 'string' && !imageUrl.startsWith('data:') && !imageUrl.startsWith('blob:') && !imageUrl.startsWith('http')) {
-                if (imageUrl.startsWith('/')) {
-                  imageUrl = `${window.location.origin}${imageUrl}`;
-                } else {
-                  imageUrl = `${window.location.origin}/${imageUrl}`;
-                }
-              }
-              
-              // Validar que imageUrl sea string antes de asignar
-              if (typeof imageUrl === 'string') {
-                newComponent.style = {
-                  ...newComponent.style,
-                  desktop: {
-                    ...newComponent.style?.desktop,
-                    _previewUrl: imageUrl
-                  }
-                };
-                console.log('✅ Preservada _previewUrl como string:', imageUrl);
-              } else {
-                console.error('❌ imageUrl original no es string:', typeof imageUrl, imageUrl);
-              }
             }
+            // Nota: La URL original ya fue procesada arriba, no necesitamos repetir el proceso aquí
           }
         }
         
@@ -234,20 +246,231 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     return customizedTemplate;
   };
 
+  // Analizar componentes cuando se selecciona una plantilla
+  useEffect(() => {
+    if (selectedTemplate) {
+      analyzeTemplateComponents(selectedTemplate);
+    }
+  }, [selectedTemplate]);
+
+  // Memoizar template personalizado
+  const customizedTemplate = useMemo(() => {
+    if (!selectedTemplate) return null;
+    const result = applyCustomizations(selectedTemplate, customizations);
+    
+    // DEBUG: Verificar que las imágenes tengan _previewUrl Y componentUpdates
+    if (result && result.components) {
+      const imageComponents = result.components.filter(c => c.type === 'image');
+      console.log('🖼️ CustomizedTemplate: Imágenes procesadas:', imageComponents.map(img => ({
+        id: img.id,
+        content: img.content,
+        hasPreviewUrl: !!img.style?.desktop?._previewUrl,
+        previewUrl: img.style?.desktop?._previewUrl
+      })));
+      
+      // DEBUG: Verificar TODOS los componentes con componentUpdates
+      const allComponents = result.components;
+      console.log('🔄 CustomizedTemplate: TODOS los componentes con updates aplicados:', allComponents.map(comp => ({
+        id: comp.id,
+        type: comp.type,
+        position: comp.position?.desktop,
+        style: { 
+          width: comp.style?.desktop?.width,
+          height: comp.style?.desktop?.height,
+          backgroundColor: comp.style?.desktop?.backgroundColor
+        },
+        hasComponentUpdate: !!(customizations.componentUpdates?.[comp.id])
+      })));
+    }
+    
+    return result;
+  }, [selectedTemplate, customizations]);
+
+  // Actualizar formData cuando cambien las customizations
+  useEffect(() => {
+    if (selectedTemplate && formData.bannerConfig && customizedTemplate) {
+      onChange('bannerConfig', {
+        ...formData.bannerConfig,
+        customizations: customizations,
+        customizedTemplate: customizedTemplate
+      });
+    }
+  }, [customizedTemplate]);
+
+  // Función para crear una plantilla básica temporal cuando no hay plantillas del sistema
+  const createBasicTemplate = () => {
+    return {
+      _id: 'basic-template-temp',
+      name: 'Plantilla Básica Temporal',
+      type: 'system',
+      status: 'active',
+      layout: {
+        width: '100%',
+        height: 'auto',
+        maxWidth: '500px',
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        zIndex: 9999
+      },
+      components: [
+        {
+          id: 'mainContainer',
+          type: 'container',
+          style: {
+            desktop: {
+              backgroundColor: '#ffffff',
+              borderRadius: '8px',
+              padding: '20px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              border: '1px solid #e5e7eb'
+            }
+          },
+          children: [
+            {
+              id: 'title',
+              type: 'text',
+              content: {
+                texts: {
+                  en: 'We use cookies',
+                  es: 'Usamos cookies'
+                }
+              },
+              style: {
+                desktop: {
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#1f2937',
+                  marginBottom: '12px'
+                }
+              }
+            },
+            {
+              id: 'description',
+              type: 'text',
+              content: {
+                texts: {
+                  en: 'This website uses cookies to ensure you get the best experience.',
+                  es: 'Este sitio web utiliza cookies para garantizar la mejor experiencia.'
+                }
+              },
+              style: {
+                desktop: {
+                  fontSize: '14px',
+                  color: '#6b7280',
+                  marginBottom: '16px',
+                  lineHeight: '1.5'
+                }
+              }
+            },
+            {
+              id: 'buttonContainer',
+              type: 'container',
+              style: {
+                desktop: {
+                  display: 'flex',
+                  gap: '12px',
+                  justifyContent: 'flex-end'
+                }
+              },
+              children: [
+                {
+                  id: 'rejectBtn',
+                  type: 'button',
+                  content: {
+                    texts: {
+                      en: 'Reject',
+                      es: 'Rechazar'
+                    }
+                  },
+                  action: {
+                    type: 'reject_all'
+                  },
+                  style: {
+                    desktop: {
+                      backgroundColor: '#ef4444',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '10px 16px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      cursor: 'pointer'
+                    }
+                  }
+                },
+                {
+                  id: 'acceptBtn',
+                  type: 'button',
+                  content: {
+                    texts: {
+                      en: 'Accept All',
+                      es: 'Aceptar Todo'
+                    }
+                  },
+                  action: {
+                    type: 'accept_all'
+                  },
+                  style: {
+                    desktop: {
+                      backgroundColor: '#10b981',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '10px 16px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      cursor: 'pointer'
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      theme: {
+        colors: {
+          primary: '#10b981',
+          secondary: '#ef4444',
+          background: '#ffffff',
+          text: '#1f2937'
+        }
+      }
+    };
+  };
+
   const fetchTemplates = async () => {
+    console.log('🔍 SimpleBannerConfigStep: Iniciando carga de plantillas del sistema');
     setIsLoadingTemplates(true);
     try {
+      console.log('📡 SimpleBannerConfigStep: Llamando a getSystemTemplates');
       const response = await getSystemTemplates('en');
+      console.log('📦 SimpleBannerConfigStep: Respuesta de getSystemTemplates:', response);
+      
       const templates = response.data?.templates || [];
+      console.log(`✅ SimpleBannerConfigStep: ${templates.length} plantillas cargadas:`, templates);
+      
       setAvailableTemplates(templates);
       
       // Auto-seleccionar la primera plantilla
       if (templates.length > 0) {
+        console.log('🎯 SimpleBannerConfigStep: Auto-seleccionando primera plantilla:', templates[0]);
         selectTemplate(templates[0]);
+      } else {
+        console.warn('⚠️ SimpleBannerConfigStep: No se encontraron plantillas del sistema');
+        toast.warning('No se encontraron plantillas del sistema disponibles. Contacte al administrador para crear plantillas del sistema.');
+        
+        // Crear una plantilla básica temporal para que el componente funcione
+        const basicTemplate = createBasicTemplate();
+        setAvailableTemplates([basicTemplate]);
+        selectTemplate(basicTemplate);
       }
     } catch (error) {
-      console.error('Error al cargar plantillas:', error);
-      toast.error('Error al cargar plantillas del sistema');
+      console.error('❌ SimpleBannerConfigStep: Error al cargar plantillas:', error);
+      console.error('❌ SimpleBannerConfigStep: Error response:', error.response);
+      console.error('❌ SimpleBannerConfigStep: Error message:', error.message);
+      toast.error('Error al cargar plantillas del sistema: ' + (error.message || 'Error desconocido'));
     } finally {
       setIsLoadingTemplates(false);
     }
@@ -416,11 +639,14 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     
     setCustomizations(newCustomizations);
     
-    // Actualizar formData
-    onChange('bannerConfig', {
-      ...formData.bannerConfig,
-      customizations: newCustomizations
-    });
+    // Para cambios inmediatos como colores, sí necesitamos llamar onChange
+    // pero sin pasar customizations para evitar el bucle
+    if (formData.bannerConfig) {
+      onChange('bannerConfig', {
+        ...formData.bannerConfig,
+        customizations: newCustomizations
+      });
+    }
   };
 
   const handleImageUpload = (imageId, file) => {
@@ -446,79 +672,86 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     
     setCustomizations(newCustomizations);
     
-    // Actualizar formData
-    if (formData.bannerConfig) {
-      onChange('bannerConfig', {
-        ...formData.bannerConfig,
-        customizations: newCustomizations,
-        customizedTemplate: applyCustomizations(selectedTemplate, newCustomizations)
-      });
-    }
+    // NO llamar a onChange aquí, el useEffect se encargará cuando customizedTemplate cambie
     
     toast.success('Imagen actualizada correctamente');
   };
 
-  const handleComponentUpdate = (componentId, updates) => {
+  // Manejador que NO modifica selectedTemplate, sino que guarda cambios en customizations
+  const handleComponentUpdate = useCallback((componentId, updates) => {
     if (!selectedTemplate) return;
     
-    // Crear una copia del template actualizado
-    const updatedTemplate = JSON.parse(JSON.stringify(selectedTemplate));
-    
-    // Encontrar y actualizar el componente
-    const updateComponent = (components) => {
-      return components.map(component => {
-        if (component.id === componentId) {
-          // Merge updates into component PRESERVANDO la información existente
-          const updatedComponent = { ...component };
-          
-          if (updates.position) {
-            updatedComponent.position = {
-              ...updatedComponent.position,
-              ...updates.position
-            };
-          }
-          
-          if (updates.style) {
-            // Hacer merge profundo del style preservando propiedades existentes
-            // IMPORTANTE: Preservar _previewUrl para que no se pierda la imagen
-            updatedComponent.style = {
-              ...updatedComponent.style,
-              desktop: {
-                ...updatedComponent.style?.desktop,
-                ...updates.style.desktop,
-                // Preservar _previewUrl si ya existe
-                _previewUrl: updatedComponent.style?.desktop?._previewUrl || updates.style.desktop?._previewUrl
-              }
-            };
-          }
-          
-          return updatedComponent;
-        }
-        
-        // Recursively update children if container
-        if (component.children && Array.isArray(component.children)) {
-          component.children = updateComponent(component.children);
-        }
-        
-        return component;
-      });
-    };
-    
-    updatedTemplate.components = updateComponent(updatedTemplate.components || []);
-    
-    // Actualizar el template seleccionado
-    setSelectedTemplate(updatedTemplate);
-    
-    // Actualizar formData PRESERVANDO las customizations existentes
-    onChange('bannerConfig', {
-      ...formData.bannerConfig,
-      selectedTemplate: updatedTemplate,
-      customizedTemplate: applyCustomizations(updatedTemplate, customizations)
+    console.log('🔄 HandleComponentUpdate:', { componentId, updates });
+    console.log('🔄 Updates estructura:', {
+      hasPosition: !!updates.position,
+      hasStyle: !!updates.style,
+      positionKeys: updates.position ? Object.keys(updates.position) : [],
+      styleKeys: updates.style ? Object.keys(updates.style) : []
     });
-  };
+    
+    // NO modificar selectedTemplate, sino guardar cambios en customizations
+    setCustomizations(prevCustomizations => {
+      const newCustomizations = { ...prevCustomizations };
+      
+      // Inicializar componentUpdates si no existe
+      if (!newCustomizations.componentUpdates) {
+        newCustomizations.componentUpdates = {};
+      }
+      
+      // Guardar los updates para este componente
+      if (!newCustomizations.componentUpdates[componentId]) {
+        newCustomizations.componentUpdates[componentId] = {};
+      }
+      
+      // Merge los updates manteniendo los anteriores
+      // CORRECCIÓN: updates.position y updates.style ya vienen con estructura { deviceView: {...} }
+      if (updates.position) {
+        if (!newCustomizations.componentUpdates[componentId].position) {
+          newCustomizations.componentUpdates[componentId].position = {};
+        }
+        // Merge por dispositivo
+        Object.keys(updates.position).forEach(device => {
+          newCustomizations.componentUpdates[componentId].position[device] = {
+            ...newCustomizations.componentUpdates[componentId].position[device],
+            ...updates.position[device]
+          };
+        });
+      }
+      
+      if (updates.style) {
+        if (!newCustomizations.componentUpdates[componentId].style) {
+          newCustomizations.componentUpdates[componentId].style = {};
+        }
+        // Merge por dispositivo
+        Object.keys(updates.style).forEach(device => {
+          newCustomizations.componentUpdates[componentId].style[device] = {
+            ...newCustomizations.componentUpdates[componentId].style[device],
+            ...updates.style[device]
+          };
+        });
+      }
+      
+      console.log('💾 Guardando component updates:', newCustomizations.componentUpdates);
+      
+      return newCustomizations;
+    });
+    
+    // El resto se maneja automáticamente cuando customizedTemplate se recalcula
+  }, [selectedTemplate]);
 
   const ColorPicker = ({ label, value, onChange, compact = false }) => {
-    const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+    const [localColor, setLocalColor] = useState(value);
+    const colorPickerRef = useRef(null);
+    
+    // Sincronizar con valor externo cuando cambie
+    useEffect(() => {
+      setLocalColor(value);
+    }, [value]);
+    
+    const handleColorChange = (newColor) => {
+      setLocalColor(newColor);
+      onChange(newColor);
+    };
     
     return (
       <div className={compact ? "mb-2" : "mb-3"}>
@@ -527,35 +760,40 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
         </label>
         <div className="flex items-center gap-3">
           <div className="relative">
-            {/* Color input sin overlay problemático */}
-            <input
-              type="color"
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
-              onFocus={() => setIsColorPickerOpen(true)}
-              onBlur={() => setIsColorPickerOpen(false)}
-              className="w-12 h-12 rounded-lg border-2 border-gray-300 cursor-pointer"
+            {/* Contenedor visible con el color actual */}
+            <div 
+              className="w-12 h-12 rounded-lg border-2 border-gray-300 cursor-pointer overflow-hidden"
+              onClick={() => colorPickerRef.current?.click()}
               style={{
-                WebkitAppearance: 'none',
-                MozAppearance: 'none',
-                appearance: 'none',
-                backgroundColor: value,
-                border: '2px solid #d1d5db',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                minWidth: '48px',
-                minHeight: '48px'
+                backgroundColor: localColor
               }}
-            />
+            >
+              {/* Input de color oculto */}
+              <input
+                ref={colorPickerRef}
+                type="color"
+                value={localColor}
+                onChange={(e) => handleColorChange(e.target.value)}
+                className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+              />
+            </div>
           </div>
           <input
             type="text"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
+            value={localColor}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Validar formato hex
+              if (/^#[0-9A-Fa-f]{0,6}$/.test(value)) {
+                setLocalColor(value);
+                if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                  onChange(value);
+                }
+              }
+            }}
             className="text-xs border border-gray-300 px-2 py-1 rounded font-mono"
             style={{ width: '80px' }}
             placeholder="#ffffff"
-            pattern="^#[0-9A-Fa-f]{6}$"
           />
         </div>
       </div>
@@ -667,7 +905,7 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
             <div className="border border-gray-200 rounded-lg bg-gray-100 overflow-hidden">
               {previewMode === 'simulator' ? (
                 <BrowserSimulatorPreview 
-                  bannerConfig={applyCustomizations(selectedTemplate, customizations)} 
+                  bannerConfig={customizedTemplate} 
                   deviceView="desktop"
                   height="500px"
                 />
@@ -675,7 +913,7 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
                 <div className="bg-white p-4" style={{ minHeight: '400px' }}>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-4" style={{ minHeight: '360px' }}>
                     <InteractiveBannerPreview 
-                      bannerConfig={applyCustomizations(selectedTemplate, customizations)} 
+                      bannerConfig={customizedTemplate} 
                       deviceView="desktop"
                       height="350px"
                       onUpdateComponent={handleComponentUpdate}

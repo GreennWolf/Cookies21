@@ -1092,7 +1092,7 @@ function BannerCanvas({
                 isSelected={component.id === selectedComponent?.id}
                 onDelete={onDeleteComponent}
                 onUpdateContent={onUpdateContent}
-                onUpdateStyle={(id, styleProps) => onUpdateStyle(component.id, styleProps)}
+                onUpdateStyle={(id, styleProps) => onUpdateStyle(id, styleProps)}
                 onUpdateChildStyle={onUpdateChildStyle} // NUEVA PROP para hijos
                 resizeStep={resizeStep}
                 onSelect={setSelectedComponent}

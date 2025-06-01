@@ -189,182 +189,68 @@ function BannerPreview({
     return baseStyles;
   };
   
-  // Extract image URL from component content
-  const getImageUrl = (component) => {
-    try {
-      // CASO 0: Añadir cache-busting para evitar problemas de caché
-      const cacheBuster = `?t=${Date.now()}`;
-      
-      // CASO 1: Si hay una URL de previsualización en el estilo, usar esa directamente
-      const deviceStyle = component.style?.[currentDevice];
-      if (deviceStyle?._previewUrl) {
-        // Para blob URLs no añadir parámetros
-        if (deviceStyle._previewUrl.startsWith('blob:')) {
-          return deviceStyle._previewUrl;
-        }
-        // Para otras URLs añadir cache busting
-        const url = deviceStyle._previewUrl + (deviceStyle._previewUrl.includes('?') ? '&cb=' + Date.now() : cacheBuster);
-        return url;
-      }
-      
-      // CASO 2: Si es una referencia temporal, usar URL temporal u ObjectURL
-      if (typeof component.content === 'string' && component.content.startsWith('__IMAGE_REF__')) {
-        // Verificar si hay una imagen temporal en memoria global
-        if (window._imageFiles && window._imageFiles[component.content]) {
-          const file = window._imageFiles[component.content];
-          if (typeof URL !== 'undefined' && URL.createObjectURL) {
-            try {
-              // Para archivos, crear un nuevo ObjectURL cada vez para evitar problemas de caché
-              const objectUrl = URL.createObjectURL(file);
-              
-              // Almacenar el ObjectURL para liberarlo después
-              if (!window._objectUrls) window._objectUrls = [];
-              window._objectUrls.push(objectUrl);
-              
-              // Limpiar ObjectURLs anteriores para evitar memory leaks (máximo 20)
-              if (window._objectUrls.length > 20) {
-                const oldUrl = window._objectUrls.shift();
-                try { URL.revokeObjectURL(oldUrl); } catch (e) {}
-              }
-              
-              return objectUrl;
-            } catch (err) {
-            }
-          }
-        }
-        // Imagen de carga mientras se procesa
-        return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNlMGUwZTAiLz48dGV4dCB4PSI1MCIgeT0iNTAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzc3NyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkNhcmdhbmRvPC90ZXh0Pjwvc3ZnPg==';
-      }
-      
-      // CASO 3: Imágenes Data URI
-      if (typeof component.content === 'string' && component.content.startsWith('data:')) {
-        return component.content;
-      }
-      
-      // CASO 4: Imágenes Blob URL
-      if (typeof component.content === 'string' && component.content.startsWith('blob:')) {
-        return component.content;
-      }
-      
-      // CASO 5: Rutas /direct-image/
-      if (typeof component.content === 'string' && component.content.includes('/direct-image/')) {
-        // Extraer el path relativo
-        const parts = component.content.split('/direct-image/');
-        if (parts.length === 2) {
-          const relativePath = parts[1].split('?')[0]; // Eliminar parámetros de consulta
-          
-          // Usar URL absoluta con servidor actual
-          const baseUrl = window.location.origin;
-          const fullUrl = `${baseUrl}/direct-image/${relativePath}${cacheBuster}`;
-          return fullUrl;
-        }
-      }
-      
-      // CASO 6: Rutas /templates/images/
-      if (typeof component.content === 'string' && component.content.includes('/templates/images/')) {
-        // Extraer el path relativo
-        const parts = component.content.split('/templates/images/');
-        if (parts.length === 2) {
-          const relativePath = parts[1].split('?')[0]; // Eliminar parámetros de consulta
-          
-          // Usar URL absoluta con servidor actual
-          const baseUrl = window.location.origin;
-          const fullUrl = `${baseUrl}/templates/images/${relativePath}${cacheBuster}`;
-          return fullUrl;
-        }
-      }
-      
-      // CASO 7: Otras rutas relativas
-      if (typeof component.content === 'string' && component.content.startsWith('/')) {
-        const fullUrl = `${window.location.origin}${component.content}${component.content.includes('?') ? '&cb=' + Date.now() : cacheBuster}`;
-        return fullUrl;
-      }
-      
-      // CASO 8: URLs http/https
-      if (typeof component.content === 'string' && 
-          (component.content.startsWith('http://') || component.content.startsWith('https://'))) {
-        return component.content;
-      }
-      
-      // CASO 9: Objeto con URL o texto
-      if (component.content && typeof component.content === 'object') {
-        // Objeto con propiedad URL
-        if (component.content.url) {
-          if (component.content.url.startsWith('/')) {
-            const serverUrl = window.location.origin;
-            return `${serverUrl}${component.content.url}${cacheBuster}`;
-          }
-          return component.content.url;
-        }
-        
-        // Objeto con textos multilingual
-        if (component.content.texts && typeof component.content.texts === 'object') {
-          // Intentar primero inglés
-          if (component.content.texts.en) {
-            const enText = component.content.texts.en;
-            if (typeof enText === 'string') {
-              // Si es una URL relativa, convertirla a absoluta
-              if (enText.startsWith('/')) {
-                const serverUrl = window.location.origin;
-                return `${serverUrl}${enText}${cacheBuster}`;
-              }
-              // Si es URL http/https o data URI, usarla directo
-              if (enText.startsWith('http') || enText.startsWith('data:') || enText.startsWith('blob:')) {
-                return enText;
-              }
-            }
-          }
-          
-          // Si no hay texto en inglés, usar el primer texto disponible
-          for (const lang in component.content.texts) {
-            if (lang === 'en') continue;
-            
-            const text = component.content.texts[lang];
-            if (typeof text === 'string') {
-              // Si es una URL relativa, convertirla a absoluta
-              if (text.startsWith('/')) {
-                const serverUrl = window.location.origin;
-                return `${serverUrl}${text}${cacheBuster}`;
-              }
-              // Si es URL http/https o data URI, usarla directo
-              if (text.startsWith('http') || text.startsWith('data:') || text.startsWith('blob:')) {
-                return text;
-              }
-            }
-          }
-        }
-      }
-      
-      // CASO 10: Fallback - usar placeholder
-      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCIgeT0iNTAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlbjwvdGV4dD48L3N2Zz4=';
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error(`❌ Preview: Error al procesar URL de imagen:`, error);
-      }
-      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNmZmNjY2MiLz48dGV4dCB4PSI1MCIgeT0iNTAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iI2ZmMDAwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkVycm9yPC90ZXh0Pjwvc3ZnPg==';
-    }
-  };
+  // Extract image URL from component content - usando función centralizada
+  // Nota: Esta función se mantiene para compatibilidad, pero usa la función centralizada
 
   // Función para convertir porcentajes a píxeles en vista previa
-  const convertPercentageToPixels = (styleObj, bannerContainerRef) => {
-    if (!bannerContainerRef || !styleObj) return styleObj;
+  const convertPercentageToPixels = (styleObj, referenceContainer, isChildComponent = false) => {
+    if (!referenceContainer || !styleObj) return styleObj;
     
     const converted = { ...styleObj };
     
     try {
-      const containerRect = bannerContainerRef.getBoundingClientRect();
+      const containerRect = referenceContainer.getBoundingClientRect();
       
-      // Convertir width si es porcentaje
-      if (converted.width && typeof converted.width === 'string' && converted.width.includes('%')) {
-        const percentValue = parseFloat(converted.width);
-        const pixelValue = (percentValue * containerRect.width) / 100;
+      // CORRECCIÓN: Aplicar límites para componentes hijos
+      const applyChildLimits = (value, isWidth = true) => {
+        if (!isChildComponent) return value;
+        // Límite del 95% del contenedor para hijos
+        const maxLimit = isWidth ? containerRect.width * 0.95 : containerRect.height * 0.95;
+        const limited = Math.min(value, maxLimit);
+        
+        // DEBUG: Log cuando se aplican límites
+        if (limited !== value && process.env.NODE_ENV === 'development') {
+          console.log(`⚠️ Preview: ${isWidth ? 'Ancho' : 'Alto'} limitado: ${value}px → ${limited}px (contenedor: ${isWidth ? containerRect.width : containerRect.height}px)`);
+        }
+        
+        return limited;
+      };
+      
+      // Convertir width - aplicar límites tanto para porcentajes como píxeles
+      if (converted.width && typeof converted.width === 'string') {
+        let pixelValue;
+        
+        if (converted.width.includes('%')) {
+          const percentValue = parseFloat(converted.width);
+          pixelValue = (percentValue * containerRect.width) / 100;
+        } else if (converted.width.includes('px')) {
+          pixelValue = parseFloat(converted.width);
+        } else {
+          pixelValue = parseFloat(converted.width) || 0;
+        }
+        
+        // Aplicar límites si es hijo (tanto para % como px)
+        pixelValue = applyChildLimits(pixelValue, true);
+        
         converted.width = `${Math.round(pixelValue)}px`;
       }
       
-      // Convertir height si es porcentaje
-      if (converted.height && typeof converted.height === 'string' && converted.height.includes('%')) {
-        const percentValue = parseFloat(converted.height);
-        const pixelValue = (percentValue * containerRect.height) / 100;
+      // Convertir height - aplicar límites tanto para porcentajes como píxeles
+      if (converted.height && typeof converted.height === 'string') {
+        let pixelValue;
+        
+        if (converted.height.includes('%')) {
+          const percentValue = parseFloat(converted.height);
+          pixelValue = (percentValue * containerRect.height) / 100;
+        } else if (converted.height.includes('px')) {
+          pixelValue = parseFloat(converted.height);
+        } else {
+          pixelValue = parseFloat(converted.height) || 0;
+        }
+        
+        // Aplicar límites si es hijo (tanto para % como px)
+        pixelValue = applyChildLimits(pixelValue, false);
+        
         converted.height = `${Math.round(pixelValue)}px`;
       }
       
@@ -373,18 +259,25 @@ function BannerPreview({
         if (converted[prop] && typeof converted[prop] === 'string' && converted[prop].includes('%')) {
           const percentValue = parseFloat(converted[prop]);
           const isWidthProp = prop.includes('Width');
-          const pixelValue = (percentValue * (isWidthProp ? containerRect.width : containerRect.height)) / 100;
+          let pixelValue = (percentValue * (isWidthProp ? containerRect.width : containerRect.height)) / 100;
+          
+          // Aplicar límites para max properties si es hijo
+          if ((prop === 'maxWidth' || prop === 'maxHeight') && isChildComponent) {
+            pixelValue = applyChildLimits(pixelValue, isWidthProp);
+          }
+          
           converted[prop] = `${Math.round(pixelValue)}px`;
         }
       });
       
     } catch (error) {
+      console.error('Error convirtiendo porcentajes:', error);
     }
     
     return converted;
   };
 
-  const renderComponent = (component) => {
+  const renderComponent = (component, parentContainerRef = null) => {
     if (!component) return null;
     
     
@@ -397,20 +290,44 @@ function BannerPreview({
       {...deviceStyle};
     
     
-    // Convertir estilos con porcentajes a píxeles para todos los componentes
-    const convertedProcessedStyle = convertPercentageToPixels(processedStyle, bannerContainerRef.current);
+    // Para componentes hijos, convertir porcentajes usando el contenedor padre como referencia
+    const convertedProcessedStyle = component.parentId && parentContainerRef ? 
+      convertPercentageToPixels(processedStyle, parentContainerRef.current, true) : // Hijos usan contenedor padre con límites
+      convertPercentageToPixels(processedStyle, bannerContainerRef.current, false); // Componentes raíz usan banner container
+    
+    // DEBUG: Verificar si se está usando el contenedor correcto
+    if (component.parentId && process.env.NODE_ENV === 'development') {
+      console.log(`📐 Preview: Usando ${parentContainerRef ? 'contenedor padre' : 'banner container'} para ${component.id}`, {
+        hasParentRef: !!parentContainerRef,
+        parentRefCurrent: parentContainerRef?.current,
+        isChild: !!component.parentId
+      });
+    }
     
     // Base styles with positioning - CORREGIDO para hijos de contenedores
     const baseStyles = component.parentId ? {
-      // Para hijos de contenedores: NO usar position absolute
+      // Para hijos de contenedores: mantener todos los estilos pero sin posicionamiento
       ...convertedProcessedStyle,
       // Properties for better visibility
       visibility: 'visible',
       opacity: 1,
-      // Para hijos, usamos el wrapper para el posicionamiento
-      position: 'static',
+      // Los hijos no deben tener posición, eso lo maneja el wrapper
+      position: undefined,
+      top: undefined,
+      left: undefined,
+      right: undefined,
+      bottom: undefined,
+      transform: undefined,
+      // Dimensiones con límites aplicados
       width: convertedProcessedStyle.width || 'auto',
-      height: convertedProcessedStyle.height || 'auto'
+      height: convertedProcessedStyle.height || 'auto',
+      // Para componentes de texto, asegurar que se ajusten al contenedor
+      ...(component.type === 'text' && {
+        wordWrap: 'break-word',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        boxSizing: 'border-box'
+      })
     } : {
       // Para componentes raíz: usar position absolute normal
       position: 'absolute',
@@ -448,25 +365,177 @@ function BannerPreview({
   
     // Render based on component type
     switch (component.type) {
-      case 'text':
+      case 'text': {
+        // DEBUG: Verificar estado del componente de texto
+        console.log(`🔍 TEXT DEBUG - ID: ${component.id}`, {
+          parentId: component.parentId,
+          hasParentRef: !!parentContainerRef,
+          parentRefCurrent: !!parentContainerRef?.current,
+          isChild: !!component.parentId,
+          width: convertedProcessedStyle.width,
+          height: convertedProcessedStyle.height
+        });
+        
+        // APLICAR LÍMITES MANUALMENTE - ENFOQUE MÁS SIMPLE
+        let finalTextStyle = { ...convertedProcessedStyle };
+        
+        // FORZAR LÍMITES SIN IMPORTAR SI ES HIJO O NO - PARA DEBUG
+        if (parentContainerRef?.current) {
+          const containerRect = parentContainerRef.current.getBoundingClientRect();
+          console.log(`🔍 CONTAINER RECT:`, containerRect);
+          
+          if (containerRect.width > 0 && containerRect.height > 0) {
+            const maxWidth = containerRect.width * 0.95;
+            const maxHeight = containerRect.height * 0.95;
+            
+            // Obtener dimensiones actuales
+            const currentWidth = parseFloat(finalTextStyle.width) || 150;
+            const currentHeight = parseFloat(finalTextStyle.height) || 40;
+            
+            console.log(`🔍 CURRENT DIMENSIONS:`, { currentWidth, currentHeight, maxWidth, maxHeight });
+            
+            // Aplicar límites SIEMPRE (no solo si es hijo)
+            if (currentWidth > maxWidth) {
+              console.log(`🔥 PREVIEW TEXT LIMIT: ${currentWidth}px → ${Math.round(maxWidth)}px`);
+              finalTextStyle.width = `${Math.round(maxWidth)}px`;
+            }
+            if (currentHeight > maxHeight) {
+              console.log(`🔥 PREVIEW TEXT HEIGHT LIMIT: ${currentHeight}px → ${Math.round(maxHeight)}px`);
+              finalTextStyle.height = `${Math.round(maxHeight)}px`;
+            }
+          }
+        } else {
+          console.log(`⚠️ NO HAY PARENT CONTAINER REF PARA:`, component.id);
+        }
+        
+        // CORRECCIÓN: Usar EXACTAMENTE la misma lógica que ComponentRenderer
+        const textStyle = {
+          ...finalTextStyle,
+          // IMPORTANTE: Usar las dimensiones con límites aplicados
+          width: finalTextStyle.width || '150px',
+          height: finalTextStyle.height || '40px',
+          // Establecer mínimos razonables
+          minWidth: '50px',
+          minHeight: '20px',
+          // CRÍTICO: Forzar que no se salga del contenedor
+          maxWidth: finalTextStyle.width,
+          maxHeight: finalTextStyle.height,
+          // Asegurar que el contenedor sea de tamaño fijo (box-sizing)
+          boxSizing: 'border-box',
+          // Permitir bordes personalizados si se configuran
+          borderWidth: finalTextStyle.borderWidth || '0px',
+          borderStyle: finalTextStyle.borderStyle || 'solid',
+          borderColor: finalTextStyle.borderColor || 'transparent',
+          padding: finalTextStyle.padding || '10px',
+          overflow: 'hidden',
+          wordWrap: 'break-word',
+          wordBreak: 'break-word',
+          position: 'relative', // Importante para posicionar el control de resize
+          display: 'flex',
+          alignItems: finalTextStyle.textAlign === 'center' ? 'center' : 'flex-start',
+          justifyContent: finalTextStyle.textAlign === 'center' ? 'center' : 
+                         finalTextStyle.textAlign === 'right' ? 'flex-end' : 'flex-start',
+          // CRÍTICO: Evitar que flex lo estire
+          flexShrink: 0,
+          flexGrow: 0
+        };
+        
         return (
-          <div key={component.id} style={baseStyles}>
-            {displayContent}
+          <div 
+            key={component.id} 
+            style={textStyle}
+          >
+            <div style={{
+              width: '100%',
+              maxWidth: '100%',
+              textAlign: finalTextStyle.textAlign || 'left',
+              wordBreak: 'break-word',
+              overflow: 'hidden',
+              whiteSpace: 'normal',
+              overflowWrap: 'break-word'
+            }}>
+              {displayContent || 'Texto'}
+            </div>
           </div>
         );
-      case 'button':
+      }
+      case 'button': {
+        // Calcular dimensiones con límites si es hijo
+        let finalWidth = baseStyles.width || '150px';
+        let finalHeight = baseStyles.height || '40px';
+        
+        // Si es hijo y tenemos referencia del contenedor, aplicar límite del 95%
+        if (component.parentId && parentContainerRef?.current) {
+          const containerRect = parentContainerRef.current.getBoundingClientRect();
+          const maxWidth = containerRect.width * 0.95;
+          const maxHeight = containerRect.height * 0.95;
+          
+          // Convertir a número si es string
+          const currentWidth = typeof finalWidth === 'string' ? parseFloat(finalWidth) : finalWidth;
+          const currentHeight = typeof finalHeight === 'string' ? parseFloat(finalHeight) : finalHeight;
+          
+          // Aplicar límites
+          if (currentWidth > maxWidth) {
+            console.log(`⚠️ Preview Button: Ancho limitado ${currentWidth}px → ${Math.round(maxWidth)}px (contenedor: ${containerRect.width}px)`);
+            finalWidth = `${Math.round(maxWidth)}px`;
+          }
+          if (currentHeight > maxHeight) {
+            console.log(`⚠️ Preview Button: Alto limitado ${currentHeight}px → ${Math.round(maxHeight)}px (contenedor: ${containerRect.height}px)`);
+            finalHeight = `${Math.round(maxHeight)}px`;
+          }
+        }
+        
         return (
-          <button
+          <div
             key={component.id}
-            onClick={handleClick}
-            style={{ ...baseStyles, cursor: 'pointer' }}
+            style={{
+              ...baseStyles,
+              // CORRECCIÓN: Contenedor con dimensiones exactas y límites aplicados
+              width: finalWidth,
+              height: finalHeight,
+              minWidth: '80px',
+              minHeight: '30px',
+              boxSizing: 'border-box',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
           >
-            {displayContent}
-          </button>
+            <button
+              onClick={handleClick}
+              style={{ 
+                width: '100%',
+                height: '100%',
+                cursor: 'pointer',
+                // Copiar estilos visuales relevantes
+                backgroundColor: baseStyles.backgroundColor,
+                color: baseStyles.color,
+                border: baseStyles.border || 'none',
+                borderRadius: baseStyles.borderRadius,
+                fontSize: baseStyles.fontSize,
+                fontWeight: baseStyles.fontWeight,
+                padding: baseStyles.padding,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {displayContent}
+            </button>
+          </div>
         );
+      }
       case 'image': {
         const imageUrl = getImageUrl(component, currentDevice, 'preview');
         const hasError = imageErrors[component.id];
+        
+        console.log(`🖼️ Preview: Procesando imagen ${component.id}:`, {
+          imageUrl,
+          hasError,
+          contentType: typeof component.content,
+          content: component.content,
+          hasPreviewUrl: !!component.style?.[currentDevice]?._previewUrl
+        });
         
         // Show error placeholder if image failed to load
         if (hasError) {
@@ -502,7 +571,14 @@ function BannerPreview({
               transition: 'opacity 0.2s, transform 0.2s',
               opacity: 1,
               transform: 'translateZ(0)', // Hardware acceleration para mejor rendimiento
-              willChange: 'opacity, transform'
+              willChange: 'opacity, transform',
+              // CRÍTICO: Asegurar que la imagen se ajuste al contenedor
+              maxWidth: '100%',
+              maxHeight: '100%',
+              width: 'auto',
+              height: 'auto',
+              objectFit: 'contain',
+              objectPosition: 'center'
             }}
             crossOrigin="anonymous"
             onLoad={(e) => {
@@ -702,8 +778,15 @@ function BannerPreview({
         const containerConfig = component.containerConfig?.[currentDevice] || {};
         const displayMode = containerConfig.displayMode || 'libre';
         
-        // Convertir estilos con porcentajes a píxeles
-        const convertedProcessedStyle = convertPercentageToPixels(processedStyle, bannerContainerRef.current);
+        // Variable para almacenar la referencia del contenedor interno
+        let containerInnerElement = null;
+        
+        // Convertir estilos con porcentajes a píxeles para el contenedor
+        const convertedProcessedStyle = convertPercentageToPixels(
+          processedStyle, 
+          bannerContainerRef.current,
+          false // Los contenedores no son hijos, no aplicar límites del 95%
+        );
         
         // Estilos del contenedor EXTERNO (posicionamiento en canvas)
         const containerOuterStyles = {
@@ -730,6 +813,9 @@ function BannerPreview({
           border: processedStyle.border || '1px solid rgba(59, 130, 246, 0.3)',
           borderRadius: processedStyle.borderRadius || '4px',
           padding: processedStyle.padding || '10px',
+          // IMPORTANTE: Para contener a los hijos
+          overflow: 'hidden', // Mantener hidden pero asegurar que las imágenes se ajusten
+          boxSizing: 'border-box',
           // Layout del contenedor
           display: displayMode === 'flex' ? 'flex' : displayMode === 'grid' ? 'grid' : 'block',
           // Propiedades específicas del modo
@@ -737,7 +823,8 @@ function BannerPreview({
             flexDirection: containerConfig.flexDirection || 'row',
             justifyContent: containerConfig.justifyContent || 'flex-start',
             alignItems: containerConfig.alignItems || 'stretch',
-            gap: containerConfig.gap || '10px'
+            gap: containerConfig.gap || '10px',
+            flexWrap: 'nowrap' // Evitar que los elementos se envuelvan
           }),
           ...(displayMode === 'grid' && {
             gridTemplateColumns: containerConfig.gridTemplateColumns || 'repeat(2, 1fr)',
@@ -755,7 +842,10 @@ function BannerPreview({
             key={component.id} 
             style={containerOuterStyles}
           >
-            <div style={containerInnerStyles}>
+            <div 
+              ref={(el) => { containerInnerElement = el; }} 
+              style={containerInnerStyles}
+            >
               {/* Renderizar hijos del contenedor */}
             {component.children && component.children.map(child => {
               let childWrapperStyle = {};
@@ -763,23 +853,65 @@ function BannerPreview({
               if (displayMode === 'libre') {
                 // En modo libre: posición absoluta
                 const childPos = child.position?.[currentDevice] || {};
+                const childStyle = child.style?.[currentDevice] || {};
+                
+                // Para modo libre, el wrapper maneja la posición
                 childWrapperStyle = {
                   position: 'absolute',
                   top: childPos.top || '0px',
-                  left: childPos.left || '0px'
+                  left: childPos.left || '0px',
+                  // El tamaño se maneja en el componente hijo
+                  width: 'auto',
+                  height: 'auto',
+                  // Limitar el contenido al tamaño del contenedor
+                  maxWidth: '95%',
+                  maxHeight: '95%',
+                  overflow: 'visible', // Permitir que el hijo maneje su overflow
+                  boxSizing: 'border-box'
                 };
               } else {
-                // En modo flex/grid: posición relativa
+                // En modo flex/grid: posición relativa con dimensiones del contenedor
+                const childStyle = child.style?.[currentDevice] || {};
+                
+                // Para flex/grid, los hijos también deben respetar límites
+                const convertedChildStyle = convertPercentageToPixels(
+                  childStyle,
+                  containerInnerElement,
+                  true // Es componente hijo, aplicar límites del 95%
+                );
+                
                 childWrapperStyle = {
-                  position: 'relative'
+                  position: 'relative',
+                  // Para flex/grid, usar dimensiones convertidas si están definidas
+                  width: convertedChildStyle.width || 'auto',
+                  height: convertedChildStyle.height || 'auto',
+                  // CRÍTICO: Para imágenes, permitir que se ajusten sin recortar
+                  overflow: child.type === 'image' ? 'visible' : 'hidden',
+                  boxSizing: 'border-box',
+                  // Aplicar límites máximos
+                  maxWidth: convertedChildStyle.maxWidth || '95%',
+                  maxHeight: convertedChildStyle.maxHeight || '95%',
+                  // IMPORTANTE: Para modo flex, evitar que se estire
+                  ...(displayMode === 'flex' && {
+                    flex: '0 0 auto', // No crecer, no encoger, tamaño automático
+                    alignSelf: child.type === 'text' ? 'flex-start' : 'auto' // Los textos no se estiran
+                  }),
+                  // ESPECIAL PARA IMÁGENES: Asegurar que se vean correctamente
+                  ...(child.type === 'image' && {
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: '80px' // Mínimo para que las imágenes se vean
+                  })
                 };
               }
               
               // DEBUG: Log child wrapper styles
               
+              // Crear un wrapper con el callback ref para obtener el contenedor
               return (
                 <div key={child.id} style={childWrapperStyle}>
-                  {renderComponent(child)}
+                  {renderComponent(child, { current: containerInnerElement })}
                 </div>
               );
             })}

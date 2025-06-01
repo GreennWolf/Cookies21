@@ -41,6 +41,7 @@ const ImageEditor = ({
   const imageRef = useRef(null);
   const fileInputRef = useRef(null);
 
+
   // Convertir valores de posición y tamaño a números
   const parseSize = (value) => {
     if (typeof value === 'number') return value;
@@ -311,10 +312,8 @@ const ImageEditor = ({
     
     setSize(newSize);
     
-    // Notificar al componente padre
-    if (onSizeChange) {
-      onSizeChange(newSize);
-    }
+    // NO notificar durante el resize, solo actualizar estado visual
+    // La notificación se hará en handleResizeEnd
   };
 
   // Finalizar redimensionamiento
@@ -324,6 +323,16 @@ const ImageEditor = ({
     // Eliminar event listeners
     document.removeEventListener('mousemove', handleResizeMove);
     document.removeEventListener('mouseup', handleResizeEnd);
+    
+    // IMPORTANTE: Notificar al componente padre del tamaño final
+    if (onSizeChange) {
+      console.log('🎯 ImageEditor: Notificando tamaño final:', size);
+      console.log('🎯 ImageEditor: onSizeChange function exists:', typeof onSizeChange);
+      onSizeChange(size);
+      console.log('🎯 ImageEditor: onSizeChange called successfully');
+    } else {
+      console.warn('⚠️ ImageEditor: No onSizeChange callback provided');
+    }
   };
 
   // Toggle mantener relación de aspecto

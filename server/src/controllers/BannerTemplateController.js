@@ -540,11 +540,40 @@ uploadBase64Image = async (req, res) => {
   // Obtener plantillas del sistema
   getSystemTemplates = catchAsync(async (req, res) => {
     const { language = 'en' } = req.query;
+    
+    console.log('🔍 BannerTemplateController.getSystemTemplates: Iniciando búsqueda');
+    console.log('📝 Query language:', language);
+    
+    // Primero verificar todas las plantillas para debugging
+    const allTemplates = await BannerTemplate.find({});
+    console.log(`📊 Total de plantillas en BD: ${allTemplates.length}`);
+    
+    const systemTemplates = allTemplates.filter(t => t.type === 'system');
+    console.log(`🔧 Plantillas de sistema: ${systemTemplates.length}`);
+    
+    const activeSystemTemplates = systemTemplates.filter(t => t.status === 'active');
+    console.log(`✅ Plantillas de sistema activas: ${activeSystemTemplates.length}`);
+    
+    const publicActiveSystemTemplates = activeSystemTemplates.filter(t => t.metadata?.isPublic === true);
+    console.log(`🌐 Plantillas de sistema activas y públicas: ${publicActiveSystemTemplates.length}`);
+    
+    // Consulta original
     const templates = await BannerTemplate.find({
       type: 'system',
       status: 'active',
       'metadata.isPublic': true
     });
+    
+    console.log(`📋 Plantillas finales encontradas: ${templates.length}`);
+    if (templates.length > 0) {
+      console.log('📝 Primeras plantillas:', templates.slice(0, 2).map(t => ({ 
+        id: t._id, 
+        name: t.name, 
+        type: t.type, 
+        status: t.status, 
+        isPublic: t.metadata?.isPublic 
+      })));
+    }
 
     res.status(200).json({
       status: 'success',
@@ -811,6 +840,13 @@ createSystemTemplate = async (req, res) => {
       },
       status: 'active'
     };
+    
+    // IMPORTANTE: Eliminar _id si existe para evitar duplicate key error
+    // MongoDB debe generar el _id automáticamente
+    if (templateWithMetadata._id) {
+      console.log(`⚠️ Removiendo _id existente del template: ${templateWithMetadata._id}`);
+      delete templateWithMetadata._id;
+    }
     
     const createdTemplate = await BannerTemplate.create(templateWithMetadata);
     console.log(`✅ Plantilla del sistema creada con ID: ${createdTemplate._id}`);
@@ -1193,6 +1229,9 @@ createSystemTemplate = async (req, res) => {
     try {
       console.log('🚀 Iniciando creación de template');
       console.log('📦 Content-Type:', req.headers['content-type']);
+      console.log('👤 User ID:', userId);
+      console.log('🔑 Is Owner:', req.isOwner);
+      console.log('🏢 Client ID:', clientId);
       console.log('🔍 DEBUG - Iniciando procesamiento de datos para creación de template');
       
       // 1. Detectar si tenemos un formulario multipart
@@ -1228,6 +1267,12 @@ createSystemTemplate = async (req, res) => {
         // Para solicitudes JSON normales
         templateData = req.body;
       }
+      
+      // DEBUG: Mostrar datos recibidos
+      console.log('📊 DEBUG - Datos recibidos:');
+      console.log('- templateData.type:', templateData.type);
+      console.log('- templateData.isSystemTemplate:', templateData.isSystemTemplate);
+      console.log('- templateData.name:', templateData.name);
       
       // Determinar para qué cliente se creará el template
       let targetClientId = clientId;
@@ -1514,19 +1559,59 @@ createSystemTemplate = async (req, res) => {
       // 7. Guardar la plantilla en la base de datos
       console.log('💾 Guardando template en la base de datos');
       
-      // Establecer metadata
+      // Determinar el tipo de plantilla basado en permisos y solicitud del usuario
+      let templateType = 'custom';
+      let templateMetadata = {
+        ...(templateData.metadata || {}),
+        createdBy: userId,
+        lastModifiedBy: userId,
+        version: 1,
+        isPublic: false
+      };
+      
+      // Si es owner y solicita crear plantilla del sistema
+      if (req.isOwner && (templateData.type === 'system' || templateData.isSystemTemplate)) {
+        console.log('✅ CREANDO BANNER DE SISTEMA');
+        console.log('- templateData.type:', templateData.type);
+        console.log('- templateData.isSystemTemplate:', templateData.isSystemTemplate);
+        templateType = 'system';
+        templateMetadata.isPublic = true; // Siempre público para system templates
+        templateMetadata.category = templateData.metadata?.category || 'basic';
+        targetClientId = null; // No clientId para plantillas del sistema
+        console.log('- templateType final:', templateType);
+        console.log('- targetClientId final:', targetClientId);
+      } else {
+        console.log('❌ NO es banner de sistema:');
+        console.log('- req.isOwner:', req.isOwner);
+        console.log('- templateData.type:', templateData.type);
+        console.log('- templateData.isSystemTemplate:', templateData.isSystemTemplate);
+      }
+      
+      // Establecer metadata y asegurar que no hay _id duplicado
       const templateWithMetadata = {
         ...templateData,
-        clientId: targetClientId, // Usar el clientId determinado anteriormente
-        type: 'custom',
-        metadata: {
-          ...(templateData.metadata || {}),
-          createdBy: userId,
-          lastModifiedBy: userId,
-          version: 1,
-          isPublic: false
-        }
+        type: templateType,
+        metadata: templateMetadata
       };
+      
+      // IMPORTANTE: Eliminar _id si existe para evitar duplicate key error
+      // MongoDB debe generar el _id automáticamente
+      if (templateWithMetadata._id) {
+        console.log(`⚠️ Removiendo _id existente del template: ${templateWithMetadata._id}`);
+        delete templateWithMetadata._id;
+      }
+      
+      // Solo agregar clientId si no es plantilla del sistema
+      if (targetClientId) {
+        templateWithMetadata.clientId = targetClientId;
+      }
+      
+      // DEBUG: Ver qué se va a guardar
+      console.log('💾 DATOS A GUARDAR:');
+      console.log('- type:', templateWithMetadata.type);
+      console.log('- clientId:', templateWithMetadata.clientId);
+      console.log('- metadata.isPublic:', templateWithMetadata.metadata.isPublic);
+      console.log('- metadata.category:', templateWithMetadata.metadata.category);
       
       const createdTemplate = await BannerTemplate.create(templateWithMetadata);
       console.log(`✅ Template creado con ID: ${createdTemplate._id}`);
@@ -1669,6 +1754,13 @@ createSystemTemplate = async (req, res) => {
       );
     }
 
+    // IMPORTANTE: Eliminar _id si existe para evitar duplicate key error
+    // MongoDB debe generar el _id automáticamente
+    if (cloneData._id) {
+      console.log(`⚠️ Removiendo _id existente del template clonado: ${cloneData._id}`);
+      delete cloneData._id;
+    }
+    
     console.log(`🔍 DEBUG - Clonado: Creando nuevo template basado en ${id}`);
     const cloned = await BannerTemplate.create(cloneData);
 
@@ -1895,22 +1987,49 @@ createSystemTemplate = async (req, res) => {
               if (comp.type === 'image') {
               console.log(`\n🔍 SERVIDOR: Procesando componente imagen SIMPLE: ${comp.id}`);
               
-              // Verificar si hay archivos subidos para este banner
-              if (validFiles.length > 0) {
-                try {
-                  // SIMPLIFICADO: Buscar exactamente el archivo que corresponde a este componente
-                  // mediante un patrón más preciso
-                  const fileIndex = validFiles.findIndex(file => file.originalname.includes(comp.id));
-                  let fileToUse = fileIndex >= 0 ? validFiles.splice(fileIndex, 1)[0] : validFiles.shift();
-                  
-                  if (!fileToUse) {
-                    console.log(`ℹ️ SERVIDOR: No hay archivos disponibles para componente ${comp.id}`);
-                    continue;
-                  }
-                  
-                  console.log(`✅ SERVIDOR: Asignando archivo a componente ${comp.id}: ${fileToUse.originalname}`);
-                  
-                  // Crear directorio y guardar el archivo
+              // ARREGLADO: Buscar archivo usando el mapa de componentes creado anteriormente
+              let fileToUse = null;
+              
+              // Buscar archivo para este componente en el mapa
+              if (componentFileMap.has(comp.id)) {
+                const filesForComponent = componentFileMap.get(comp.id);
+                if (filesForComponent && filesForComponent.length > 0) {
+                  // Usar el archivo con mayor confianza
+                  const bestFile = filesForComponent.sort((a, b) => b.confidence - a.confidence)[0];
+                  fileToUse = bestFile.file;
+                  console.log(`✅ SERVIDOR: Archivo encontrado para componente ${comp.id}: ${fileToUse.originalname} (confianza: ${bestFile.confidence})`);
+                }
+              }
+              
+              // RESPALDO: Si no se encuentra en el mapa, buscar por inclusión simple del ID
+              if (!fileToUse) {
+                const fileIndex = validFiles.findIndex(file => file.originalname.includes(comp.id));
+                if (fileIndex >= 0) {
+                  fileToUse = validFiles.splice(fileIndex, 1)[0];
+                  console.log(`✅ SERVIDOR: Archivo encontrado por búsqueda simple para ${comp.id}: ${fileToUse.originalname}`);
+                }
+              }
+              
+              // ÚLTIMO RESPALDO: Si el componente tiene referencia temporal, buscar por esa referencia
+              if (!fileToUse && comp.content && typeof comp.content === 'string' && comp.content.startsWith('__IMAGE_REF__')) {
+                const imageId = comp.content.replace('__IMAGE_REF__', '');
+                const fileIndex = validFiles.findIndex(file => 
+                  file.originalname.includes(`IMAGE_REF_${imageId}_`) || 
+                  file.originalname.includes(imageId)
+                );
+                if (fileIndex >= 0) {
+                  fileToUse = validFiles.splice(fileIndex, 1)[0];
+                  console.log(`✅ SERVIDOR: Archivo encontrado por referencia temporal para ${comp.id}: ${fileToUse.originalname}`);
+                }
+              }
+              
+              if (!fileToUse) {
+                console.log(`⚠️ SERVIDOR: No se encontró archivo para componente ${comp.id}`);
+                continue;
+              }
+              
+              try {
+                // Crear directorio y guardar el archivo
                   const bannerDir = path.join(process.cwd(), 'public', 'templates', 'images', id);
                   await fs.mkdir(bannerDir, { recursive: true });
                   
@@ -1986,9 +2105,6 @@ createSystemTemplate = async (req, res) => {
                 } catch (error) {
                   console.error(`❌ SERVIDOR: Error procesando imagen: ${error.message}`);
                 }
-              } else {
-                console.log(`ℹ️ SERVIDOR: No hay archivos disponibles para procesar`);
-              }
             }
             
             // Procesar hijos recursivamente si es contenedor
@@ -2084,19 +2200,58 @@ createSystemTemplate = async (req, res) => {
         };
       }
       
-      // Eliminar campos que no deben actualizarse
+      // Eliminar campos que no deben actualizarse (PERO NO clientId todavía)
       delete updateData._id;
-      delete updateData.clientId;
       delete updateData.createdAt;
       delete updateData.updatedAt;
       
-      // IMPORTANTE: Para plantillas del sistema, preservar siempre el tipo 'system'
-      if (existingTemplate.type === 'system') {
-        console.log('🔒 Preservando tipo "system" para plantilla del sistema');
-        updateData.type = 'system';
+      // DEBUG: Logs para entender qué está pasando
+      console.log('🔍 DEBUG - Estado antes de manejar tipos:');
+      console.log('- req.isOwner:', req.isOwner);
+      console.log('- updates.type:', updates.type);
+      console.log('- updates.isSystemTemplate:', updates.isSystemTemplate);
+      console.log('- existingTemplate.type:', existingTemplate.type);
+      console.log('- existingTemplate.clientId:', existingTemplate.clientId);
+      console.log('- updateData keys:', Object.keys(updateData));
+      
+      // IMPORTANTE: Manejar cambios de tipo solo para owners
+      if (req.isOwner) {
+        // Los owners pueden cambiar el tipo de plantilla
+        if (updates.type === 'system' || updates.isSystemTemplate) {
+          console.log('✅ CONVIRTIENDO A BANNER DE SISTEMA');
+          updateData.type = 'system';
+          updateData.clientId = null;
+          
+          // Manejar metadata según cómo se construyó updateData
+          if ('metadata' in updates) {
+            updateData.metadata.isPublic = true;
+            updateData.metadata.category = updateData.metadata.category || 'basic';
+          } else {
+            updateData['metadata.isPublic'] = true;
+            updateData['metadata.category'] = existingTemplate.metadata?.category || 'basic';
+          }
+        } else if (updates.type === 'custom') {
+          console.log('✅ CONVIRTIENDO A BANNER PERSONALIZADO');
+          updateData.type = 'custom';
+          updateData.clientId = clientId; // Asignar clientId del owner
+        } else {
+          // No hay cambio de tipo, mantener como está
+          delete updateData.type;
+          delete updateData.clientId;
+        }
       } else {
-        // Para plantillas normales, no permitir cambiar el tipo
+        // Usuarios normales no pueden cambiar tipos
         delete updateData.type;
+        delete updateData.clientId;
+      }
+      
+      // DEBUG: Ver estado final de updateData
+      console.log('🔍 DEBUG - Estado final de updateData:');
+      console.log('- updateData.type:', updateData.type);
+      console.log('- updateData.clientId:', updateData.clientId);
+      console.log('- updateData keys:', Object.keys(updateData));
+      if (updateData.metadata) {
+        console.log('- updateData.metadata:', updateData.metadata);
       }
       
       // NOTA: Los componentes ya fueron procesados anteriormente, no procesarlos de nuevo
@@ -2152,7 +2307,8 @@ createSystemTemplate = async (req, res) => {
           
           const cleanupResult = await imageProcessorService.cleanupUnusedImages(
             id, 
-            updatedTemplate.components
+            updatedTemplate.components,
+            { type: updatedTemplate.type, status: updatedTemplate.status }
           );
           
           if (cleanupResult.success) {
@@ -3006,7 +3162,7 @@ createSystemTemplate = async (req, res) => {
       const imageProcessorService = require('../services/imageProcessor.service');
       console.log(`🔍 Iniciando limpieza de imágenes para banner ${id} con ${template.components.length} componentes`);
       
-      const result = await imageProcessorService.cleanupUnusedImages(id, template.components);
+      const result = await imageProcessorService.cleanupUnusedImages(id, template.components, { type: template.type, status: template.status });
       
       console.log(`✅ Limpieza completada: ${result.deleted} imágenes eliminadas, ${result.kept} imágenes conservadas`);
       
@@ -3023,6 +3179,116 @@ createSystemTemplate = async (req, res) => {
     } catch (error) {
       console.error(`❌ Error en limpieza de imágenes: ${error.message}`);
       throw new AppError(`Error en limpieza de imágenes: ${error.message}`, 500);
+    }
+  });
+
+  // Eliminar una plantilla (owners pueden eliminar cualquier plantilla, usuarios normales solo las suyas)
+  deleteTemplate = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const { clientId } = req;
+    
+    console.log(`🗑️ Solicitada eliminación de banner ${id}`);
+    
+    try {
+      // Buscar la plantilla con diferentes permisos según el rol
+      let template;
+      let query;
+      
+      if (req.isOwner) {
+        // Owners pueden eliminar cualquier plantilla (custom o system)
+        console.log('🔑 Usuario owner: puede eliminar cualquier plantilla');
+        query = { _id: id };
+        template = await BannerTemplate.findOne(query);
+      } else {
+        // Usuarios normales solo pueden eliminar plantillas custom de su cliente
+        console.log('👤 Usuario regular: solo puede eliminar plantillas custom propias');
+        query = {
+          _id: id,
+          clientId,
+          type: 'custom'
+        };
+        template = await BannerTemplate.findOne(query);
+      }
+      
+      if (!template) {
+        throw new AppError('Template not found or you don\'t have permission to delete it', 404);
+      }
+      
+      // Verificar si la plantilla está asociada a algún dominio
+      const associatedDomains = await Domain.find({
+        'settings.defaultTemplateId': id
+      }).select('name _id');
+      
+      if (associatedDomains.length > 0) {
+        return res.status(409).json({
+          status: 'error',
+          message: 'Cannot delete template: it is currently associated with one or more domains',
+          data: {
+            associatedDomains: associatedDomains.map(domain => ({
+              id: domain._id,
+              name: domain.name
+            }))
+          }
+        });
+      }
+      
+      // Log información sobre la plantilla a eliminar
+      console.log(`📋 Eliminando plantilla: ${template.name} (tipo: ${template.type})`);
+      
+      // Cleanup images before deleting the template
+      if (template.components && Array.isArray(template.components)) {
+        try {
+          const imageProcessorService = require('../services/imageProcessor.service');
+          const cleanupResult = await imageProcessorService.cleanupUnusedImages(
+            id, 
+            template.components, 
+            { type: template.type, status: template.status }
+          );
+          console.log(`🧹 Limpieza de imágenes: ${cleanupResult.deleted} eliminadas, ${cleanupResult.kept} conservadas`);
+        } catch (cleanupError) {
+          console.warn(`⚠️ Error durante limpieza de imágenes: ${cleanupError.message}`);
+          // No fallar la eliminación si hay problemas con la limpieza de imágenes
+        }
+      }
+      
+      // Eliminar la plantilla de la base de datos
+      await BannerTemplate.findByIdAndDelete(id);
+      
+      console.log(`✅ Plantilla ${id} eliminada exitosamente`);
+      
+      // Registrar evento en auditoría si está disponible
+      try {
+        await Audit.create({
+          clientId: req.isOwner ? (template.clientId || null) : clientId,
+          userId: req.userId,
+          action: 'delete',
+          resourceType: 'template',
+          resourceId: id,
+          metadata: {
+            templateName: template.name,
+            templateType: template.type,
+            deletedBy: req.isOwner ? 'owner' : 'client'
+          }
+        });
+      } catch (auditError) {
+        console.warn(`⚠️ Error registrando auditoría: ${auditError.message}`);
+        // No fallar la eliminación si hay problemas con la auditoría
+      }
+      
+      res.status(200).json({
+        status: 'success',
+        message: 'Template deleted successfully',
+        data: {
+          deletedTemplate: {
+            id: template._id,
+            name: template.name,
+            type: template.type
+          }
+        }
+      });
+    } catch (error) {
+      console.error(`❌ Error eliminando plantilla: ${error.message}`);
+      throw new AppError(`Error deleting template: ${error.message}`, 500);
     }
   });
 }

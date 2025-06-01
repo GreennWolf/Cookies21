@@ -17,7 +17,7 @@ const ImagePropertyPanel = ({
   rotationStep = 15 // Prop para el paso de rotación
 }) => {
   const [imageInfo, setImageInfo] = useState({ width: 0, height: 0, aspectRatio: 1 });
-  const [keepAspectRatio, setKeepAspectRatio] = useState(true);
+  const [keepAspectRatio, setKeepAspectRatio] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [validationErrors, setValidationErrors] = useState([]);
   const [validationWarnings, setValidationWarnings] = useState([]);
@@ -25,7 +25,13 @@ const ImagePropertyPanel = ({
 
   // Obtener configuración actual
   const getCurrentStyle = useCallback(() => {
-    return component.style?.[deviceView] || component.style?.desktop || {};
+    const style = component.style?.[deviceView] || component.style?.desktop || {};
+    console.log(`📊 ImagePropertyPanel: Obteniendo estilo para ${component.id}:`, {
+      deviceView,
+      style,
+      componentStyle: component.style
+    });
+    return style;
   }, [component.style, deviceView]);
 
   const getCurrentPosition = useCallback(() => {
@@ -235,21 +241,56 @@ const ImagePropertyPanel = ({
     const currentStyle = getCurrentStyle();
     const updates = { [dimension]: value };
 
-    // Mantener aspecto si está habilitado
+    // SOLO mantener aspecto si ambas dimensiones están en la misma unidad
     if (keepAspectRatio && imageInfo.aspectRatio) {
-      if (dimension === 'width') {
-        const widthPx = convertToPixels(value, 'width');
-        const heightPx = widthPx / imageInfo.aspectRatio;
-        updates.height = `${heightPx}px`;
-      } else if (dimension === 'height') {
-        const heightPx = convertToPixels(value, 'height');
-        const widthPx = heightPx * imageInfo.aspectRatio;
-        updates.width = `${widthPx}px`;
+      // Detectar la unidad de la dimensión cambiada
+      const isPercentage = value.endsWith('%');
+      
+      // Solo aplicar lógica de aspect ratio si ambas dimensiones pueden estar en la misma unidad
+      const otherDimension = dimension === 'width' ? 'height' : 'width';
+      const otherValue = currentStyle[otherDimension];
+      const otherIsPercentage = otherValue && otherValue.endsWith('%');
+      
+      // Solo recalcular si ambas pueden estar en porcentajes O ambas en píxeles
+      if ((isPercentage && containerRef?.current) || (!isPercentage && !otherIsPercentage)) {
+        if (dimension === 'width') {
+          const widthPx = convertToPixels(value, 'width');
+          const heightPx = widthPx / imageInfo.aspectRatio;
+          
+          if (isPercentage && containerRef?.current) {
+            // Si el width está en %, calcular el height también en %
+            const containerRect = containerRef.current.getBoundingClientRect();
+            const heightPercent = (heightPx / containerRect.height) * 100;
+            updates.height = `${heightPercent}%`;
+          } else if (!isPercentage) {
+            updates.height = `${heightPx}px`;
+          }
+        } else if (dimension === 'height') {
+          const heightPx = convertToPixels(value, 'height');
+          const widthPx = heightPx * imageInfo.aspectRatio;
+          
+          if (isPercentage && containerRef?.current) {
+            // Si el height está en %, calcular el width también en %
+            const containerRect = containerRef.current.getBoundingClientRect();
+            const widthPercent = (widthPx / containerRect.width) * 100;
+            updates.width = `${widthPercent}%`;
+          } else if (!isPercentage) {
+            updates.width = `${widthPx}px`;
+          }
+        }
       }
     }
 
+    console.log(`📏 ImagePropertyPanel: handleDimensionChange para ${component.id}:`, {
+      dimension,
+      value,
+      updates,
+      keepAspectRatio,
+      aspectRatio: imageInfo.aspectRatio
+    });
+
     updateStyle(updates);
-  }, [keepAspectRatio, imageInfo.aspectRatio, convertToPixels, updateStyle]);
+  }, [keepAspectRatio, imageInfo.aspectRatio, convertToPixels, updateStyle, containerRef, getCurrentStyle, component.id]);
 
   // Toggle mantener aspect ratio
   const handleKeepAspectRatioChange = useCallback((checked) => {
@@ -259,12 +300,21 @@ const ImagePropertyPanel = ({
     if (checked && imageInfo.aspectRatio) {
       const currentStyle = getCurrentStyle();
       if (currentStyle.width) {
+        const isPercentage = currentStyle.width.endsWith('%');
         const widthPx = convertToPixels(currentStyle.width, 'width');
         const heightPx = widthPx / imageInfo.aspectRatio;
-        updateStyle({ height: `${heightPx}px` });
+        
+        if (isPercentage && containerRef?.current) {
+          // Si el width está en %, calcular el height también en %
+          const containerRect = containerRef.current.getBoundingClientRect();
+          const heightPercent = (heightPx / containerRect.height) * 100;
+          updateStyle({ height: `${heightPercent}%` });
+        } else {
+          updateStyle({ height: `${heightPx}px` });
+        }
       }
     }
-  }, [imageInfo.aspectRatio, getCurrentStyle, convertToPixels, updateStyle]);
+  }, [imageInfo.aspectRatio, getCurrentStyle, convertToPixels, updateStyle, containerRef]);
 
   // Funciones de ajuste rápido
   const resetToOriginalSize = useCallback(() => {
@@ -524,10 +574,10 @@ const ImagePropertyPanel = ({
             </label>
             <input
               type="text"
-              value={currentStyle.width || '100px'}
+              value={currentStyle.width || '150px'}
               onChange={(e) => handleDimensionChange('width', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-              placeholder="100px"
+              placeholder="150px"
             />
           </div>
           <div>

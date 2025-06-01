@@ -100,7 +100,8 @@ router.post(
 );
 
 router.delete(
-  '/:id', 
+  '/:id',
+  validateRequest(bannerTemplateValidation.deleteTemplate),
   BannerTemplateController.deleteTemplate
 );
 

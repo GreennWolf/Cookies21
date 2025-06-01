@@ -86,7 +86,7 @@ const loadPanelsConfig = () => {
   return null;
 };
 
-function FullScreenBannerEditor({ initialConfig, onSave, onBack }) {
+const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
   // Estado para los paneles con carga desde localStorage
   const [panelsConfig, setPanelsConfig] = useState(() => {
     // Forzar configuración por defecto para asegurar que todos los paneles sean visibles
@@ -2238,4 +2238,5 @@ function FullScreenBannerEditor({ initialConfig, onSave, onBack }) {
   );
 }
 
+// Export the component
 export default FullScreenBannerEditor;
