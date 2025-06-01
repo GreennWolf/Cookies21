@@ -399,6 +399,97 @@ class ImageProcessorService {
       };
     }
   }
+
+  /**
+   * Limpia imágenes de banners que han sido eliminados de la base de datos
+   * Solo elimina directorios completos de banners que ya no existen en la BD
+   * @returns {Object} - Resultado de la operación
+   */
+  async cleanupDeletedBannersImages() {
+    try {
+      const BannerTemplate = require('../models/BannerTemplate');
+      
+      logger.info('Iniciando limpieza de imágenes de banners eliminados');
+      
+      // Ruta al directorio de imágenes de templates
+      const imagesDir = path.join(process.cwd(), 'public', 'templates', 'images');
+      
+      // Verificar si el directorio existe
+      try {
+        await fs.access(imagesDir);
+      } catch (error) {
+        logger.info('No existe directorio de imágenes de templates');
+        return { success: true, deletedBanners: 0, deletedFiles: 0 };
+      }
+      
+      // Listar todos los directorios (cada uno representa un banner)
+      const items = await fs.readdir(imagesDir, { withFileTypes: true });
+      const bannerDirs = items.filter(item => item.isDirectory()).map(item => item.name);
+      
+      logger.info(`Encontrados ${bannerDirs.length} directorios de banners`);
+      
+      // Filtrar directorios temporales (no deben eliminarse)
+      const validBannerDirs = bannerDirs.filter(dir => !dir.startsWith('temp_'));
+      
+      logger.info(`${validBannerDirs.length} directorios de banners válidos para verificar`);
+      
+      // Obtener todos los IDs de banners que existen en la BD
+      const existingBanners = await BannerTemplate.find({}, { _id: 1 }).lean();
+      const existingBannerIds = new Set(existingBanners.map(banner => banner._id.toString()));
+      
+      logger.info(`${existingBannerIds.size} banners existen en la base de datos`);
+      
+      let deletedBannersCount = 0;
+      let deletedFilesCount = 0;
+      
+      // Verificar cada directorio de banner
+      for (const bannerDir of validBannerDirs) {
+        try {
+          // Verificar si el banner existe en la BD
+          const bannerExists = existingBannerIds.has(bannerDir);
+          
+          if (!bannerExists) {
+            logger.info(`Banner ${bannerDir} no existe en BD, eliminando directorio...`);
+            
+            const bannerDirPath = path.join(imagesDir, bannerDir);
+            
+            // Contar archivos antes de eliminar
+            try {
+              const files = await fs.readdir(bannerDirPath);
+              deletedFilesCount += files.length;
+              
+              // Eliminar todo el directorio recursivamente
+              await fs.rmdir(bannerDirPath, { recursive: true });
+              
+              logger.info(`Eliminado directorio completo: ${bannerDirPath} (${files.length} archivos)`);
+              deletedBannersCount++;
+            } catch (error) {
+              logger.error(`Error eliminando directorio ${bannerDirPath}:`, error);
+            }
+          } else {
+            logger.debug(`Banner ${bannerDir} existe en BD, conservando directorio`);
+          }
+        } catch (error) {
+          logger.error(`Error procesando directorio ${bannerDir}:`, error);
+        }
+      }
+      
+      logger.info(`Limpieza de banners eliminados completada: ${deletedBannersCount} directorios eliminados, ${deletedFilesCount} archivos eliminados`);
+      
+      return {
+        success: true,
+        deletedBanners: deletedBannersCount,
+        deletedFiles: deletedFilesCount,
+        checkedBanners: validBannerDirs.length
+      };
+    } catch (error) {
+      logger.error('Error en limpieza de imágenes de banners eliminados:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
 }
 
 module.exports = new ImageProcessorService();

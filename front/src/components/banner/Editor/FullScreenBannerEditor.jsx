@@ -1423,7 +1423,7 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
                 type="checkbox"
                 id="system-template"
                 checked={isSystemTemplate}
-                onChange={(e) => setIsSystemTemplate(e.checked)}
+                onChange={(e) => setIsSystemTemplate(e.target.checked)}
                 className="system-toggle"
               />
               <label htmlFor="system-template" className="system-label">

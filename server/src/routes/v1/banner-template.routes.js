@@ -116,4 +116,10 @@ router.post(
   BannerTemplateController.cleanupBannerImages
 );
 
+// Endpoint para limpiar imágenes de banners eliminados (solo owners)
+router.post(
+  '/cleanup-deleted-banners',
+  BannerTemplateController.cleanupDeletedBannersImages
+);
+
 module.exports = router;

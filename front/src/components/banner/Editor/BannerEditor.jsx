@@ -518,9 +518,14 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
 
   // Función unificada para actualizar contenido (hijo o principal)
   const handleUpdateContent = (componentId, content) => {
+    console.log(`🎯 BannerEditor: handleUpdateContent llamado para ${componentId} con:`, content);
+    console.log(`🎯 BannerEditor: Es componente hijo? ${isChildComponent(componentId)}`);
+    
     if (isChildComponent(componentId)) {
+      console.log(`🎯 BannerEditor: Llamando updateChildContent`);
       updateChildContent(componentId, content);
     } else {
+      console.log(`🎯 BannerEditor: Llamando updateComponentContent`);
       updateComponentContent(componentId, content);
     }
   };
@@ -1686,7 +1691,7 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
                     component={selectedComponent}
                     deviceView={deviceView}
                     updateStyle={(style) => handleUpdateStyle(selectedComponent.id, style)} // NUEVA: Función unificada
-                    onUpdateContent={(content) => handleUpdateContent(selectedComponent.id, content)} // NUEVA: Función unificada
+                    onUpdateContent={handleUpdateContent} // NUEVA: Función unificada
                     onUpdatePosition={(position) => handleUpdatePosition(selectedComponent.id, position)} // NUEVA: Función unificada
                     onUpdateContainer={(componentId, containerConfig) => updateContainerConfig(componentId, containerConfig)} // NUEVO - FASE 2
                     onAddChild={addChildToContainer} // NUEVO - FASE 4: Función para agregar hijo a contenedor

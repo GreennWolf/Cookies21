@@ -1300,9 +1300,30 @@ createSystemTemplate = async (req, res) => {
           name: file.originalname,
           path: file.path,
           size: file.size,
-          mimetype: file.mimetype
+          mimetype: file.mimetype,
+          fieldname: file.fieldname
         });
       });
+      
+      // Debug: Mostrar referencias de imagen en componentes
+      if (templateData.components) {
+        const imageRefs = [];
+        const findImageRefs = (components) => {
+          components.forEach(comp => {
+            if (comp.type === 'image' && comp.content?.startsWith('__IMAGE_REF__')) {
+              imageRefs.push({
+                componentId: comp.id,
+                imageRef: comp.content
+              });
+            }
+            if (comp.children) findImageRefs(comp.children);
+          });
+        };
+        findImageRefs(templateData.components);
+        if (imageRefs.length > 0) {
+          console.log('🔍 Referencias de imagen encontradas:', imageRefs);
+        }
+      }
       
       // 4. Validaciones básicas
       if (!templateData.name || !templateData.name.trim()) {
@@ -1311,6 +1332,9 @@ createSystemTemplate = async (req, res) => {
           message: 'Template name is required'
         });
       }
+      
+      // Variable para trackear el directorio temporal
+      let tempBannerId = null;
       
       // 5. Procesar componentes y archivos
       if (templateData.components && Array.isArray(templateData.components)) {
@@ -1332,21 +1356,30 @@ createSystemTemplate = async (req, res) => {
               const imageId = component.content.replace('__IMAGE_REF__', '');
               
               // Buscar archivo correspondiente por nombre usando el formato consistente
-              // Formato esperado: IMAGE_REF_{componentId}_filename
-              const file = uploadedFiles.find(f => 
-                f.originalname.includes(`IMAGE_REF_${imageId}_`));
+              // El imageId puede incluir componentId_timestamp, así que buscamos el archivo completo
+              // Formato esperado: IMAGE_REF_{imageId}_filename donde imageId = componentId_timestamp
+              const file = uploadedFiles.find(f => {
+                // Buscar coincidencia exacta con el imageId completo
+                const matches = f.originalname.includes(`IMAGE_REF_${imageId}_`);
+                if (matches) {
+                  console.log(`🔍 Coincidencia encontrada: ${f.originalname} para imageId: ${imageId}`);
+                }
+                return matches;
+              });
               
               if (file) {
                 console.log(`✅ Encontrado archivo ${file.originalname} para componente ${component.id}`);
                 
-                // Construir ruta relativa para el banner
-                const bannerId = templateData._id || `temp_${Date.now()}`;
+                // Crear bannerId temporal consistente (solo una vez)
+                if (!tempBannerId) {
+                  tempBannerId = `temp_${Date.now()}`;
+                }
+                
                 const fileName = `img_${component.id}_${Date.now()}${path.extname(file.originalname)}`;
                 
-                // Crear directorio si no existe - FIXED: Use async instead of sync
-                const bannerDir = path.join(process.cwd(), 'public', 'templates', 'images', bannerId);
+                // Crear directorio si no existe
+                const bannerDir = path.join(process.cwd(), 'public', 'templates', 'images', tempBannerId);
                 
-                // Use ensureDirectoryExists function instead of direct fs calls
                 try {
                   // Create directory if it doesn't exist
                   fsSync.mkdirSync(bannerDir, { recursive: true });
@@ -1360,7 +1393,7 @@ createSystemTemplate = async (req, res) => {
                   console.log(`📋 Archivo copiado a: ${destPath}`);
                   
                   // Generar URL relativa para el frontend
-                  const relativeUrl = `/templates/images/${bannerId}/${fileName}`;
+                  const relativeUrl = `/templates/images/${tempBannerId}/${fileName}`;
                   
                   // Actualizar contenido del componente
                   component.content = relativeUrl;
@@ -1477,6 +1510,10 @@ createSystemTemplate = async (req, res) => {
                 }
               } else {
                 console.warn(`⚠️ No se encontró archivo para componente ${component.id} con referencia ${imageId}`);
+                console.log('📋 Archivos disponibles:');
+                uploadedFiles.forEach(f => {
+                  console.log(`  - ${f.originalname}`);
+                });
               }
             }
             
@@ -1615,6 +1652,116 @@ createSystemTemplate = async (req, res) => {
       
       const createdTemplate = await BannerTemplate.create(templateWithMetadata);
       console.log(`✅ Template creado con ID: ${createdTemplate._id}`);
+      
+      // 7.5. Crear directorio del banner (siempre, incluso si no hay imágenes iniciales)
+      const bannerDir = path.join(process.cwd(), 'public', 'templates', 'images', createdTemplate._id.toString());
+      try {
+        await fs.mkdir(bannerDir, { recursive: true });
+        console.log(`📁 Directorio del banner creado: ${bannerDir}`);
+      } catch (error) {
+        console.warn(`⚠️ No se pudo crear directorio del banner: ${error.message}`);
+      }
+      
+      // 7.6. Renombrar directorio temporal al ID final del template si hay archivos
+      if (uploadedFiles.length > 0 && tempBannerId) {
+        const tempDirPath = path.join(process.cwd(), 'public', 'templates', 'images', tempBannerId);
+        const finalDir = path.join(process.cwd(), 'public', 'templates', 'images', createdTemplate._id.toString());
+        
+        try {
+          if (fsSync.existsSync(tempDirPath)) {
+            // Si el directorio final ya existe, mover archivos en lugar de renombrar
+            if (fsSync.existsSync(finalDir)) {
+              console.log(`📁 Directorio final ya existe, moviendo archivos de ${tempBannerId} a ${createdTemplate._id}`);
+              const files = await fs.readdir(tempDirPath);
+              for (const file of files) {
+                const srcPath = path.join(tempDirPath, file);
+                const destPath = path.join(finalDir, file);
+                await fs.copyFile(srcPath, destPath);
+                console.log(`📋 Archivo movido: ${file}`);
+              }
+              // Eliminar directorio temporal después de mover archivos
+              await fs.rmdir(tempDirPath, { recursive: true });
+              console.log(`🗑️ Directorio temporal eliminado: ${tempDirPath}`);
+            } else {
+              // Renombrar como antes si el directorio final no existe
+              fsSync.renameSync(tempDirPath, finalDir);
+              console.log(`📁 Directorio renombrado de ${tempBannerId} a ${createdTemplate._id}`);
+            }
+            
+            // Actualizar las URLs en los componentes
+            const updateImageUrls = (components) => {
+              console.log(`🔍 Procesando ${components.length} componentes para actualizar URLs...`);
+              console.log(`🔍 Buscando patrón: /templates/images/temp_`);
+              console.log(`🔍 Reemplazando por: /templates/images/${createdTemplate._id}/`);
+              
+              return components.map(comp => {
+                console.log(`🔍 Procesando componente tipo: ${comp.type}, content: ${typeof comp.content === 'string' ? comp.content : 'objeto'}`);
+                
+                if (comp.type === 'image' && comp.content) {
+                  // Caso 1: content es string directo
+                  if (typeof comp.content === 'string' && comp.content.includes('/templates/images/temp_')) {
+                    const oldContent = comp.content;
+                    comp.content = comp.content.replace(/\/templates\/images\/temp_\d+\//, `/templates/images/${createdTemplate._id}/`);
+                    console.log(`🔗 URL actualizada (string directo):`);
+                    console.log(`   ANTES: ${oldContent}`);
+                    console.log(`   DESPUÉS: ${comp.content}`);
+                  }
+                  // Caso 2: content es objeto con texts.en
+                  else if (typeof comp.content === 'object' && comp.content.texts && comp.content.texts.en && typeof comp.content.texts.en === 'string' && comp.content.texts.en.includes('/templates/images/temp_')) {
+                    const oldUrl = comp.content.texts.en;
+                    comp.content.texts.en = comp.content.texts.en.replace(/\/templates\/images\/temp_\d+\//, `/templates/images/${createdTemplate._id}/`);
+                    console.log(`🔗 URL actualizada (objeto texts.en):`);
+                    console.log(`   ANTES: ${oldUrl}`);
+                    console.log(`   DESPUÉS: ${comp.content.texts.en}`);
+                  }
+                  // Caso 3: debug de otros formatos
+                  else {
+                    if (typeof comp.content === 'string') {
+                      console.log(`❌ Componente imagen NO coincide con patrón: ${comp.content}`);
+                    } else {
+                      console.log(`❌ Componente imagen con content objeto. Structure:`, JSON.stringify(comp.content, null, 2));
+                    }
+                  }
+                }
+                
+                if (comp.children) {
+                  comp.children = updateImageUrls(comp.children);
+                }
+                return comp;
+              });
+            };
+            
+            // Actualizar el template con las URLs corregidas DESPUÉS de moverlo
+            if (createdTemplate.components) {
+              console.log(`📝 Actualizando URLs en template con ${createdTemplate.components.length} componentes...`);
+              
+              // Obtener el template actualizado de la BD y modificar las URLs
+              const templateToUpdate = await BannerTemplate.findById(createdTemplate._id);
+              templateToUpdate.components = updateImageUrls(templateToUpdate.components);
+              
+              // Marcar como modificado para Mongoose
+              templateToUpdate.markModified('components');
+              await templateToUpdate.save();
+              console.log('💾 Template actualizado con URLs correctas');
+              
+              // Verificar que se guardó correctamente
+              const savedTemplate = await BannerTemplate.findById(createdTemplate._id);
+              console.log('🔍 Verificación post-guardado:');
+              savedTemplate.components.forEach((comp, index) => {
+                if (comp.type === 'image' && comp.content) {
+                  if (typeof comp.content === 'string') {
+                    console.log(`   Componente ${index}: ${comp.content}`);
+                  } else if (comp.content.texts && comp.content.texts.en) {
+                    console.log(`   Componente ${index}: ${comp.content.texts.en}`);
+                  }
+                }
+              });
+            }
+          }
+        } catch (err) {
+          console.warn(`⚠️ No se pudo procesar directorio temporal: ${err.message}`);
+        }
+      }
       
       // 8. Eliminar archivos temporales
       if (uploadedFiles.length > 0) {
@@ -3408,6 +3555,37 @@ createSystemTemplate = async (req, res) => {
     } catch (error) {
       console.error(`❌ Error en limpieza de imágenes: ${error.message}`);
       throw new AppError(`Error en limpieza de imágenes: ${error.message}`, 500);
+    }
+  });
+
+  // Endpoint para limpiar imágenes de banners que han sido eliminados de la BD
+  cleanupDeletedBannersImages = catchAsync(async (req, res) => {
+    console.log('🧹 Solicitada limpieza de imágenes de banners eliminados');
+    
+    // Solo owners pueden ejecutar esta operación
+    if (!req.isOwner) {
+      throw new AppError('Solo los administradores pueden ejecutar esta operación', 403);
+    }
+    
+    try {
+      const imageProcessorService = require('../services/imageProcessor.service');
+      const result = await imageProcessorService.cleanupDeletedBannersImages();
+      
+      console.log(`✅ Limpieza completada: ${result.deletedBanners} banners eliminados, ${result.deletedFiles} archivos eliminados`);
+      
+      res.status(200).json({
+        status: 'success',
+        message: 'Limpieza de imágenes de banners eliminados completada exitosamente',
+        data: {
+          deletedBanners: result.deletedBanners,
+          deletedFiles: result.deletedFiles,
+          checkedBanners: result.checkedBanners,
+          success: result.success
+        }
+      });
+    } catch (error) {
+      console.error(`❌ Error en limpieza de banners eliminados: ${error.message}`);
+      throw new AppError(`Error en limpieza de banners eliminados: ${error.message}`, 500);
     }
   });
 

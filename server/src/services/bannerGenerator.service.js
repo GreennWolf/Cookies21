@@ -755,12 +755,34 @@ class BannerGeneratorService {
       const desktop = layout.desktop;
       const desktopPosCSS = posMap[desktop.position] || posMap.bottom;
 
+      // Para banners con altura 100%, necesitamos configuración especial
+      let heightStyles = '';
+      if (desktop.height) {
+        if (desktop.height === '100%' || desktop.height === '100vh') {
+          // Para altura completa, usar viewport height y asegurar que ocupe toda la pantalla
+          heightStyles = `
+            height: 100vh;
+            height: 100dvh; /* Dynamic viewport height para móviles */
+            max-height: 100vh;
+            overflow-y: auto;
+          `;
+          // Si es un banner top o bottom con 100%, debe ocupar toda la pantalla
+          if (desktop.type === 'banner') {
+            heightStyles += 'top: 0; bottom: 0;';
+          }
+        } else {
+          heightStyles = `height: ${desktop.height};`;
+        }
+      } else {
+        heightStyles = 'height: auto;';
+      }
+
       css += `
         .cmp-banner--${desktop.type} {
           position: fixed;
           ${desktopPosCSS}
           width: ${desktop.width || '100%'};
-          height: ${desktop.height || 'auto'};
+          ${heightStyles}
           background-color: ${desktop.backgroundColor || '#ffffff'};
           ${desktop.minHeight ? `min-height: ${desktop.minHeight};` : ''}
           transition: transform 0.3s ease, opacity 0.3s ease;
@@ -868,42 +890,69 @@ class BannerGeneratorService {
     // Estilos TABLET - Media query para tablets
     if (layout.tablet) {
       const tablet = layout.tablet;
-      const tabletPosCSS = posMap[tablet.position] || '';
+      
+      // Solo aplicar estilos de tablet si tienen configuración específica
+      // No heredar automáticamente de desktop
+      if (tablet.type && (tablet.position || tablet.width || tablet.height || tablet.backgroundColor || tablet.minHeight)) {
+        const tabletPosCSS = posMap[tablet.position] || '';
 
-      css += `
-        @media (max-width: 1024px) and (min-width: 769px) {
-          .cmp-banner--${tablet.type || layout.desktop.type} {
-            ${tabletPosCSS ? `position: fixed; ${tabletPosCSS}` : ''}
-            ${tablet.width ? `width: ${tablet.width};` : ''}
-            ${tablet.height ? `height: ${tablet.height};` : ''}
-            ${tablet.backgroundColor ? `background-color: ${tablet.backgroundColor};` : ''}
-            ${tablet.minHeight ? `min-height: ${tablet.minHeight};` : ''}
-          }
-          
-          /* Ajustes específicos para tablet */
-          .cmp-banner--modal {
-            margin: 0 !important;
-            padding: 25px !important;
-            display: flex !important;
-            flex-direction: column !important;
-            justify-content: flex-start !important;
-            align-items: center !important;
-            position: fixed !important;
-            left: 50% !important;
-            top: 50% !important;
-            transform: translate(-50%, -50%) !important;
-            width: 90% !important;
-            max-width: 550px !important;
-            z-index: 999999 !important;
-            right: auto !important;
-            bottom: auto !important;
-          }
-          
-          .cmp-banner--floating {
-            max-width: 350px;
+        // Manejar altura para tablet
+        let tabletHeightStyles = '';
+        if (tablet.height) {
+          if (tablet.height === '100%' || tablet.height === '100vh') {
+            tabletHeightStyles = `
+              height: 100vh;
+              height: 100dvh;
+              max-height: 100vh;
+              overflow-y: auto;
+            `;
+            if (tablet.type === 'banner') {
+              tabletHeightStyles += ' top: 0; bottom: 0;';
+            }
+          } else {
+            tabletHeightStyles = `height: ${tablet.height};`;
           }
         }
-      `;
+
+        css += `
+          @media (max-width: 1024px) and (min-width: 769px) {
+            .cmp-banner--${tablet.type} {
+              ${tabletPosCSS ? `position: fixed; ${tabletPosCSS}` : ''}
+              ${tablet.width ? `width: ${tablet.width};` : ''}
+              ${tabletHeightStyles}
+              ${tablet.backgroundColor ? `background-color: ${tablet.backgroundColor};` : ''}
+              ${tablet.minHeight ? `min-height: ${tablet.minHeight};` : ''}
+            }
+            
+            /* Ajustes específicos para tablet según el tipo */
+            ${tablet.type === 'modal' ? `
+              .cmp-banner--modal {
+                margin: 0 !important;
+                padding: 25px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: flex-start !important;
+                align-items: center !important;
+                position: fixed !important;
+                left: 50% !important;
+                top: 50% !important;
+                transform: translate(-50%, -50%) !important;
+                width: 90% !important;
+                max-width: 550px !important;
+                z-index: 999999 !important;
+                right: auto !important;
+                bottom: auto !important;
+              }
+            ` : ''}
+            
+            ${tablet.type === 'floating' ? `
+              .cmp-banner--floating {
+                max-width: 350px;
+              }
+            ` : ''}
+          }
+        `;
+      }
     }
 
     // Estilos MOBILE - Media query para móviles
@@ -911,12 +960,30 @@ class BannerGeneratorService {
       const mobile = layout.mobile;
       const mobilePosCSS = posMap[mobile.position] || '';
 
+      // Manejar altura para mobile
+      let mobileHeightStyles = '';
+      if (mobile.height) {
+        if (mobile.height === '100%' || mobile.height === '100vh') {
+          mobileHeightStyles = `
+            height: 100vh;
+            height: 100dvh;
+            max-height: 100vh;
+            overflow-y: auto;
+          `;
+          if ((mobile.type || layout.desktop.type) === 'banner') {
+            mobileHeightStyles += ' top: 0; bottom: 0;';
+          }
+        } else {
+          mobileHeightStyles = `height: ${mobile.height};`;
+        }
+      }
+
       css += `
         @media (max-width: 768px) {
           .cmp-banner--${mobile.type || layout.desktop.type} {
             ${mobilePosCSS ? `position: fixed; ${mobilePosCSS}` : ''}
             ${mobile.width ? `width: ${mobile.width};` : ''}
-            ${mobile.height ? `height: ${mobile.height};` : ''}
+            ${mobileHeightStyles}
             ${mobile.backgroundColor ? `background-color: ${mobile.backgroundColor};` : ''}
             ${mobile.minHeight ? `min-height: ${mobile.minHeight};` : ''}
           }
@@ -1152,16 +1219,71 @@ class BannerGeneratorService {
       if (c.style?.tablet || c.position?.tablet) {
         let tabletStyleToApply = c.style?.tablet ? { ...c.style.tablet } : {};
         
-        // Aplicar estilos de tablet exactamente como están guardados
-        
         css += `
           @media (max-width: 1024px) and (min-width: 769px) {
             ${selector} {
               ${this._styleObjToCSS(tabletStyleToApply)}
-              ${c.position?.tablet?.top ? `top: ${c.position.tablet.top};` : ''}
-              ${c.position?.tablet?.left ? `left: ${c.position.tablet.left};` : ''}
-              ${c.position?.tablet?.right ? `right: ${c.position.tablet.right};` : ''}
-              ${c.position?.tablet?.bottom ? `bottom: ${c.position.tablet.bottom};` : ''}
+            }
+          }
+        `;
+      }
+      
+      // TABLET POSITION STYLES - Aplicar lógica de contenedores como en desktop
+      if (c.position?.tablet) {
+        const pos = c.position.tablet;
+        let positionCSS = '';
+        
+        // Determinar el tipo de posicionamiento basado en el contexto del contenedor padre
+        if (c.parentId) {
+          // Es un componente hijo - determinar si el padre es contenedor y su modo
+          const parentContainer = this._findParentContainer(c.parentId, components);
+          if (parentContainer) {
+            const parentConfig = parentContainer.containerConfig?.tablet || parentContainer.containerConfig?.desktop || {};
+            const displayMode = parentConfig.displayMode || 'libre';
+            
+            if (displayMode === 'libre') {
+              // En modo libre, usar posición absoluta
+              positionCSS += 'position: absolute;';
+            } else {
+              // En flex/grid, usar posición relativa
+              positionCSS += 'position: relative;';
+            }
+          } else {
+            // Si no encontramos el padre, usar relativa por defecto
+            positionCSS += 'position: relative;';
+          }
+        } else {
+          // Para componentes raíz, usar absolute
+          positionCSS += 'position: absolute;';
+        }
+        
+        // Aplicar transformaciones si existen
+        let transformCSS = '';
+        if (pos.transformX === 'center' && pos.transformY === 'center') {
+          transformCSS = 'transform: translate(-50%, -50%);';
+        } else if (pos.transformX === 'center') {
+          transformCSS = 'transform: translateX(-50%);';
+        } else if (pos.transformY === 'center') {
+          transformCSS = 'transform: translateY(-50%);';
+        }
+        
+        // Solo aplicar top/left si no está en un contenedor flex/grid
+        let positionValues = '';
+        if (!c.parentId || positionCSS.includes('absolute')) {
+          positionValues = `
+            ${pos.top ? `top: ${pos.top};` : ''}
+            ${pos.left ? `left: ${pos.left};` : ''}
+            ${pos.right ? `right: ${pos.right};` : ''}
+            ${pos.bottom ? `bottom: ${pos.bottom};` : ''}
+          `;
+        }
+        
+        css += `
+          @media (max-width: 1024px) and (min-width: 769px) {
+            ${selector} {
+              ${positionCSS}
+              ${positionValues}
+              ${transformCSS}
             }
           }
         `;
@@ -1171,16 +1293,71 @@ class BannerGeneratorService {
       if (c.style?.mobile || c.position?.mobile) {
         let mobileStyleToApply = c.style?.mobile ? { ...c.style.mobile } : {};
         
-        // Aplicar estilos de mobile exactamente como están guardados
-        
         css += `
           @media (max-width: 768px) {
             ${selector} {
               ${this._styleObjToCSS(mobileStyleToApply)}
-              ${c.position?.mobile?.top ? `top: ${c.position.mobile.top};` : ''}
-              ${c.position?.mobile?.left ? `left: ${c.position.mobile.left};` : ''}
-              ${c.position?.mobile?.right ? `right: ${c.position.mobile.right};` : ''}
-              ${c.position?.mobile?.bottom ? `bottom: ${c.position.mobile.bottom};` : ''}
+            }
+          }
+        `;
+      }
+      
+      // MOBILE POSITION STYLES - Aplicar lógica de contenedores como en desktop
+      if (c.position?.mobile) {
+        const pos = c.position.mobile;
+        let positionCSS = '';
+        
+        // Determinar el tipo de posicionamiento basado en el contexto del contenedor padre
+        if (c.parentId) {
+          // Es un componente hijo - determinar si el padre es contenedor y su modo
+          const parentContainer = this._findParentContainer(c.parentId, components);
+          if (parentContainer) {
+            const parentConfig = parentContainer.containerConfig?.mobile || parentContainer.containerConfig?.desktop || {};
+            const displayMode = parentConfig.displayMode || 'libre';
+            
+            if (displayMode === 'libre') {
+              // En modo libre, usar posición absoluta
+              positionCSS += 'position: absolute;';
+            } else {
+              // En flex/grid, usar posición relativa
+              positionCSS += 'position: relative;';
+            }
+          } else {
+            // Si no encontramos el padre, usar relativa por defecto
+            positionCSS += 'position: relative;';
+          }
+        } else {
+          // Para componentes raíz, usar absolute
+          positionCSS += 'position: absolute;';
+        }
+        
+        // Aplicar transformaciones si existen
+        let transformCSS = '';
+        if (pos.transformX === 'center' && pos.transformY === 'center') {
+          transformCSS = 'transform: translate(-50%, -50%);';
+        } else if (pos.transformX === 'center') {
+          transformCSS = 'transform: translateX(-50%);';
+        } else if (pos.transformY === 'center') {
+          transformCSS = 'transform: translateY(-50%);';
+        }
+        
+        // Solo aplicar top/left si no está en un contenedor flex/grid
+        let positionValues = '';
+        if (!c.parentId || positionCSS.includes('absolute')) {
+          positionValues = `
+            ${pos.top ? `top: ${pos.top};` : ''}
+            ${pos.left ? `left: ${pos.left};` : ''}
+            ${pos.right ? `right: ${pos.right};` : ''}
+            ${pos.bottom ? `bottom: ${pos.bottom};` : ''}
+          `;
+        }
+        
+        css += `
+          @media (max-width: 768px) {
+            ${selector} {
+              ${positionCSS}
+              ${positionValues}
+              ${transformCSS}
             }
           }
         `;

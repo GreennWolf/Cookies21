@@ -952,60 +952,98 @@ export function useBannerEditor() {
 
   // Actualizar contenido - optimizado para evitar renders innecesarios
   const updateComponentContent = useCallback((componentId, content) => {
-    setBannerConfig(prev => {
-      // Encontrar el componente a actualizar
-      const componentIndex = prev.components.findIndex(comp => comp.id === componentId);
-      if (componentIndex === -1) return prev; // No encontrado
-      
-      // Crear una copia del array de componentes
-      const updatedComponents = [...prev.components];
-      const component = { ...updatedComponents[componentIndex] };
-      
-      // Actualizar el contenido basado en su tipo actual
-      if (typeof content === 'string') {
-        // Si recibimos un string pero el contenido actual es un objeto, actualizar texts.en
-        if (typeof component.content === 'object' && component.content.texts) {
-          component.content = {
-            ...component.content,
-            texts: {
-              ...component.content.texts,
-              en: content
-            }
-          };
-          
-          // Si también tiene propiedad text (para compatibilidad), actualizarla
-          if ('text' in component.content) {
-            component.content.text = content;
-          }
-        } else {
-          // Si el contenido actual no es un objeto, reemplazar directamente
-          component.content = content;
-          
-          // IMPORTANTE: Si es una imagen con referencia temporal, buscar y preservar el archivo
-          if (component.type === 'image' && content.startsWith('__IMAGE_REF__')) {
-            
-            // Buscar el archivo en el almacenamiento global
-            if (window._imageFiles && window._imageFiles[content]) {
-              component._tempFile = window._imageFiles[content];
-              component._imageFile = window._imageFiles[content];
-            }
-            
-            // También buscar en el gestor de memoria de imágenes
-            if (imageMemoryManager && typeof imageMemoryManager.getTempFile === 'function') {
-              const fileData = imageMemoryManager.getTempFile(content);
-              if (fileData && fileData.file) {
-                component._tempFile = fileData.file;
-                component._imageFile = fileData.file;
-              }
-            }
-          }
-        }
-      } else if (typeof content === 'object') {
-        // Si recibimos un objeto, reemplazar directamente
-        component.content = content;
+    console.log(`📝 updateComponentContent llamado para ${componentId}:`, content);
+    
+    // DEBUG: Log detallado para rastrear el problema de imágenes
+    if (typeof content === 'string' && content.startsWith('__IMAGE_REF__')) {
+      console.log(`🖼️ DEBUG: Actualizando imagen con referencia: ${content}`);
+      console.log(`🖼️ DEBUG: Estado actual de window._imageFiles:`, window._imageFiles);
+      if (window._imageFiles && window._imageFiles[content]) {
+        console.log(`✅ DEBUG: Archivo encontrado en window._imageFiles:`, window._imageFiles[content]);
+      } else {
+        console.log(`❌ DEBUG: Archivo NO encontrado en window._imageFiles para ${content}`);
       }
+    }
+    
+    setBannerConfig(prev => {
+      // Función recursiva para actualizar componente en cualquier nivel
+      const updateComponentRecursively = (components) => {
+        return components.map(comp => {
+          if (comp.id === componentId) {
+            // Componente encontrado - actualizar contenido
+            const updatedComp = { ...comp };
+            
+            // Actualizar el contenido basado en su tipo actual
+            if (typeof content === 'string') {
+              // Si recibimos un string pero el contenido actual es un objeto, actualizar texts.en
+              if (typeof updatedComp.content === 'object' && updatedComp.content.texts) {
+                updatedComp.content = {
+                  ...updatedComp.content,
+                  texts: {
+                    ...updatedComp.content.texts,
+                    en: content
+                  }
+                };
+                
+                // Si también tiene propiedad text (para compatibilidad), actualizarla
+                if ('text' in updatedComp.content) {
+                  updatedComp.content.text = content;
+                }
+              } else {
+                // Si el contenido actual no es un objeto, reemplazar directamente
+                updatedComp.content = content;
+                
+                // IMPORTANTE: Si es una imagen con referencia temporal, buscar y preservar el archivo
+                if (updatedComp.type === 'image' && content.startsWith('__IMAGE_REF__')) {
+                  console.log(`🔍 DEBUG: Procesando imagen en componente ${componentId}`);
+                  
+                  // Buscar el archivo en el almacenamiento global
+                  if (window._imageFiles && window._imageFiles[content]) {
+                    updatedComp._tempFile = window._imageFiles[content];
+                    updatedComp._imageFile = window._imageFiles[content];
+                    console.log(`✅ DEBUG: Archivo asignado al componente desde window._imageFiles`);
+                  }
+                  
+                  // También buscar en el gestor de memoria de imágenes
+                  if (imageMemoryManager && typeof imageMemoryManager.getTempFile === 'function') {
+                    const fileData = imageMemoryManager.getTempFile(content);
+                    if (fileData && fileData.file) {
+                      updatedComp._tempFile = fileData.file;
+                      updatedComp._imageFile = fileData.file;
+                      console.log(`✅ DEBUG: Archivo asignado al componente desde imageMemoryManager`);
+                    }
+                  }
+                  
+                  // Log final del estado del componente
+                  console.log(`📊 DEBUG: Estado final del componente imagen:`, {
+                    id: updatedComp.id,
+                    content: updatedComp.content,
+                    hasImageFile: !!updatedComp._imageFile,
+                    hasTempFile: !!updatedComp._tempFile
+                  });
+                }
+              }
+            } else if (typeof content === 'object') {
+              // Si recibimos un objeto, reemplazar directamente
+              updatedComp.content = content;
+            }
+            
+            return updatedComp;
+          }
+          
+          // Si es un contenedor, buscar recursivamente en sus hijos
+          if (comp.type === 'container' && comp.children && comp.children.length > 0) {
+            return {
+              ...comp,
+              children: updateComponentRecursively(comp.children)
+            };
+          }
+          
+          return comp;
+        });
+      };
       
-      updatedComponents[componentIndex] = component;
+      const updatedComponents = updateComponentRecursively(prev.components);
       
       return {
         ...prev,
@@ -2283,6 +2321,18 @@ export function useBannerEditor() {
 
   // NUEVO: Actualizar contenido de componente hijo
   const updateChildContent = useCallback((componentId, content) => {
+    console.log(`📝 CHILD: updateChildContent llamado para ${componentId}:`, content);
+    
+    // DEBUG: Log detallado para rastrear el problema de imágenes
+    if (typeof content === 'string' && content.startsWith('__IMAGE_REF__')) {
+      console.log(`🖼️ CHILD DEBUG: Actualizando imagen con referencia: ${content}`);
+      console.log(`🖼️ CHILD DEBUG: Estado actual de window._imageFiles:`, window._imageFiles);
+      if (window._imageFiles && window._imageFiles[content]) {
+        console.log(`✅ CHILD DEBUG: Archivo encontrado en window._imageFiles:`, window._imageFiles[content]);
+      } else {
+        console.log(`❌ CHILD DEBUG: Archivo NO encontrado en window._imageFiles para ${content}`);
+      }
+    }
     
     findAndUpdateChild(componentId, (component) => {
       // Crear una copia del componente
@@ -2310,11 +2360,13 @@ export function useBannerEditor() {
           
           // IMPORTANTE: Si es una imagen con referencia temporal, buscar y preservar el archivo
           if (updatedComponent.type === 'image' && content.startsWith('__IMAGE_REF__')) {
+            console.log(`🔍 CHILD DEBUG: Procesando imagen en componente hijo ${componentId}`);
             
             // Buscar el archivo en el almacenamiento global
             if (window._imageFiles && window._imageFiles[content]) {
               updatedComponent._tempFile = window._imageFiles[content];
               updatedComponent._imageFile = window._imageFiles[content];
+              console.log(`✅ CHILD DEBUG: Archivo asignado al componente hijo desde window._imageFiles`);
             }
             
             // También buscar en el gestor de memoria de imágenes
@@ -2323,8 +2375,17 @@ export function useBannerEditor() {
               if (fileData && fileData.file) {
                 updatedComponent._tempFile = fileData.file;
                 updatedComponent._imageFile = fileData.file;
+                console.log(`✅ CHILD DEBUG: Archivo asignado al componente hijo desde imageMemoryManager`);
               }
             }
+            
+            // Log final del estado del componente
+            console.log(`📊 CHILD DEBUG: Estado final del componente imagen hijo:`, {
+              id: updatedComponent.id,
+              content: updatedComponent.content,
+              hasImageFile: !!updatedComponent._imageFile,
+              hasTempFile: !!updatedComponent._tempFile
+            });
           }
         }
       } else if (typeof content === 'object') {
@@ -3153,7 +3214,15 @@ const handleSave = useCallback(async (customConfig = null, isSystemTemplate = fa
     const formData = new FormData();
     
     // Obtener archivos de imagen del almacenamiento global
-    const imageFiles = new Map();
+    const imageFiles = collectImageFiles();
+    
+    console.log('🔍 CREATE SAVE: Archivos de imagen recolectados:', imageFiles.size);
+    if (imageFiles.size > 0) {
+      console.log('📋 CREATE SAVE: Referencias de imagen:');
+      imageFiles.forEach((file, ref) => {
+        console.log(`  - ${ref}: ${file.name} (${file.size} bytes)`);
+      });
+    }
     
     // Función para limpiar componentes de referencias temporales
     const cleanComponents = (components) => {
@@ -3181,8 +3250,30 @@ const handleSave = useCallback(async (customConfig = null, isSystemTemplate = fa
       // Añadir archivos de imagen uno por uno
       let counter = 0;
       imageFiles.forEach((file, imageRef) => {
+        console.log(`🔍 FORMDATA DEBUG: Procesando archivo:`, {
+          imageRef,
+          file,
+          fileType: typeof file,
+          isFile: file instanceof File,
+          isBlob: file instanceof Blob,
+          fileName: file?.name,
+          fileSize: file?.size
+        });
+        
+        // Verificar que el archivo es válido antes de agregarlo
+        if (!(file instanceof File) && !(file instanceof Blob)) {
+          console.error(`❌ FORMDATA ERROR: El archivo no es un File ni Blob:`, file);
+          return; // Saltar este archivo
+        }
+        
         const imageId = imageRef.replace('__IMAGE_REF__', '');
         const fileName = `IMAGE_REF_${imageId}_${file.name || 'image.png'}`;
+        
+        console.log(`✅ FORMDATA: Agregando archivo válido al FormData:`, {
+          fieldName: 'bannerImages',
+          fileName,
+          fileSize: file.size
+        });
         
         // Agregar con nombre explícito para mejor tracking
         formData.append('bannerImages', file, fileName);
@@ -3285,6 +3376,14 @@ const handleUpdate = useCallback(async (bannerId, customConfig = null) => {
     // Recopilar archivos de imagen temporales
     const imageFiles = collectImageFiles();
     
+    console.log('🔍 UPDATE SAVE: Archivos de imagen recolectados:', imageFiles.size);
+    if (imageFiles.size > 0) {
+      console.log('📋 UPDATE SAVE: Referencias de imagen:');
+      imageFiles.forEach((file, ref) => {
+        console.log(`  - ${ref}: ${file.name} (${file.size} bytes)`);
+      });
+    }
+    
     // SIEMPRE usar FormData, no importa qué
     
     // Crear FormData
@@ -3323,8 +3422,30 @@ const handleUpdate = useCallback(async (bannerId, customConfig = null) => {
       
       let counter = 0;
       imageFiles.forEach((file, imageRef) => {
+        console.log(`🔍 UPDATE FORMDATA DEBUG: Procesando archivo:`, {
+          imageRef,
+          file,
+          fileType: typeof file,
+          isFile: file instanceof File,
+          isBlob: file instanceof Blob,
+          fileName: file?.name,
+          fileSize: file?.size
+        });
+        
+        // Verificar que el archivo es válido antes de agregarlo
+        if (!(file instanceof File) && !(file instanceof Blob)) {
+          console.error(`❌ UPDATE FORMDATA ERROR: El archivo no es un File ni Blob:`, file);
+          return; // Saltar este archivo
+        }
+        
         const imageId = imageRef.replace('__IMAGE_REF__', '');
         const fileName = `IMAGE_REF_${imageId}_${file.name || 'image.png'}`;
+        
+        console.log(`✅ UPDATE FORMDATA: Agregando archivo válido al FormData:`, {
+          fieldName: 'bannerImages',
+          fileName,
+          fileSize: file.size
+        });
         
         // Agregar con nombre explícito para mejor tracking
         formData.append('bannerImages', file, fileName);
@@ -3949,41 +4070,75 @@ const handleImageUpload = async (componentId, file) => {
     const imageFiles = new Map();
     
     console.log('🔍 COLLECT: Iniciando recolección de archivos de imagen...');
+    console.log('🔍 COLLECT: Estado actual de bannerConfig.components:', bannerConfig.components);
     
     // Función recursiva para buscar referencias temporales
-    const collectImageRefs = (components) => {
-      if (!components || !Array.isArray(components)) return;
+    const collectImageRefs = (components, level = 0) => {
+      if (!components || !Array.isArray(components)) {
+        console.log(`⚠️ COLLECT: Componentes no válidos en nivel ${level}:`, components);
+        return;
+      }
+      
+      console.log(`🔍 COLLECT: Procesando ${components.length} componentes en nivel ${level}`);
       
       for (const comp of components) {
+        console.log(`📋 COLLECT: Revisando componente ${comp.id} de tipo ${comp.type} en nivel ${level}`);
+        
         if (comp.type === 'image' && typeof comp.content === 'string') {
+          console.log(`🖼️ COLLECT: Componente imagen encontrado con contenido: ${comp.content}`);
+          
           // Si hay una referencia temporal
           if (comp.content.startsWith('__IMAGE_REF__')) {
             console.log(`📂 COLLECT: Encontrado componente imagen con referencia: ${comp.content}`);
+            console.log(`📂 COLLECT: Estado del componente:`, {
+              id: comp.id,
+              hasImageFile: !!comp._imageFile,
+              hasTempFile: !!comp._tempFile,
+              content: comp.content
+            });
             
-            // MÉTODO 1: Buscar en el componente mismo
-            if (comp._imageFile) {
-              console.log(`✅ COLLECT: Archivo encontrado en componente para ${comp.content}`);
-              imageFiles.set(comp.content, comp._imageFile);
-              continue;
-            }
-            
-            // MÉTODO 2: Buscar en window._imageFiles (respaldo)
+            // MÉTODO 1: Buscar en window._imageFiles (más confiable)
             if (window._imageFiles && window._imageFiles[comp.content]) {
               console.log(`✅ COLLECT: Archivo encontrado en window._imageFiles para ${comp.content}`);
               imageFiles.set(comp.content, window._imageFiles[comp.content]);
               continue;
+            } else {
+              console.log(`❌ COLLECT: No encontrado en window._imageFiles`);
             }
             
-            // MÉTODO 3: Buscar en imageMemoryManager (respaldo adicional)
+            // MÉTODO 2: Buscar en imageMemoryManager (respaldo)
             try {
               const fileData = imageMemoryManager.getTempFile(comp.content);
               if (fileData && fileData.file) {
                 console.log(`✅ COLLECT: Archivo encontrado en imageMemoryManager para ${comp.content}`);
                 imageFiles.set(comp.content, fileData.file);
                 continue;
+              } else {
+                console.log(`❌ COLLECT: No encontrado en imageMemoryManager`);
               }
             } catch (error) {
               console.warn(`⚠️ COLLECT: Error accediendo imageMemoryManager para ${comp.content}:`, error);
+            }
+            
+            // MÉTODO 3: Buscar en el componente mismo (último recurso)
+            if (comp._imageFile) {
+              console.log(`✅ COLLECT: Archivo encontrado en componente para ${comp.content}`);
+              console.log(`🔍 COLLECT: Verificando tipo de archivo del componente:`, {
+                type: typeof comp._imageFile,
+                isFile: comp._imageFile instanceof File,
+                isBlob: comp._imageFile instanceof Blob,
+                constructor: comp._imageFile.constructor.name
+              });
+              
+              // Solo usar si es realmente un File/Blob
+              if (comp._imageFile instanceof File || comp._imageFile instanceof Blob) {
+                imageFiles.set(comp.content, comp._imageFile);
+                continue;
+              } else {
+                console.warn(`⚠️ COLLECT: El archivo del componente no es un File/Blob válido`);
+              }
+            } else {
+              console.log(`❌ COLLECT: No hay _imageFile en el componente`);
             }
             
             console.warn(`❌ COLLECT: No se encontró archivo para ${comp.content}`);
@@ -3992,7 +4147,8 @@ const handleImageUpload = async (componentId, file) => {
         
         // Revisar hijos recursivamente
         if (comp.children && Array.isArray(comp.children)) {
-          collectImageRefs(comp.children);
+          console.log(`📁 COLLECT: Componente ${comp.id} tiene ${comp.children.length} hijos`);
+          collectImageRefs(comp.children, level + 1);
         }
       }
     };

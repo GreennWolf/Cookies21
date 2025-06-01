@@ -522,3 +522,21 @@ export const cleanupUnusedImages = async (templateId) => {
     throw new Error(error.response?.data?.message || 'Error al limpiar imágenes no utilizadas');
   }
 };
+
+/**
+ * Limpia imágenes de banners que han sido eliminados de la base de datos
+ * Solo elimina directorios completos de banners que ya no existen en la BD
+ * Requiere permisos de administrador (owner)
+ * @returns {Promise<Object>} - Resultado de la limpieza
+ */
+export const cleanupDeletedBannersImages = async () => {
+  try {
+    console.log('🧹 Limpiando imágenes de banners eliminados...');
+    const response = await apiClient.post('/api/v1/banner-templates/cleanup-deleted-banners');
+    console.log(`✅ Limpieza de banners eliminados completada: ${response.data.data.deletedBanners} directorios eliminados, ${response.data.data.deletedFiles} archivos eliminados`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error al limpiar imágenes de banners eliminados:', error);
+    throw new Error(error.response?.data?.message || 'Error al limpiar imágenes de banners eliminados');
+  }
+};

@@ -486,6 +486,7 @@ function BannerPropertyPanel({
 
   // Manejador de cambios de contenido
   const handleContentChange = (value) => {
+    console.log(`📝 BannerPropertyPanel: handleContentChange llamado con:`, value);
     setLocalContent(value);
     
     // Actualizar contenido manteniendo la estructura
@@ -514,7 +515,8 @@ function BannerPropertyPanel({
       };
     }
     
-    onUpdateContent(updatedContent);
+    console.log(`📝 BannerPropertyPanel: Llamando onUpdateContent con:`, updatedContent);
+    onUpdateContent(component.id, updatedContent);
   };
 
   // Manejador mejorado de cambios de posición (siempre en %)
