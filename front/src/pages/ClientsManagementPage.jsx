@@ -8,7 +8,7 @@ import {
   assignTemplateToDomain
 } from '../api/client';
 import { createDomain, setDomainDefaultTemplate } from '../api/domain';
-import { createTemplate, getTemplate } from '../api/bannerTemplate';
+import { createTemplate, getTemplate, cloneTemplate } from '../api/bannerTemplate';
 import ClientList from '../components/client/ClientList';
 import ClientDetailsModal from '../components/client/ClientDetailsModal';
 import CreateClientModal from '../components/client/CreateClientModal';
@@ -117,15 +117,31 @@ const ClientsManagementPage = () => {
                                 
             console.log(`📊 ID del cliente para el banner: ${clientIdStr} (${typeof clientIdStr})`);
             
+            // IMPORTANTE: Detectar componentes con imágenes personalizadas
+            let hasCustomImages = false;
+            const checkForCustomImages = (components) => {
+              if (!components) return;
+              components.forEach(comp => {
+                if (comp._hasCustomImage) {
+                  hasCustomImages = true;
+                  console.log(`🖼️ Componente ${comp.id} tiene imagen personalizada`);
+                }
+                if (comp.children) checkForCustomImages(comp.children);
+              });
+            };
+            checkForCustomImages(templateCopy.components);
+            
             // Prepara los datos del banner con todas las personalizaciones ya aplicadas
             bannerData = {
               ...templateCopy,
               name: clientData.bannerConfig.name || `${createdClient.name} - defecto`,
               clientId: clientIdStr, // Usar el ID como string
-              type: 'custom' // Asegurar que es un banner personalizado
+              type: 'custom', // Asegurar que es un banner personalizado
+              _hasCustomImages: hasCustomImages
             };
             
             console.log(`📋 Datos de banner preparados con ${bannerData.components?.length || 0} componentes`);
+            console.log(`🖼️ ¿Tiene imágenes personalizadas?: ${hasCustomImages}`);
             
           } else if (clientData.bannerConfig.editorConfig) {
             console.log("✅ Usando configuración completa del editor");
@@ -405,18 +421,47 @@ const ClientsManagementPage = () => {
           throw new Error("Configuración de banner inválida");
         }
           
-          // Si hay imágenes, necesitamos crear un FormData
-          if (clientData.bannerConfig.images && Object.keys(clientData.bannerConfig.images).length > 0) {
+          // Debug: verificar qué imágenes llegaron
+          console.log('🔍 DEBUG - clientData.bannerConfig.images:', clientData.bannerConfig.images);
+          console.log('🔍 DEBUG - Claves de imágenes:', clientData.bannerConfig.images ? Object.keys(clientData.bannerConfig.images) : 'No hay imágenes');
+          console.log('🎨 DEBUG - customizedTemplate:', clientData.bannerConfig.customizedTemplate);
+          
+          // Verificar si hay componentes con _hasCustomImage en el template
+          let hasCustomImageComponents = false;
+          const checkForCustomImageComponents = (components) => {
+            if (!components) return;
+            components.forEach(comp => {
+              if (comp._hasCustomImage) {
+                hasCustomImageComponents = true;
+                console.log(`🖼️ Componente ${comp.id} marcado con _hasCustomImage`);
+              }
+              if (comp.children) checkForCustomImageComponents(comp.children);
+            });
+          };
+          checkForCustomImageComponents(bannerData.components);
+          
+          // SIMPLIFICADO: Crear directamente el template con los datos ya modificados
+          const hasImagesFromConfig = clientData.bannerConfig.images && Object.keys(clientData.bannerConfig.images).length > 0;
+          const hasImagesFromWindow = window._imageFiles && Object.keys(window._imageFiles).length > 0;
+          
+          if (hasImagesFromConfig || hasCustomImageComponents || hasImagesFromWindow) {
+            console.log('✅ Se detectaron imágenes personalizadas, creando template con imágenes');
+            console.log('📊 Fuentes de imágenes:', {
+              desdeImages: clientData.bannerConfig.images ? Object.keys(clientData.bannerConfig.images).length : 0,
+              desdeComponentes: hasCustomImageComponents,
+              desdeWindow: window._imageFiles ? Object.keys(window._imageFiles).length : 0
+            });
             try {
               const formData = new FormData();
               
               // Modificar los componentes para incluir marcadores de las imágenes que deben ser reemplazadas
               let componentsWithImageMarkers = [...bannerData.components];
               
-              // Recorrer todos los componentes buscando imágenes
-              componentsWithImageMarkers = componentsWithImageMarkers.map(comp => {
-                if (comp.type === 'image') {
-                  const componentId = comp.id;
+              // Función recursiva para procesar componentes incluyendo hijos
+              const processComponentsForImages = (components) => {
+                return components.map(comp => {
+                  if (comp.type === 'image') {
+                    const componentId = comp.id;
                   
                   // Verificar si tenemos una imagen nueva para este componente
                   // Verificar si tenemos una imagen nueva para este componente (incluyendo la imagen genérica como fallback)
@@ -435,6 +480,11 @@ const ClientsManagementPage = () => {
                            clientData.bannerConfig.images.generic instanceof File) {
                     imageFile = clientData.bannerConfig.images.generic;
                     console.log(`📷 Usando imagen genérica para componente ${componentId}: ${imageFile.name}`);
+                  }
+                  // Verificar también en window._imageFiles (usado por SimpleBannerConfigStep)
+                  else if (window._imageFiles && window._imageFiles[componentId] instanceof File) {
+                    imageFile = window._imageFiles[componentId];
+                    console.log(`📷 Usando imagen de window._imageFiles para componente ${componentId}: ${imageFile.name}`);
                   }
                                    
                   if (imageFile) {
@@ -510,9 +560,19 @@ const ClientsManagementPage = () => {
                     console.log(`🔄 Configurando componente ${componentId} para usar imagen: ${imageFile.name}`);
                     console.log(`🔄 Referencia de imagen asignada: ${imageRef}`);
                   }
-                }
-                return comp;
-              });
+                  }
+                  
+                  // Procesar hijos recursivamente si es un contenedor
+                  if (comp.children && Array.isArray(comp.children)) {
+                    comp.children = processComponentsForImages(comp.children);
+                  }
+                  
+                  return comp;
+                });
+              };
+              
+              // Procesar componentes recursivamente
+              componentsWithImageMarkers = processComponentsForImages(componentsWithImageMarkers);
               
               // Crear un mapa de qué componente va con cada imagen - con formato mejorado
               let imageComponentMapping = {};
@@ -545,7 +605,18 @@ const ClientsManagementPage = () => {
               let imageCount = 0;
               let invalidFiles = [];
               
-              Object.entries(clientData.bannerConfig.images).forEach(([key, file]) => {
+              // Combinar imágenes de clientData.bannerConfig.images y window._imageFiles
+              const allImages = { ...clientData.bannerConfig.images };
+              if (window._imageFiles) {
+                Object.entries(window._imageFiles).forEach(([componentId, file]) => {
+                  if (!allImages[componentId] && file instanceof File) {
+                    allImages[componentId] = file;
+                    console.log(`📎 Agregando imagen de window._imageFiles: ${componentId}`);
+                  }
+                });
+              }
+              
+              Object.entries(allImages).forEach(([key, file]) => {
                 if (file instanceof File) {
                   // Validar extensiones permitidas para evitar errores de servidor
                   const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico'];
@@ -633,13 +704,36 @@ const ClientsManagementPage = () => {
               }
               
               console.log(`📝 Creando banner con ${imageCount} imágenes válidas...`);
+              console.log('🖼️ Componentes con marcadores de imagen:', componentsWithImageMarkers.filter(c => c.content && typeof c.content === 'string' && c.content.includes('__IMAGE_REF__')).length);
               
               // Si no hay imágenes válidas, saltar directo a la creación sin imágenes
               if (imageCount === 0) {
                 throw new Error("No hay imágenes válidas para procesar");
               }
               
-              // Crear el banner con las imágenes
+              // SIMPLIFICADO: Siempre crear un nuevo template con los datos modificados
+              console.log(`🆕 Creando nuevo template con imágenes personalizadas`);
+              
+              // Usar el customizedTemplate que ya tiene todos los cambios aplicados
+              const templateData = {
+                ...clientData.bannerConfig.customizedTemplate,
+                name: bannerData.name,
+                clientId: bannerData.clientId, // Importante: incluir el clientId
+                components: componentsWithImageMarkers, // Componentes con marcadores __IMAGE_REF__
+                type: 'custom',
+                status: 'active'
+              };
+              
+              // Agregar los datos del template al FormData
+              formData.append('name', templateData.name);
+              formData.append('clientId', templateData.clientId);
+              formData.append('type', templateData.type);
+              formData.append('status', templateData.status);
+              formData.append('layout', JSON.stringify(templateData.layout));
+              formData.append('components', JSON.stringify(templateData.components));
+              formData.append('settings', JSON.stringify(templateData.settings || {}));
+              
+              // Crear el template
               const bannerResponse = await createTemplate(formData);
               
               // Si se ha creado correctamente, guardar el ID
@@ -657,14 +751,18 @@ const ClientsManagementPage = () => {
               
               // Si falla la creación con imágenes, intentar sin imágenes como fallback
               try {
-                const bannerWithoutImages = {
-                  ...bannerData,
-                  // Eliminar referencias a imágenes
-                  images: {},
-                  imageSettings: {}
+                console.log(`🔄 Intentando crear template sin imágenes (fallback)`);
+                
+                // Usar el customizedTemplate que ya tiene todos los cambios aplicados
+                const templateData = {
+                  ...clientData.bannerConfig.customizedTemplate,
+                  name: bannerData.name,
+                  clientId: bannerData.clientId, // Importante: incluir el clientId
+                  type: 'custom',
+                  status: 'active'
                 };
                 
-                const fallbackResponse = await createTemplate(bannerWithoutImages);
+                const fallbackResponse = await createTemplate(templateData);
                 if (fallbackResponse.data && fallbackResponse.data.template && fallbackResponse.data.template._id) {
                   templateId = fallbackResponse.data.template._id;
                   createdTemplate = fallbackResponse.data.template;
@@ -678,9 +776,25 @@ const ClientsManagementPage = () => {
             }
           } else {
             // Crear banner sin imágenes
+            console.log('📝 Creando banner sin imágenes personalizadas');
+            console.log('❓ Estado de imágenes:', {
+              images: clientData.bannerConfig.images,
+              hasImages: clientData.bannerConfig.images ? Object.keys(clientData.bannerConfig.images).length : 0
+            });
             try {
-              console.log("📝 Creando banner sin imágenes...");
-              const bannerResponse = await createTemplate(bannerData);
+              // SIMPLIFICADO: Siempre crear un nuevo template con los datos modificados
+              console.log("🆕 Creando nuevo template con datos personalizados");
+              
+              // Usar el customizedTemplate que ya tiene todos los cambios aplicados
+              const templateData = {
+                ...clientData.bannerConfig.customizedTemplate,
+                name: bannerData.name,
+                clientId: bannerData.clientId, // Importante: incluir el clientId
+                type: 'custom',
+                status: 'active'
+              };
+              
+              const bannerResponse = await createTemplate(templateData);
               
               // Si se ha creado correctamente, guardar el ID
               if (bannerResponse.data && bannerResponse.data.template && bannerResponse.data.template._id) {
@@ -704,8 +818,16 @@ const ClientsManagementPage = () => {
       
       // 2. Si el cliente tiene dominios, crearlos en la tabla de dominios
       if (clientData.domains && clientData.domains.length > 0) {
-        // Filtrar dominios vacíos
-        const validDomains = clientData.domains.filter(domain => domain.trim() !== '');
+        // Filtrar dominios vacíos y emails
+        const validDomains = clientData.domains.filter(domain => {
+          const trimmed = domain.trim();
+          // Excluir vacíos y emails
+          return trimmed !== '' && !trimmed.includes('@');
+        });
+        
+        if (validDomains.length !== clientData.domains.length) {
+          console.log(`⚠️ Se filtraron ${clientData.domains.length - validDomains.length} entradas inválidas (emails o vacíos)`);
+        }
         
         // Dominios creados para referencia posterior
         // const createdDomains = []; // Comentado para usar la variable del scope superior

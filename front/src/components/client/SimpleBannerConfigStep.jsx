@@ -194,28 +194,39 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
               };
             }
             // Manejo correcto de nuevas imágenes
-            if (imageCustomization.file) {
-              // Crear ObjectURL para el archivo
-              const objectUrl = URL.createObjectURL(imageCustomization.file);
+            if (imageCustomization.file || imageCustomization.tempUrl) {
+              // Marcar el componente para que el backend sepa que debe procesar una nueva imagen
+              newComponent._hasCustomImage = true;
+              newComponent._customImageId = component.id;
+              
+              // Crear ObjectURL para el archivo si existe
+              let previewUrl = imageCustomization.tempUrl;
+              if (imageCustomization.file && !previewUrl) {
+                previewUrl = URL.createObjectURL(imageCustomization.file);
+              }
+              
               // Usar _previewUrl para el preview (como en BannerPreview)
               newComponent.style = {
                 ...newComponent.style,
                 desktop: {
                   ...newComponent.style?.desktop,
-                  _previewUrl: objectUrl
+                  _previewUrl: previewUrl
+                },
+                tablet: {
+                  ...newComponent.style?.tablet,
+                  _previewUrl: previewUrl
+                },
+                mobile: {
+                  ...newComponent.style?.mobile,
+                  _previewUrl: previewUrl
                 }
               };
+              
               // También almacenar en el sistema global para compatibilidad
-              if (!window._imageFiles) window._imageFiles = {};
-              window._imageFiles[component.id] = imageCustomization.file;
-            } else if (imageCustomization.tempUrl) {
-              newComponent.style = {
-                ...newComponent.style,
-                desktop: {
-                  ...newComponent.style?.desktop,
-                  _previewUrl: imageCustomization.tempUrl
-                }
-              };
+              if (imageCustomization.file) {
+                if (!window._imageFiles) window._imageFiles = {};
+                window._imageFiles[component.id] = imageCustomization.file;
+              }
             }
             // Nota: La URL original ya fue procesada arriba, no necesitamos repetir el proceso aquí
           }
@@ -286,16 +297,71 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     return result;
   }, [selectedTemplate, customizations]);
 
+  // Función para manejar la carga de imágenes
+  const handleImageUpload = (componentId, file) => {
+    if (!file) return;
+    
+    // Validar tipo de archivo
+    if (!file.type.startsWith('image/')) {
+      toast.error('Por favor selecciona un archivo de imagen válido');
+      return;
+    }
+    
+    console.log(`📷 Subiendo imagen para componente ${componentId}:`, file.name);
+    
+    // Crear URL temporal para preview inmediato
+    const tempUrl = URL.createObjectURL(file);
+    
+    // Actualizar customizations con la URL temporal
+    setCustomizations(prev => ({
+      ...prev,
+      images: {
+        ...prev.images,
+        [componentId]: {
+          ...prev.images[componentId],
+          tempUrl: tempUrl,
+          file: file,
+          fileName: file.name
+        }
+      }
+    }));
+    
+    toast.success('Imagen actualizada correctamente');
+    
+    // El useEffect se encargará de actualizar el formData cuando customizations cambien
+  };
+
   // Actualizar formData cuando cambien las customizations
   useEffect(() => {
     if (selectedTemplate && formData.bannerConfig && customizedTemplate) {
+      // Recopilar todas las imágenes de las customizations
+      const imageFiles = {};
+      const imageSettings = {};
+      
+      // Extraer archivos de imagen de customizations
+      Object.entries(customizations.images || {}).forEach(([componentId, imageData]) => {
+        if (imageData.file instanceof File) {
+          imageFiles[componentId] = imageData.file;
+          imageSettings[componentId] = {
+            fileName: imageData.fileName,
+            hasCustomImage: true,
+            tempUrl: imageData.tempUrl
+          };
+          console.log(`✅ Imagen detectada para componente ${componentId}:`, imageData.fileName);
+        }
+      });
+      
+      console.log('📤 Enviando bannerConfig con imágenes:', Object.keys(imageFiles));
+      
       onChange('bannerConfig', {
         ...formData.bannerConfig,
         customizations: customizations,
-        customizedTemplate: customizedTemplate
+        customizedTemplate: customizedTemplate,
+        images: Object.keys(imageFiles).length > 0 ? imageFiles : formData.bannerConfig.images,
+        imageSettings: Object.keys(imageSettings).length > 0 ? imageSettings : formData.bannerConfig.imageSettings
       });
     }
-  }, [customizedTemplate]);
+  }, [customizedTemplate, customizations]);
 
   // Función para crear una plantilla básica temporal cuando no hay plantillas del sistema
   const createBasicTemplate = () => {
@@ -649,33 +715,6 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     }
   };
 
-  const handleImageUpload = (imageId, file) => {
-    if (!file) return;
-    
-    // Validar tipo de archivo
-    if (!file.type.startsWith('image/')) {
-      toast.error('Por favor selecciona un archivo de imagen válido');
-      return;
-    }
-    
-    // Crear URL temporal para preview
-    const tempUrl = URL.createObjectURL(file);
-    
-    // Actualizar customizations con el nuevo archivo
-    const newCustomizations = { ...customizations };
-    if (!newCustomizations.images[imageId]) {
-      newCustomizations.images[imageId] = {};
-    }
-    
-    newCustomizations.images[imageId].file = file;
-    newCustomizations.images[imageId].tempUrl = tempUrl;
-    
-    setCustomizations(newCustomizations);
-    
-    // NO llamar a onChange aquí, el useEffect se encargará cuando customizedTemplate cambie
-    
-    toast.success('Imagen actualizada correctamente');
-  };
 
   // Manejador que NO modifica selectedTemplate, sino que guarda cambios en customizations
   const handleComponentUpdate = useCallback((componentId, updates) => {
@@ -983,7 +1022,10 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {bannerComponents.images.map((image, index) => {
                     const imageCustomization = customizations.images[image.id] || {};
-                    const currentImageUrl = imageCustomization.tempUrl || image.content || '';
+                    // Priorizar la imagen personalizada sobre la original
+                    const currentImageUrl = imageCustomization.tempUrl || 
+                                          imageCustomization.file ? URL.createObjectURL(imageCustomization.file) : 
+                                          image.content || '';
                     
                     return (
                       <div key={image.id} className="bg-white p-3 rounded-lg border">

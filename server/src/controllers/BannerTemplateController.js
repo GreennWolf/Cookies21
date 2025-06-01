@@ -1668,11 +1668,58 @@ createSystemTemplate = async (req, res) => {
   // Clonar plantilla
   cloneTemplate = catchAsync(async (req, res) => {
     const { id } = req.params;
-    const { name, customizations } = req.body;
     const { clientId, userId } = req;
-
+    
+    console.log('🚀 Iniciando clonación de template');
+    console.log('📦 Content-Type:', req.headers['content-type']);
     console.log(`🔍 DEBUG - Clonado: Iniciando clonación de template ${id} para cliente ${clientId}`);
+    
+    // 1. Detectar si tenemos un formulario multipart
+    const isMultipart = req.headers['content-type'] && 
+                        req.headers['content-type'].startsWith('multipart/form-data');
+    
+    console.log(`📄 Tipo de solicitud: ${isMultipart ? 'Multipart con archivos' : 'JSON simple'}`);
+    
+    // 2. Extraer datos
+    let name, customizations;
+    
+    let cloneDataFromForm = null;
+    
+    if (isMultipart) {
+      // Para solicitudes multipart/form-data
+      name = req.body.name;
+      
+      // Procesar cloneData si existe (contiene componentes con referencias __IMAGE_REF__)
+      if (req.body.cloneData) {
+        try {
+          cloneDataFromForm = JSON.parse(req.body.cloneData);
+          console.log('📄 CloneData parseado desde FormData');
+          console.log('📊 Componentes con referencias de imagen:', cloneDataFromForm.components?.length);
+        } catch (error) {
+          console.error('❌ Error parseando cloneData:', error.message);
+        }
+      }
+      
+      if (req.body.customizations) {
+        try {
+          customizations = JSON.parse(req.body.customizations);
+          console.log('📄 Customizations parseadas desde FormData');
+        } catch (error) {
+          console.warn('⚠️ No se pudieron parsear customizations:', error.message);
+          customizations = null;
+        }
+      }
+    } else {
+      // Para solicitudes JSON normales
+      name = req.body.name;
+      customizations = req.body.customizations;
+    }
+    
     console.log(`🔍 DEBUG - Clonado: Customizaciones recibidas:`, customizations ? 'Sí' : 'No');
+    
+    // 3. Verificar archivos subidos si es multipart
+    const uploadedFiles = isMultipart ? (req.files || []) : [];
+    console.log(`🖼️ Archivos recibidos: ${uploadedFiles.length}`);
 
     const count = await BannerTemplate.countDocuments({
       clientId,
@@ -1763,6 +1810,188 @@ createSystemTemplate = async (req, res) => {
     
     console.log(`🔍 DEBUG - Clonado: Creando nuevo template basado en ${id}`);
     const cloned = await BannerTemplate.create(cloneData);
+    console.log(`✅ Template clonado creado con ID: ${cloned._id}`);
+    
+    // 4. PROCESAR IMÁGENES SI HAY ARCHIVOS (copiado de createTemplate)
+    if (isMultipart && uploadedFiles.length > 0) {
+      console.log('🖼️ Procesando imágenes para el template clonado...');
+      
+      // Si tenemos componentes del frontend con referencias __IMAGE_REF__, usarlos
+      if (cloneDataFromForm && cloneDataFromForm.components) {
+        console.log('🔄 Usando componentes con referencias del frontend');
+        cloned.components = cloneDataFromForm.components;
+      }
+      
+      if (!cloned.components || !Array.isArray(cloned.components)) {
+        console.warn('⚠️ No hay componentes para procesar imágenes');
+        return res.status(201).json({
+          status: 'success',
+          data: { template: cloned }
+        });
+      }
+      
+      // Mostrar detalles de cada archivo
+      uploadedFiles.forEach((file, i) => {
+        console.log(`📄 Archivo ${i+1}:`, {
+          name: file.originalname,
+          path: file.path,
+          size: file.size,
+          mimetype: file.mimetype
+        });
+      });
+      
+      // Función recursiva para encontrar referencias de imágenes y asociarlas con archivos
+      const processComponents = (components) => {
+        return components.map(comp => {
+          // Hacer una copia limpia del componente
+          const component = { ...comp };
+          
+          // Si es componente de imagen con marcador temporal
+          if (component.type === 'image' && 
+              typeof component.content === 'string' && 
+              component.content.startsWith('__IMAGE_REF__')) {
+            
+            // Extraer ID del marcador
+            const imageId = component.content.replace('__IMAGE_REF__', '');
+            
+            // Buscar archivo correspondiente por nombre usando el formato consistente
+            // Formato esperado: IMAGE_REF_{componentId}_filename
+            const file = uploadedFiles.find(f => 
+              f.originalname.includes(`IMAGE_REF_${imageId}_`));
+            
+            if (file) {
+              console.log(`✅ Encontrado archivo ${file.originalname} para componente ${component.id}`);
+              
+              // Construir ruta relativa para el banner
+              const bannerId = cloned._id.toString();
+              const fileName = `img_${component.id}_${Date.now()}${path.extname(file.originalname)}`;
+              
+              // Crear directorio si no existe
+              const bannerDir = path.join(process.cwd(), 'public', 'templates', 'images', bannerId);
+              
+              try {
+                // Create directory if it doesn't exist
+                fsSync.mkdirSync(bannerDir, { recursive: true });
+                console.log(`📁 Creado directorio: ${bannerDir}`);
+                
+                // Ruta destino del archivo
+                const destPath = path.join(bannerDir, fileName);
+                
+                // Copiar archivo desde la carpeta temporal
+                fsSync.copyFileSync(file.path, destPath);
+                console.log(`📋 Archivo copiado a: ${destPath}`);
+                
+                // Generar URL relativa para el frontend
+                const relativeUrl = `/templates/images/${bannerId}/${fileName}`;
+                
+                // Actualizar contenido del componente
+                component.content = relativeUrl;
+                console.log(`🔗 Actualizando componente con URL: ${relativeUrl}`);
+                
+                // Aplicar configuración de estilo si existe
+                if (component._imageSettings) {
+                  console.log(`🎨 Aplicando configuración de estilo para componente ${component.id}:`, component._imageSettings);
+                  
+                  // Procesar estilos para todos los dispositivos
+                  ['desktop', 'tablet', 'mobile'].forEach(device => {
+                    if (component.style && component.style[device]) {
+                      // Aplicar posición si existe
+                      if (component._imageSettings.position) {
+                        // Aplicar left y top directamente al estilo - usando píxeles
+                        if (component._imageSettings.position.left !== undefined) {
+                          const left = parseFloat(component._imageSettings.position.left);
+                          component.style[device].left = `${left}px`;
+                          console.log(`🔄 Estableciendo posición left: ${left}px para ${component.id}`);
+                        }
+                        
+                        if (component._imageSettings.position.top !== undefined) {
+                          const top = parseFloat(component._imageSettings.position.top);
+                          component.style[device].top = `${top}px`;
+                          console.log(`🔄 Estableciendo posición top: ${top}px para ${component.id}`);
+                        }
+                        
+                        // Conservar la posición original
+                        component.style[device]._customPosition = {
+                          left: parseFloat(component._imageSettings.position.left),
+                          top: parseFloat(component._imageSettings.position.top),
+                          mode: 'pixels'
+                        };
+                      }
+                      
+                      // Aplicar tamaño si existe
+                      if (component._imageSettings.widthRaw !== undefined || component._imageSettings.heightRaw !== undefined) {
+                        component.style[device]._customDimensions = {
+                          mode: 'pixels'
+                        };
+                        
+                        if (component._imageSettings.widthRaw !== undefined) {
+                          const width = parseInt(component._imageSettings.widthRaw);
+                          if (!isNaN(width) && width > 0) {
+                            component.style[device].width = `${width}px`;
+                            component.style[device]._customDimensions.width = width;
+                            console.log(`🔄 Usando ancho en píxeles: ${width}px para ${component.id}`);
+                          }
+                        }
+                        
+                        if (component._imageSettings.heightRaw !== undefined) {
+                          const height = parseInt(component._imageSettings.heightRaw);
+                          if (!isNaN(height) && height > 0) {
+                            component.style[device].height = `${height}px`;
+                            component.style[device]._customDimensions.height = height;
+                            console.log(`🔄 Usando alto en píxeles: ${height}px para ${component.id}`);
+                          }
+                        }
+                      }
+                      
+                      // Aplicar object-fit y object-position si existen
+                      if (component._imageSettings.objectFit) {
+                        component.style[device].objectFit = component._imageSettings.objectFit;
+                      }
+                      if (component._imageSettings.objectPosition) {
+                        component.style[device].objectPosition = component._imageSettings.objectPosition;
+                      }
+                    }
+                  });
+                }
+              } catch (dirError) {
+                console.error(`❌ Error al crear directorio o copiar archivo: ${dirError.message}`);
+              }
+            } else {
+              console.warn(`⚠️ No se encontró archivo para componente ${component.id} con referencia ${imageId}`);
+            }
+          }
+          
+          // Limpiar propiedades temporales
+          delete component._tempFile;
+          delete component._imageFile;
+          delete component._imageSettings;
+          
+          // Limpiar también en estilos
+          if (component.style) {
+            Object.keys(component.style).forEach(device => {
+              if (component.style[device]) {
+                delete component.style[device]._tempFile;
+                delete component.style[device]._previewUrl;
+              }
+            });
+          }
+          
+          // Procesar hijos recursivamente
+          if (component.children && Array.isArray(component.children)) {
+            component.children = processComponents(component.children);
+          }
+          
+          return component;
+        });
+      };
+      
+      // Procesar componentes recursivamente
+      cloned.components = processComponents(cloned.components);
+      
+      // Guardar cambios si hubo actualizaciones
+      await cloned.save();
+      console.log('✅ Template clonado actualizado con nuevas imágenes');
+    }
 
     res.status(201).json({
       status: 'success',

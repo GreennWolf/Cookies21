@@ -264,10 +264,30 @@ export const createTemplate = async (bannerConfig, isSystemTemplate = false) => 
 
 /**
  * Clona una plantilla.
+ * @param {string} templateId - ID de la plantilla a clonar
+ * @param {Object|FormData} cloneData - Datos para la clonación (puede incluir imágenes)
  */
 export const cloneTemplate = async (templateId, cloneData) => {
   try {
-    const response = await apiClient.post(`/api/v1/banner-templates/${templateId}/clone`, cloneData);
+    console.log(`🔄 Clonando template ${templateId}`);
+    
+    // Detectar si es FormData (cuando hay imágenes)
+    const isFormData = cloneData instanceof FormData;
+    console.log(`📄 Tipo de datos: ${isFormData ? 'FormData con archivos' : 'JSON simple'}`);
+    
+    let response;
+    
+    if (isFormData) {
+      // Si es FormData, enviar sin Content-Type para que axios lo configure automáticamente
+      response = await apiClient.post(`/api/v1/banner-templates/${templateId}/clone`, cloneData, {
+        headers: {
+          // NO establecer Content-Type para FormData
+        }
+      });
+    } else {
+      // Para JSON normal
+      response = await apiClient.post(`/api/v1/banner-templates/${templateId}/clone`, cloneData);
+    }
     
     // Transformar URLs de imágenes en la respuesta
     if (response.data && response.data.data && response.data.data.template) {
@@ -276,6 +296,7 @@ export const cloneTemplate = async (templateId, cloneData) => {
     
     return response.data;
   } catch (error) {
+    console.error('❌ Error clonando template:', error);
     throw new Error(error.response?.data?.message || 'Error cloning template');
   }
 };
