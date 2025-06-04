@@ -43,7 +43,7 @@ const bannerTemplateValidation = {
       components: Joi.array().items(
         Joi.object({
           id: Joi.string().required(),
-          type: Joi.string().valid('text', 'button', 'link', 'logo', 'checkbox', 'toggle', 'container', 'panel', 'image').required(),
+          type: Joi.string().valid('text', 'button', 'link', 'logo', 'checkbox', 'toggle', 'container', 'panel', 'image', 'language-button').required(),
           action: Joi.object({
             type: Joi.string().valid('accept_all', 'reject_all', 'save_preferences', 'show_preferences', 'close', 'none', 'custom'),
             callback: Joi.string().optional()
@@ -57,6 +57,23 @@ const bannerTemplateValidation = {
               ).required(),
               translatable: Joi.boolean().optional(),
               text: Joi.string().optional() // Para compatibilidad
+            }),
+            // Configuración específica para language-button
+            Joi.object({
+              displayMode: Joi.string().valid('flag-dropdown', 'text-dropdown', 'flags-only', 'text-only').optional(),
+              languages: Joi.array().items(Joi.string().min(2).max(5)).optional(),
+              defaultLanguageMode: Joi.string().valid('auto', 'manual').optional(),
+              defaultLanguage: Joi.string().min(2).max(5).optional(),
+              showLabel: Joi.boolean().optional(),
+              labelText: Joi.string().optional(),
+              autoDetectConfig: Joi.object({
+                useHtmlLang: Joi.boolean().optional(),
+                useMetaTags: Joi.boolean().optional(),
+                useUrlParams: Joi.boolean().optional(),
+                useLocalStorage: Joi.boolean().optional(),
+                useNavigatorLanguage: Joi.boolean().optional(),
+                fallbackLanguage: Joi.string().min(2).max(5).optional()
+              }).optional()
             })
           ).optional(),
           style: Joi.object({
@@ -194,7 +211,7 @@ const bannerTemplateValidation = {
       components: Joi.array().items(
         Joi.object({
           id: Joi.string().required(),
-          type: Joi.string().valid('text', 'button', 'link', 'logo', 'checkbox', 'toggle', 'container', 'panel', 'image').required(),
+          type: Joi.string().valid('text', 'button', 'link', 'logo', 'checkbox', 'toggle', 'container', 'panel', 'image', 'language-button').required(),
           action: Joi.object({
             type: Joi.string().valid('accept_all', 'reject_all', 'save_preferences', 'show_preferences', 'close', 'none', 'custom'),
             callback: Joi.string().optional()
@@ -209,6 +226,23 @@ const bannerTemplateValidation = {
               ).required(),
               translatable: Joi.boolean().optional(),
               text: Joi.string().optional() // Para compatibilidad
+            }),
+            // Configuración específica para language-button
+            Joi.object({
+              displayMode: Joi.string().valid('flag-dropdown', 'text-dropdown', 'flags-only', 'text-only').optional(),
+              languages: Joi.array().items(Joi.string().min(2).max(5)).optional(),
+              defaultLanguageMode: Joi.string().valid('auto', 'manual').optional(),
+              defaultLanguage: Joi.string().min(2).max(5).optional(),
+              showLabel: Joi.boolean().optional(),
+              labelText: Joi.string().optional(),
+              autoDetectConfig: Joi.object({
+                useHtmlLang: Joi.boolean().optional(),
+                useMetaTags: Joi.boolean().optional(),
+                useUrlParams: Joi.boolean().optional(),
+                useLocalStorage: Joi.boolean().optional(),
+                useNavigatorLanguage: Joi.boolean().optional(),
+                fallbackLanguage: Joi.string().min(2).max(5).optional()
+              }).optional()
             })
           ).optional(),
           // Estilos para cada dispositivo
@@ -311,6 +345,23 @@ const bannerTemplateValidation = {
               ).optional(),
               translatable: Joi.boolean().optional(),
               text: Joi.string().optional()
+            }),
+            // Configuración específica para language-button
+            Joi.object({
+              displayMode: Joi.string().valid('flag-dropdown', 'text-dropdown', 'flags-only', 'text-only').optional(),
+              languages: Joi.array().items(Joi.string().min(2).max(5)).optional(),
+              defaultLanguageMode: Joi.string().valid('auto', 'manual').optional(),
+              defaultLanguage: Joi.string().min(2).max(5).optional(),
+              showLabel: Joi.boolean().optional(),
+              labelText: Joi.string().optional(),
+              autoDetectConfig: Joi.object({
+                useHtmlLang: Joi.boolean().optional(),
+                useMetaTags: Joi.boolean().optional(),
+                useUrlParams: Joi.boolean().optional(),
+                useLocalStorage: Joi.boolean().optional(),
+                useNavigatorLanguage: Joi.boolean().optional(),
+                fallbackLanguage: Joi.string().min(2).max(5).optional()
+              }).optional()
             })
           ).optional(),
           style: Joi.object({
@@ -368,7 +419,7 @@ const bannerTemplateValidation = {
       components: Joi.array().items(
         Joi.object({
           id: Joi.string().required(),
-          type: Joi.string().valid('text', 'button', 'link', 'logo', 'checkbox', 'toggle', 'container', 'panel', 'image').required(),
+          type: Joi.string().valid('text', 'button', 'link', 'logo', 'checkbox', 'toggle', 'container', 'panel', 'image', 'language-button').required(),
           action: Joi.object({
             type: Joi.string().valid('accept_all', 'reject_all', 'save_preferences', 'show_preferences', 'close', 'none', 'custom'),
             callback: Joi.string().optional()
@@ -382,6 +433,23 @@ const bannerTemplateValidation = {
               ).optional(),
               translatable: Joi.boolean().optional(),
               text: Joi.string().optional()
+            }),
+            // Configuración específica para language-button
+            Joi.object({
+              displayMode: Joi.string().valid('flag-dropdown', 'text-dropdown', 'flags-only', 'text-only').optional(),
+              languages: Joi.array().items(Joi.string().min(2).max(5)).optional(),
+              defaultLanguageMode: Joi.string().valid('auto', 'manual').optional(),
+              defaultLanguage: Joi.string().min(2).max(5).optional(),
+              showLabel: Joi.boolean().optional(),
+              labelText: Joi.string().optional(),
+              autoDetectConfig: Joi.object({
+                useHtmlLang: Joi.boolean().optional(),
+                useMetaTags: Joi.boolean().optional(),
+                useUrlParams: Joi.boolean().optional(),
+                useLocalStorage: Joi.boolean().optional(),
+                useNavigatorLanguage: Joi.boolean().optional(),
+                fallbackLanguage: Joi.string().min(2).max(5).optional()
+              }).optional()
             })
           ).optional(),
           style: Joi.object({

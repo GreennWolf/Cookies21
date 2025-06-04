@@ -4,6 +4,11 @@ import { AuthContext } from '../../contexts/AuthContext';
 import { logout } from '../../api/auth';
 import { toast } from 'react-hot-toast';
 import logo from '../../assets/logo.png';
+// Alternative logos available:
+// import logo from '../../assets/logo-final.svg';
+// import logo from '../../assets/logo-modern.svg';
+// import logo from '../../assets/logo-minimal.svg';
+// import logo from '../../assets/logo-professional.svg';
 
 const Header = () => {
   const { user, setAuthData } = useContext(AuthContext);

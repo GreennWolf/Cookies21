@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBannerEditor } from './hooks/useBannerEditor';
 import { useAuth } from '../../../contexts/AuthContext';
 import { Save, Eye, Undo, Redo, Monitor, Smartphone, Tablet, ChevronLeft, X, Trash2, Layers, Settings } from 'lucide-react';
-import { cleanupUnusedImages } from '../../../api/bannerTemplate';
+// import { cleanupUnusedImages } from '../../../api/bannerTemplate'; // ELIMINADO
 
 // Importamos los componentes existentes que reutilizaremos
 import BannerCanvas from './BannerCanvas';
@@ -815,7 +815,8 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
       setCleanupResult(null);
       setSaveError(null);
       
-      const response = await cleanupUnusedImages(bannerConfig._id);
+      // Limpieza de imágenes eliminada - se realiza automáticamente al eliminar banners
+      toast.error('La limpieza manual de imágenes ha sido deshabilitada');
       
       if (response.status === 'success') {
         setCleanupResult({
@@ -1132,11 +1133,36 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
   const adjustAllComponentsPositions = () => {
     // Dar tiempo a que se aplique el cambio de dimensiones
     setTimeout(() => {
+      console.log('🔄 FullScreenBannerEditor: adjustAllComponentsPositions ejecutándose para deviceView:', deviceView);
+      
       // Ajustar posición de componentes raíz
       bannerConfig.components.forEach(component => {
         if (!component.parentId) { // Solo componentes raíz
           const deviceStyle = component.style?.[deviceView] || {};
           const currentPosition = component.position?.[deviceView] || { top: '0px', left: '0px' };
+          
+          if (component.id === 'preferencesBtn' || component.id.includes('preferences') || component.action?.type === 'show_preferences') {
+            console.log(`📍 PREFERENCIAS Revisando posición del componente ${component.id}:`, JSON.stringify(currentPosition, null, 2));
+            console.log(`📍 PREFERENCIAS Style del componente:`, JSON.stringify(deviceStyle, null, 2));
+          }
+          
+          // SKIP: Si es botón de preferencias y tiene posición válida, no ajustar
+          const isPreferencesButton = component.id === 'preferencesBtn' || 
+                                      component.id.includes('preferences') || 
+                                      component.action?.type === 'show_preferences';
+          
+          if (isPreferencesButton) {
+            // Para botones de preferencias, solo validar si realmente están fuera de límites
+            const hasValidPosition = currentPosition.top !== '0px' && 
+                                   currentPosition.left !== '0px' && 
+                                   currentPosition.top !== '0%' && 
+                                   currentPosition.left !== '0%';
+            
+            if (hasValidPosition) {
+              console.log(`🔒 PREFERENCIAS ${component.id}: Saltando ajuste, posición válida encontrada`);
+              return; // Saltar este componente
+            }
+          }
           
           const adjustedPosition = ensureComponentWithinBounds(
             component.id,
@@ -1145,8 +1171,13 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
             deviceStyle.height || '100px'
           );
           
-          // Aplicar la posición ajustada si es diferente
+          // Aplicar la posición ajustada SOLO si es realmente diferente y está fuera de límites
           if (adjustedPosition.top !== currentPosition.top || adjustedPosition.left !== currentPosition.left) {
+            if (isPreferencesButton) {
+              console.log(`⚠️ PREFERENCIAS Componente ${component.id} fuera de límites. Aplicando cambio...`);
+              console.log(`⚠️ PREFERENCIAS Original:`, JSON.stringify(currentPosition, null, 2));
+              console.log(`⚠️ PREFERENCIAS Adjusted:`, JSON.stringify(adjustedPosition, null, 2));
+            }
             updateComponentPositionForDevice(component.id, deviceView, adjustedPosition);
           }
         }
@@ -1164,8 +1195,9 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
               childStyle.height || '100px'
             );
             
-            // Aplicar la posición ajustada si es diferente
+            // Aplicar la posición ajustada SOLO si es realmente diferente
             if (adjustedChildPosition.top !== childPosition.top || adjustedChildPosition.left !== childPosition.left) {
+              console.log(`⚠️ Componente hijo ${child.id} fuera de límites. Ajustando de:`, childPosition, 'a:', adjustedChildPosition);
               updateChildPositionForDevice(child.id, deviceView, adjustedChildPosition);
             }
           });
@@ -1176,6 +1208,13 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
   
   // Función para validar y ajustar la posición de un componente para que siempre esté dentro del banner
   const ensureComponentWithinBounds = (componentId, position, componentWidth, componentHeight) => {
+    // Solo log para botón de preferencias para debugging específico
+    if (componentId === 'preferencesBtn' || (componentId && componentId.includes('preferences'))) {
+      console.log(`🔧 PREFERENCIAS ensureComponentWithinBounds: ${componentId}`);
+      console.log('   originalPosition:', JSON.stringify(position, null, 2));
+      console.log('   componentWidth:', componentWidth);
+      console.log('   componentHeight:', componentHeight);
+    }
     
     // Verificar que position es un objeto válido
     if (!position || typeof position !== 'object') {
@@ -1184,38 +1223,63 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
       return { top: '0%', left: '0%' };
     }
     
-    // Obtener dimensiones del banner
-    const canvas = document.querySelector('.banner-canvas');
-    if (!canvas) {
-      console.warn('⚠️ No se encontró el elemento canvas para validar posición');
-      return position;
-    }
+    // Obtener dimensiones del banner - intentar múltiples selectores
+    const canvas = document.querySelector('.banner-canvas') || 
+                   document.querySelector('.fullscreen-preview') || 
+                   document.querySelector('[data-canvas="true"]') ||
+                   document.querySelector('.preview-container');
     
-    const canvasRect = canvas.getBoundingClientRect();
-    const canvasWidth = canvasRect.width;
-    const canvasHeight = canvasRect.height;
+    let canvasWidth, canvasHeight;
+    
+    if (!canvas) {
+      // Si no hay canvas, usar dimensiones por defecto
+      canvasWidth = 1200;
+      canvasHeight = 800;
+      if (componentId === 'preferencesBtn' || (componentId && componentId.includes('preferences'))) {
+        console.log(`⚠️ PREFERENCIAS ${componentId}: Canvas no encontrado, usando dimensiones por defecto: ${canvasWidth}x${canvasHeight}`);
+      }
+    } else {
+      const canvasRect = canvas.getBoundingClientRect();
+      canvasWidth = canvasRect.width || 1200;
+      canvasHeight = canvasRect.height || 800;
+      if (componentId === 'preferencesBtn' || (componentId && componentId.includes('preferences'))) {
+        console.log(`✅ PREFERENCIAS ${componentId}: Canvas encontrado, dimensiones: ${canvasWidth}x${canvasHeight}, selector: ${canvas.className}`);
+      }
+    }
     
     // Crear una copia del objeto position para no modificar el original
     const adjustedPosition = {...position};
     
-    // Verificar propiedades necesarias
-    if (!position.hasOwnProperty('top')) {
-      console.warn(`⚠️ La posición para ${componentId} no tiene propiedad 'top'`);
+    // Verificar propiedades necesarias y asignar valores por defecto
+    if (!position.hasOwnProperty('top') || position.top === undefined || position.top === null) {
       adjustedPosition.top = '0%';
     }
     
-    if (!position.hasOwnProperty('left')) {
-      console.warn(`⚠️ La posición para ${componentId} no tiene propiedad 'left'`);
+    if (!position.hasOwnProperty('left') || position.left === undefined || position.left === null) {
       adjustedPosition.left = '0%';
     }
     
-    // Convertir valores a números con verificaciones de seguridad
+    // Convertir valores a píxeles para la validación
     let left = 0;
     let top = 0;
     
     try {
-      left = parseFloat(position.left);
-      top = parseFloat(position.top);
+      // Manejar valores en porcentaje
+      if (typeof position.left === 'string' && position.left.includes('%')) {
+        const percentLeft = parseFloat(position.left);
+        left = (percentLeft / 100) * canvasWidth;
+      } else {
+        // Manejar valores en píxeles
+        left = parseFloat(position.left);
+      }
+      
+      if (typeof position.top === 'string' && position.top.includes('%')) {
+        const percentTop = parseFloat(position.top);
+        top = (percentTop / 100) * canvasHeight;
+      } else {
+        // Manejar valores en píxeles
+        top = parseFloat(position.top);
+      }
     } catch (error) {
       console.error('❌ Error al parsear valores de posición:', error);
     }
@@ -1239,22 +1303,56 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
     const maxLeft = canvasWidth - width;
     const maxTop = canvasHeight - height;
     
+    // Detectar si los valores originales están en porcentaje
+    const leftIsPercent = typeof position.left === 'string' && position.left.includes('%');
+    const topIsPercent = typeof position.top === 'string' && position.top.includes('%');
+    
     // Ajustar left si es necesario
     if (left < 0) {
-      adjustedPosition.left = '0%';
+      adjustedPosition.left = leftIsPercent ? '0%' : '0px';
     } else if (left > maxLeft) {
-      // Convertir a porcentaje para mayor compatibilidad
-      const percentLeft = Math.min(95, (maxLeft / canvasWidth) * 100);
-      adjustedPosition.left = `${percentLeft}%`;
+      if (leftIsPercent) {
+        // Mantener en porcentaje
+        const percentLeft = Math.min(95, (maxLeft / canvasWidth) * 100);
+        adjustedPosition.left = `${percentLeft.toFixed(2)}%`;
+      } else {
+        // Mantener en píxeles
+        adjustedPosition.left = `${maxLeft}px`;
+      }
     }
     
     // Ajustar top si es necesario
     if (top < 0) {
-      adjustedPosition.top = '0%';
+      adjustedPosition.top = topIsPercent ? '0%' : '0px';
     } else if (top > maxTop) {
-      // Convertir a porcentaje para mayor compatibilidad
-      const percentTop = Math.min(95, (maxTop / canvasHeight) * 100);
-      adjustedPosition.top = `${percentTop}%`;
+      if (topIsPercent) {
+        // Mantener en porcentaje
+        const percentTop = Math.min(95, (maxTop / canvasHeight) * 100);
+        adjustedPosition.top = `${percentTop.toFixed(2)}%`;
+      } else {
+        // Mantener en píxeles
+        adjustedPosition.top = `${maxTop}px`;
+      }
+    }
+    
+    // Log del resultado (solo para botón de preferencias)
+    const wasAdjusted = adjustedPosition.left !== position.left || adjustedPosition.top !== position.top;
+    if (componentId === 'preferencesBtn' || (componentId && componentId.includes('preferences'))) {
+      if (wasAdjusted) {
+        console.log(`🔧 PREFERENCIAS ${componentId}: Posición ajustada`);
+        console.log(`   FROM: left=${position.left}, top=${position.top}`);
+        console.log(`   TO: left=${adjustedPosition.left}, top=${adjustedPosition.top}`);
+        console.log(`   PIXELS: left=${left}px, top=${top}px`);
+        console.log(`   LIMITS: maxLeft=${maxLeft}px, maxTop=${maxTop}px`);
+        console.log(`   CANVAS: ${canvasWidth}x${canvasHeight}px`);
+        console.log(`   REASON: ${left < 0 || top < 0 ? 'negative position' : 'out of bounds'}`);
+      } else {
+        console.log(`✅ PREFERENCIAS ${componentId}: Posición válida, no se requiere ajuste`);
+        console.log(`   POSITION: left=${position.left}, top=${position.top}`);
+        console.log(`   PIXELS: left=${left}px, top=${top}px`);
+        console.log(`   LIMITS: maxLeft=${maxLeft}px, maxTop=${maxTop}px`);
+        console.log(`   CANVAS: ${canvasWidth}x${canvasHeight}px`);
+      }
     }
     
     return adjustedPosition;

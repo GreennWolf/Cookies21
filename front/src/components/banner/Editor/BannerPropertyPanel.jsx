@@ -486,7 +486,6 @@ function BannerPropertyPanel({
 
   // Manejador de cambios de contenido
   const handleContentChange = (value) => {
-    console.log(`📝 BannerPropertyPanel: handleContentChange llamado con:`, value);
     setLocalContent(value);
     
     // Actualizar contenido manteniendo la estructura
@@ -515,8 +514,7 @@ function BannerPropertyPanel({
       };
     }
     
-    console.log(`📝 BannerPropertyPanel: Llamando onUpdateContent con:`, updatedContent);
-    onUpdateContent(component.id, updatedContent);
+    onUpdateContent(updatedContent);
   };
 
   // Manejador mejorado de cambios de posición (siempre en %)
@@ -1183,6 +1181,208 @@ function BannerPropertyPanel({
                     </div>
                   )}
                 </>
+              ) : component.type === 'language-button' ? (
+                // CONFIGURACIÓN ESPECÍFICA PARA LANGUAGE-BUTTON SEGÚN EL PLAN
+                <div className="space-y-4">
+                  <h4 className="font-medium text-sm flex items-center gap-2">
+                    🌐 Configuración de Idioma
+                  </h4>
+                  
+                  {/* Modo de idioma: auto/manual */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Modo de detección
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => onUpdateContent(component.id, { 
+                          ...component.content, 
+                          defaultLanguageMode: 'auto' 
+                        })}
+                        className={`p-2 text-sm border rounded ${
+                          (component.content?.defaultLanguageMode || 'auto') === 'auto' 
+                            ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                            : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        🔍 Auto-detectar
+                      </button>
+                      <button
+                        onClick={() => onUpdateContent(component.id, { 
+                          ...component.content, 
+                          defaultLanguageMode: 'manual' 
+                        })}
+                        className={`p-2 text-sm border rounded ${
+                          component.content?.defaultLanguageMode === 'manual' 
+                            ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                            : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        ⚙️ Manual
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Selector condicional de idioma por defecto - solo si mode es manual */}
+                  {component.content?.defaultLanguageMode === 'manual' && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Idioma por defecto
+                      </label>
+                      <select
+                        value={component.content?.defaultLanguage || 'es'}
+                        onChange={(e) => onUpdateContent(component.id, { 
+                          ...component.content, 
+                          defaultLanguage: e.target.value 
+                        })}
+                        className="w-full p-2 border rounded"
+                      >
+                        <option value="es">🇪🇸 Español</option>
+                        <option value="en">🇬🇧 English</option>
+                        <option value="fr">🇫🇷 Français</option>
+                        <option value="de">🇩🇪 Deutsch</option>
+                        <option value="it">🇮🇹 Italiano</option>
+                        <option value="pt">🇵🇹 Português</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Idiomas habilitados */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Idiomas disponibles
+                    </label>
+                    <div className="grid grid-cols-2 gap-1">
+                      {[
+                        { code: 'es', flag: '🇪🇸', name: 'Español' },
+                        { code: 'en', flag: '🇬🇧', name: 'English' },
+                        { code: 'fr', flag: '🇫🇷', name: 'Français' },
+                        { code: 'de', flag: '🇩🇪', name: 'Deutsch' },
+                        { code: 'it', flag: '🇮🇹', name: 'Italiano' },
+                        { code: 'pt', flag: '🇵🇹', name: 'Português' }
+                      ].map(lang => {
+                        const isEnabled = (component.content?.languages || ['es', 'en', 'fr', 'de', 'it', 'pt']).includes(lang.code);
+                        return (
+                          <button
+                            key={lang.code}
+                            onClick={() => {
+                              const currentLanguages = component.content?.languages || ['es', 'en', 'fr', 'de', 'it', 'pt'];
+                              const newLanguages = isEnabled 
+                                ? currentLanguages.filter(l => l !== lang.code)
+                                : [...currentLanguages, lang.code];
+                              
+                              // Asegurar que al menos un idioma esté habilitado
+                              if (newLanguages.length > 0) {
+                                onUpdateContent(component.id, { 
+                                  ...component.content, 
+                                  languages: newLanguages 
+                                });
+                              }
+                            }}
+                            className={`p-1 text-xs border rounded flex items-center gap-1 ${
+                              isEnabled 
+                                ? 'bg-green-50 border-green-200 text-green-700' 
+                                : 'bg-gray-50 border-gray-200 text-gray-500'
+                            }`}
+                          >
+                            <span>{lang.flag}</span>
+                            <span>{lang.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Configuraciones adicionales */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Guardar preferencia del usuario</label>
+                      <div 
+                        className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex items-center ${
+                          component.content?.saveUserPreference !== false ? 'bg-blue-500' : 'bg-gray-300'
+                        }`}
+                        onClick={() => onUpdateContent(component.id, { 
+                          ...component.content, 
+                          saveUserPreference: component.content?.saveUserPreference !== false ? false : true 
+                        })}
+                      >
+                        <div 
+                          className={`w-4 h-4 rounded-full bg-white absolute transition-all ${
+                            component.content?.saveUserPreference !== false ? 'right-1' : 'left-1'
+                          }`} 
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Auto-detectar idioma del navegador</label>
+                      <div 
+                        className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex items-center ${
+                          component.content?.autoDetectBrowserLanguage !== false ? 'bg-blue-500' : 'bg-gray-300'
+                        }`}
+                        onClick={() => onUpdateContent(component.id, { 
+                          ...component.content, 
+                          autoDetectBrowserLanguage: component.content?.autoDetectBrowserLanguage !== false ? false : true 
+                        })}
+                      >
+                        <div 
+                          className={`w-4 h-4 rounded-full bg-white absolute transition-all ${
+                            component.content?.autoDetectBrowserLanguage !== false ? 'right-1' : 'left-1'
+                          }`} 
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Mostrar etiqueta</label>
+                      <div 
+                        className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer flex items-center ${
+                          component.content?.showLabel !== false ? 'bg-blue-500' : 'bg-gray-300'
+                        }`}
+                        onClick={() => onUpdateContent(component.id, { 
+                          ...component.content, 
+                          showLabel: component.content?.showLabel !== false ? false : true 
+                        })}
+                      >
+                        <div 
+                          className={`w-4 h-4 rounded-full bg-white absolute transition-all ${
+                            component.content?.showLabel !== false ? 'right-1' : 'left-1'
+                          }`} 
+                        />
+                      </div>
+                    </div>
+
+                    {/* Texto de etiqueta - solo si showLabel está habilitado */}
+                    {component.content?.showLabel !== false && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Texto de etiqueta
+                        </label>
+                        <input
+                          type="text"
+                          value={component.content?.labelText || 'Idioma:'}
+                          onChange={(e) => onUpdateContent(component.id, { 
+                            ...component.content, 
+                            labelText: e.target.value 
+                          })}
+                          className="w-full p-2 border rounded"
+                          placeholder="Idioma:"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info sobre el componente obligatorio */}
+                  <div className="bg-orange-50 border border-orange-200 rounded p-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-orange-600">⚠️</span>
+                      <span className="text-sm font-medium text-orange-700">Componente obligatorio</span>
+                    </div>
+                    <p className="text-xs text-orange-600 mt-1">
+                      Cada banner debe incluir un selector de idioma para cumplir con los requisitos de traducción.
+                    </p>
+                  </div>
+                </div>
               ) : (
                 <div>
                   <label className="block text-sm font-medium mb-1">

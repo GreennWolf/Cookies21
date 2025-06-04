@@ -49,7 +49,7 @@ class ComponentProcessorService {
       }
 
       // Validar tipo de componente
-      const validTypes = ['text', 'button', 'link', 'logo', 'checkbox', 'toggle', 'container', 'panel', 'image'];
+      const validTypes = ['text', 'button', 'link', 'logo', 'checkbox', 'toggle', 'container', 'panel', 'image', 'language-button'];
       if (!validTypes.includes(component.type)) {
         logger.warn(`Invalid component type: ${component.type}, defaulting to 'text'`);
         component.type = 'text';
@@ -481,6 +481,103 @@ class ComponentProcessorService {
     
     extractIds(components);
     return ids;
+  }
+  
+  /**
+   * Valida que existan los componentes obligatorios en el banner
+   */
+  validateRequiredComponents(components) {
+    const errors = [];
+    const warnings = [];
+    
+    // Función para buscar componentes recursivamente
+    const findComponentsByType = (comps, type) => {
+      let found = [];
+      if (!Array.isArray(comps)) return found;
+      
+      comps.forEach(comp => {
+        if (comp.type === type) {
+          found.push(comp);
+        }
+        if (comp.children && Array.isArray(comp.children)) {
+          found = found.concat(findComponentsByType(comp.children, type));
+        }
+      });
+      
+      return found;
+    };
+    
+    // Función para buscar botones por acción
+    const findButtonsByAction = (comps, actionType) => {
+      let found = [];
+      if (!Array.isArray(comps)) return found;
+      
+      comps.forEach(comp => {
+        if (comp.type === 'button' && comp.action && comp.action.type === actionType) {
+          found.push(comp);
+        }
+        if (comp.children && Array.isArray(comp.children)) {
+          found = found.concat(findButtonsByAction(comp.children, actionType));
+        }
+      });
+      
+      return found;
+    };
+    
+    // Validar botones obligatorios de cookies
+    const acceptButtons = findButtonsByAction(components, 'accept_all');
+    const rejectButtons = findButtonsByAction(components, 'reject_all');
+    const preferencesButtons = findButtonsByAction(components, 'show_preferences');
+    
+    if (acceptButtons.length === 0) {
+      errors.push({
+        type: 'missing_component',
+        message: 'Falta el botón "Aceptar Todo" (accept_all)',
+        severity: 'error'
+      });
+    }
+    
+    if (rejectButtons.length === 0) {
+      errors.push({
+        type: 'missing_component',
+        message: 'Falta el botón "Rechazar Todo" (reject_all)',
+        severity: 'error'
+      });
+    }
+    
+    if (preferencesButtons.length === 0) {
+      errors.push({
+        type: 'missing_component',
+        message: 'Falta el botón "Configuración de Cookies" (show_preferences)',
+        severity: 'error'
+      });
+    }
+    
+    // Validar selector de idioma obligatorio
+    const languageButtons = findComponentsByType(components, 'language-button');
+    if (languageButtons.length === 0) {
+      errors.push({
+        type: 'missing_component',
+        message: 'Falta el componente "Selector de Idioma" (language-button). Este componente es obligatorio para la selección de idioma en la vista previa.',
+        severity: 'error'
+      });
+    } else if (languageButtons.length > 1) {
+      warnings.push({
+        type: 'duplicate_component',
+        message: `Se encontraron ${languageButtons.length} selectores de idioma. Se recomienda usar solo uno.`,
+        severity: 'warning'
+      });
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings,
+      summary: {
+        missingComponents: errors.length,
+        totalWarnings: warnings.length
+      }
+    };
   }
 }
 

@@ -1102,6 +1102,7 @@ function BannerCanvas({
                 selectedComponent={selectedComponent}
                 onRemoveChild={onRemoveChild}
                 onUpdateChildPosition={onUpdateChildPosition}
+                isPreview={false} // Modo editor
                 onUnattach={onUnattachFromContainer}
                 onReorderChildren={onReorderChildren} // CORREGIDO: Usar la prop pasada correctamente
                 onMoveToContainer={onMoveToContainer} // Agregar la prop para mover a contenedores

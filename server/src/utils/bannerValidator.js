@@ -12,7 +12,8 @@ class BannerValidator {
       'toggle',
       'container',
       'panel',
-      'image'
+      'image',
+      'language-button'
     ];
 
     // Posiciones permitidas
@@ -226,8 +227,9 @@ class BannerValidator {
       }
   
       // Si el componente es de texto, botón o link y no tiene contenido
-      // (excepto en casos de acciones concretas)
+      // (excepto en casos de acciones concretas o language-button)
       if (['text', 'button', 'link'].includes(component.type)
+          && component.type !== 'language-button'
           && (!component.action || !['accept_all', 'reject_all', 'show_preferences'].includes(component.action.type))) {
         
         // Extraer texto del componente

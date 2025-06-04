@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { RefreshCw, X, ImageOff } from 'lucide-react';
+import { RefreshCw, X, ImageOff, Globe } from 'lucide-react';
 import { getImageUrl, handleImageError, processImageStyles, ImagePlaceholders } from '../../../utils/imageProcessing';
+import LanguageSelector from '../LanguageSelector';
+import LanguageButton from '../LanguageButton';
+import { useTranslations } from '../../../hooks/useTranslations';
 
 function PreferencesModal({ onClose, backgroundColor }) {
   return (
@@ -76,13 +79,29 @@ function BannerPreview({
   deviceView = 'desktop',
   previewData = null,
   showPreview = true,
-  onRendered = () => {}
+  onRendered = () => {},
+  currentLanguage: propCurrentLanguage = 'en',
+  availableLanguages: propAvailableLanguages = ['en']
 }) {
   const [currentDevice, setCurrentDevice] = useState(deviceView);
   const [showBanner, setShowBanner] = useState(true);
   const [showPreferences, setShowPreferences] = useState(false);
   const [imageErrors, setImageErrors] = useState({});
   const bannerContainerRef = useRef(null);
+  
+  // Hook de traducciones
+  const {
+    currentLanguage: hookCurrentLanguage,
+    availableLanguages: hookAvailableLanguages,
+    setCurrentLanguage,
+    translateToLanguage,
+    getTranslatedComponents,
+    isTranslating
+  } = useTranslations(bannerConfig?._id, bannerConfig?.components);
+  
+  // Usar props si se proporcionan, sino usar valores del hook
+  const currentLanguage = propCurrentLanguage || hookCurrentLanguage;
+  const availableLanguages = propAvailableLanguages?.length > 0 ? propAvailableLanguages : hookAvailableLanguages;
 
   // Safe access to profile properties
   const safeProfileAccess = (path) => {
@@ -280,6 +299,16 @@ function BannerPreview({
   const renderComponent = (component, parentContainerRef = null) => {
     if (!component) return null;
     
+    // Log solo para componentes específicos o en modo debug
+    if (process.env.NODE_ENV === 'development' && component.type === 'language-button') {
+      console.log('🔍 BannerPreview - Rendering language-button:', {
+        id: component.id,
+        type: component.type,
+        content: component.content,
+        position: component.position?.[currentDevice],
+        style: component.style?.[currentDevice]
+      });
+    }
     
     const devicePos = component.position?.[currentDevice] || {};
     const deviceStyle = component.style?.[currentDevice] || {};
@@ -522,6 +551,68 @@ function BannerPreview({
             >
               {displayContent}
             </button>
+          </div>
+        );
+      }
+      case 'language-button': {
+        console.log('🌐 LANGUAGE-BUTTON DEBUG:', {
+          id: component.id,
+          content: component.content,
+          currentLanguage,
+          availableLanguages,
+          baseStyles
+        });
+        
+        // Calcular dimensiones finales
+        let finalWidth = baseStyles.width || '120px';
+        let finalHeight = baseStyles.height || '35px';
+        
+        // Si es hijo y tenemos referencia del contenedor, aplicar límite del 95%
+        if (component.parentId && parentContainerRef?.current) {
+          const containerRect = parentContainerRef.current.getBoundingClientRect();
+          const maxWidth = containerRect.width * 0.95;
+          const maxHeight = containerRect.height * 0.95;
+          
+          const currentWidth = typeof finalWidth === 'string' ? parseFloat(finalWidth) : finalWidth;
+          const currentHeight = typeof finalHeight === 'string' ? parseFloat(finalHeight) : finalHeight;
+          
+          if (currentWidth > maxWidth) {
+            finalWidth = `${Math.round(maxWidth)}px`;
+          }
+          if (currentHeight > maxHeight) {
+            finalHeight = `${Math.round(maxHeight)}px`;
+          }
+        }
+        
+        return (
+          <div
+            key={component.id}
+            style={{
+              ...baseStyles,
+              width: finalWidth,
+              height: finalHeight,
+              minWidth: '80px',
+              minHeight: '30px',
+              boxSizing: 'border-box',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0,
+              margin: 0,
+              overflow: 'visible'
+            }}
+          >
+            <LanguageButton
+              config={component.content || {}}
+              isPreview={true}
+              style={{
+                [currentDevice]: {
+                  width: '100%',
+                  height: '100%'
+                }
+              }}
+              deviceView={currentDevice}
+            />
           </div>
         );
       }
@@ -936,6 +1027,7 @@ function BannerPreview({
         );
       }
       default:
+        console.warn('❌ UNKNOWN COMPONENT TYPE:', component.type, component);
         return null;
     }
   };
@@ -1066,7 +1158,41 @@ function BannerPreview({
     <div className="flex flex-col h-full bg-gray-100">
       
       {/* Preview toolbar */}
-      <div className="bg-white border-b p-4 flex items-center justify-end">
+      <div className="bg-white border-b p-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Globe size={20} className="text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">Idioma:</span>
+          </div>
+          <LanguageSelector
+            currentLanguage={currentLanguage}
+            onLanguageChange={async (lang) => {
+              if (lang !== currentLanguage) {
+                console.log(`🌐 Cambiando idioma a: ${lang}`);
+                try {
+                  await translateToLanguage(lang);
+                  setCurrentLanguage(lang);
+                  console.log(`✅ Idioma cambiado exitosamente a: ${lang}`);
+                } catch (error) {
+                  console.error(`❌ Error cambiando idioma:`, error);
+                }
+              }
+            }}
+            availableLanguages={availableLanguages}
+            isLoading={isTranslating}
+            position="bottom-left"
+            size="medium"
+            showFlags={true}
+            showNames={true}
+            variant="dropdown"
+          />
+          {isTranslating && (
+            <div className="flex items-center gap-2 ml-2">
+              <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+              <span className="text-sm text-gray-600">Traduciendo...</span>
+            </div>
+          )}
+        </div>
         <button 
           className="p-2 rounded hover:bg-gray-100"
           title="Actualizar vista previa"
@@ -1099,7 +1225,27 @@ function BannerPreview({
 
             {/* Banner */}
             {showBanner && (() => {
-              const rootComponents = bannerConfig.components?.filter(comp => !comp.parentId) || [];
+              // Get translated components if translation is enabled
+              const componentsToRender = getTranslatedComponents ? getTranslatedComponents(currentLanguage) : bannerConfig.components;
+              const rootComponents = componentsToRender?.filter(comp => !comp.parentId) || [];
+              
+              console.log('🎯 BannerPreview - Root components to render:', {
+                totalComponents: componentsToRender?.length || 0,
+                rootComponents: rootComponents.length,
+                components: rootComponents.map(comp => ({
+                  id: comp.id,
+                  type: comp.type,
+                  hasPosition: !!comp.position,
+                  hasStyle: !!comp.style,
+                  position: comp.position?.[currentDevice],
+                  style: comp.style?.[currentDevice]
+                })),
+                languageButtons: rootComponents.filter(comp => comp.type === 'language-button'),
+                bannerConfigId: bannerConfig?._id,
+                currentLanguage,
+                availableLanguages,
+                hasTranslationHook: !!getTranslatedComponents
+              });
               
               return (
                 <div ref={bannerContainerRef} style={getLayoutStyles()} className="relative">

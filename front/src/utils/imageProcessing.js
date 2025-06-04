@@ -49,7 +49,7 @@ export const getImageUrl = (component, deviceView = 'desktop', context = 'previe
       }
       // Para otras URLs añadir cache busting
       const url = deviceStyle._previewUrl + (deviceStyle._previewUrl.includes('?') ? '&cb=' + Date.now() : cacheBuster);
-      console.log(`✓ ${context}: Usando URL de preview:`, url);
+      console.log(`✓ ${context}: Usando URL de preview: ${url}`);
       return url;
     }
     
@@ -199,6 +199,7 @@ export const getImageUrl = (component, deviceView = 'desktop', context = 'previe
     }
     
     // CASO 11: Fallback - usar placeholder
+    console.log(`🖼️ ${context}: Usando placeholder por defecto para componente`, component.id);
     return ImagePlaceholders.default;
   } catch (error) {
     console.error(`❌ ${context}: Error al procesar URL de imagen:`, error);

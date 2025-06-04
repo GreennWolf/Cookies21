@@ -30,7 +30,21 @@
       "Bash(npx eslint:*)",
       "Bash(/home/wolf/.claude/local/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"deleteTemplate|delete.*template\" src/controllers/BannerTemplateController.js)",
       "Bash(curl:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(npm start)",
+      "Bash(mkdir:*)",
+      "Bash(touch:*)",
+      "Bash(yarn lint:*)",
+      "Bash(chmod:*)",
+      "Bash(/home/wolf/.claude/local/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n \"minWidth.*80\" front/src/components/client/InteractiveBannerPreview.jsx)",
+      "Bash(/home/wolf/.claude/local/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n \"handleComponentUpdate\" front/src/components/client/SimpleBannerConfigStep.jsx)",
+      "Bash(/home/wolf/.claude/local/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n -A 20 \"const.*onClientCreated\" front/src/pages/ClientsManagementPage.jsx)",
+      "Bash(/home/wolf/.claude/local/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n -A 10 \"createBannerTemplate\" front/src/pages/ClientsManagementPage.jsx)",
+      "Bash(/home/wolf/.claude/local/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n \"createBanner\\|createTemplate\" front/src/api/bannerTemplate.js)",
+      "Bash(/home/wolf/.claude/local/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n \"createBanner\\|createClientBanner\" front/src/api/)",
+      "Bash(/home/wolf/.claude/local/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n -A 10 \"handleSave\\|onSave\\|save.*banner\" front/src/components/banner/Editor/FullScreenBannerEditor.jsx)",
+      "Bash(pkill:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }

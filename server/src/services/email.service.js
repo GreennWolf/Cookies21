@@ -141,18 +141,133 @@ class EmailService {
       
       // Contenido del email
       const htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Invitación a ${clientName}</h2>
-          <p>Hola ${name},</p>
-          <p>Has sido invitado a unirte a ${clientName} con el rol de ${role || 'usuario'}.</p>
-          <p>Para completar tu registro, haz clic en el siguiente enlace:</p>
-          <p><a href="${inviteUrl}" style="display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Completar registro</a></p>
-          <p>O copia y pega esta URL en tu navegador:</p>
-          <p>${inviteUrl}</p>
-          <p>Este enlace expirará en 7 días.</p>
-          <p>Si no has solicitado esta invitación, puedes ignorar este mensaje.</p>
-          <p>Saludos,<br>El equipo de ${clientName}</p>
-        </div>
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Invitación a ${clientName}</title>
+          <style>
+            body, html { 
+              margin: 0;
+              padding: 0;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+              color: #1a202c;
+              line-height: 1.6;
+              background-color: #f7fafc;
+            }
+            .container {
+              max-width: 600px;
+              margin: 0 auto;
+              background-color: #ffffff;
+            }
+            .header {
+              background-color: #235C88;
+              padding: 30px;
+              text-align: center;
+            }
+            .header img {
+              max-height: 50px;
+              width: auto;
+            }
+            .content {
+              padding: 40px 30px;
+            }
+            h1 {
+              color: #235C88;
+              margin: 0 0 20px 0;
+              font-size: 28px;
+              font-weight: 600;
+            }
+            p {
+              margin: 0 0 16px 0;
+              color: #4a5568;
+            }
+            .button {
+              display: inline-block;
+              padding: 14px 32px;
+              background-color: #235C88;
+              color: white !important;
+              text-decoration: none;
+              border-radius: 6px;
+              font-weight: 600;
+              margin: 24px 0;
+              transition: background-color 0.2s;
+            }
+            .button:hover {
+              background-color: #1a4668;
+            }
+            .info-box {
+              background-color: #EBF8FF;
+              border-left: 4px solid #235C88;
+              padding: 16px;
+              margin: 24px 0;
+              border-radius: 0 4px 4px 0;
+            }
+            .footer {
+              background-color: #f7fafc;
+              padding: 30px;
+              text-align: center;
+              border-top: 1px solid #e2e8f0;
+            }
+            .footer p {
+              margin: 0;
+              font-size: 14px;
+              color: #718096;
+            }
+            .footer a {
+              color: #235C88;
+              text-decoration: none;
+            }
+            @media (max-width: 600px) {
+              .content {
+                padding: 30px 20px;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <img src="${process.env.BACKEND_URL || 'https://api.cookie21.com'}/emails/logoB.png" alt="Cookie21 Logo">
+            </div>
+            
+            <div class="content">
+              <h1>Te han invitado a ${clientName}</h1>
+              <p>Hola ${name},</p>
+              <p>Has sido invitado a unirte a <strong>${clientName}</strong> con el rol de <strong>${role || 'usuario'}</strong>.</p>
+              
+              <div class="info-box">
+                <p style="margin: 0;"><strong>📧 Tu email:</strong> ${email}</p>
+                <p style="margin: 8px 0 0 0;"><strong>🏢 Cliente:</strong> ${clientName}</p>
+                <p style="margin: 8px 0 0 0;"><strong>👤 Rol asignado:</strong> ${role || 'usuario'}</p>
+              </div>
+              
+              <p>Para completar tu registro y establecer tu contraseña, haz clic en el siguiente botón:</p>
+              
+              <div style="text-align: center;">
+                <a href="${inviteUrl}" class="button">Completar registro</a>
+              </div>
+              
+              <p style="font-size: 14px; color: #718096;">O copia y pega esta URL en tu navegador:</p>
+              <p style="font-size: 14px; word-break: break-all; color: #718096;">${inviteUrl}</p>
+              
+              <p style="margin-top: 24px; font-size: 14px; color: #718096;">⏰ Este enlace expirará en <strong>7 días</strong>.</p>
+              
+              <p style="margin-top: 32px;">Si tienes alguna pregunta, no dudes en contactarnos.</p>
+              <p>Saludos cordiales,<br><strong>El equipo de ${clientName}</strong></p>
+            </div>
+            
+            <div class="footer">
+              <p>&copy; ${new Date().getFullYear()} Cookie21. Todos los derechos reservados.</p>
+              <p style="margin-top: 8px;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/privacy">Política de Privacidad</a> | 
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/terms">Términos de Uso</a>
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
       `;
       
       // Si el transporter es null en desarrollo, simular el envío
@@ -295,15 +410,176 @@ class EmailService {
       
       // Contenido del email
       const htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>¡Bienvenido a ${clientName}!</h2>
-          <p>Hola ${name},</p>
-          <p>Tu cuenta ha sido activada correctamente.</p>
-          <p>Ya puedes acceder a la plataforma con tu email y contraseña.</p>
-          <p><a href="${loginUrl}" style="display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Iniciar sesión</a></p>
-          <p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
-          <p>Saludos,<br>El equipo de ${clientName}</p>
-        </div>
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>¡Bienvenido a ${clientName}!</title>
+          <style>
+            body, html { 
+              margin: 0;
+              padding: 0;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+              color: #1a202c;
+              line-height: 1.6;
+              background-color: #f7fafc;
+            }
+            .container {
+              max-width: 600px;
+              margin: 0 auto;
+              background-color: #ffffff;
+            }
+            .header {
+              background: linear-gradient(135deg, #235C88 0%, #1a4668 100%);
+              padding: 40px 30px;
+              text-align: center;
+            }
+            .header img {
+              max-height: 80px;
+              width: auto;
+              display: block;
+              margin: 0 auto 20px auto;
+            }
+            .welcome-badge {
+              display: inline-block;
+              background-color: rgba(255, 255, 255, 0.2);
+              color: white;
+              padding: 8px 20px;
+              border-radius: 20px;
+              font-size: 14px;
+              font-weight: 600;
+              margin: 0 auto;
+              clear: both;
+            }
+            .content {
+              padding: 40px 30px;
+            }
+            h1 {
+              color: #235C88;
+              margin: 0 0 20px 0;
+              font-size: 32px;
+              font-weight: 600;
+              text-align: center;
+            }
+            p {
+              margin: 0 0 16px 0;
+              color: #4a5568;
+            }
+            .button {
+              display: inline-block;
+              padding: 14px 32px;
+              background-color: #235C88;
+              color: white !important;
+              text-decoration: none;
+              border-radius: 6px;
+              font-weight: 600;
+              margin: 24px 0;
+              transition: all 0.2s;
+              box-shadow: 0 4px 6px rgba(35, 92, 136, 0.2);
+            }
+            .button:hover {
+              background-color: #1a4668;
+              box-shadow: 0 6px 8px rgba(35, 92, 136, 0.3);
+            }
+            .feature-list {
+              background-color: #f7fafc;
+              border-radius: 8px;
+              padding: 24px;
+              margin: 24px 0;
+            }
+            .feature-item {
+              display: flex;
+              align-items: start;
+              margin-bottom: 16px;
+            }
+            .feature-icon {
+              color: #235C88;
+              margin-right: 12px;
+              font-size: 20px;
+            }
+            .footer {
+              background-color: #f7fafc;
+              padding: 30px;
+              text-align: center;
+              border-top: 1px solid #e2e8f0;
+            }
+            .footer p {
+              margin: 0;
+              font-size: 14px;
+              color: #718096;
+            }
+            .footer a {
+              color: #235C88;
+              text-decoration: none;
+            }
+            @media (max-width: 600px) {
+              .content {
+                padding: 30px 20px;
+              }
+              h1 {
+                font-size: 28px;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <img src="${process.env.BACKEND_URL || 'https://api.cookie21.com'}/emails/logoB.png" alt="Cookie21 Logo">
+              <div class="welcome-badge">🎉 Cuenta Activada</div>
+            </div>
+            
+            <div class="content">
+              <h1>¡Bienvenido a ${clientName}!</h1>
+              <p style="text-align: center; font-size: 18px; color: #2d3748;">Hola ${name},</p>
+              <p style="text-align: center;">Tu cuenta ha sido activada correctamente y ya puedes comenzar a utilizar Cookie21.</p>
+              
+              <div class="feature-list">
+                <h3 style="margin-top: 0; color: #235C88;">¿Qué puedes hacer ahora?</h3>
+                <div class="feature-item">
+                  <span class="feature-icon">✅</span>
+                  <div>
+                    <strong>Configurar tu banner de cookies</strong><br>
+                    <span style="font-size: 14px; color: #718096;">Personaliza el diseño y los textos de tu aviso de cookies</span>
+                  </div>
+                </div>
+                <div class="feature-item">
+                  <span class="feature-icon">📊</span>
+                  <div>
+                    <strong>Analizar las cookies de tu sitio</strong><br>
+                    <span style="font-size: 14px; color: #718096;">Escanea tu web para detectar todas las cookies activas</span>
+                  </div>
+                </div>
+                <div class="feature-item">
+                  <span class="feature-icon">📈</span>
+                  <div>
+                    <strong>Ver estadísticas de consentimiento</strong><br>
+                    <span style="font-size: 14px; color: #718096;">Monitoriza las preferencias de tus usuarios</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div style="text-align: center;">
+                <a href="${loginUrl}" class="button">Iniciar sesión</a>
+              </div>
+              
+              <p style="text-align: center; margin-top: 32px; font-size: 14px; color: #718096;">
+                Si necesitas ayuda, visita nuestra <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/documentation" style="color: #235C88;">documentación</a> o contáctanos.
+              </p>
+            </div>
+            
+            <div class="footer">
+              <p><strong>El equipo de Cookie21</strong></p>
+              <p style="margin-top: 16px;">&copy; ${new Date().getFullYear()} Cookie21. Todos los derechos reservados.</p>
+              <p style="margin-top: 8px;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/privacy">Política de Privacidad</a> | 
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/terms">Términos de Uso</a>
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
       `;
       
       // Si el transporter es null en desarrollo, simular el envío
@@ -515,7 +791,7 @@ class EmailService {
         <body>
           <div class="container">
             <div class="header">
-              <img src="${baseUrl}/public/logo.webp" alt="Cookie21 Logo">
+              <img src="${process.env.BACKEND_URL || 'https://api.cookie21.com'}/emails/logoO.png" alt="Cookie21 Logo">
             </div>
             
             <div class="content">
@@ -793,7 +1069,7 @@ class EmailService {
         <body>
           <div class="container">
             <div class="header">
-              <img src="${baseUrl}/public/logo.webp" alt="Cookie21 Logo">
+              <img src="${process.env.BACKEND_URL || 'https://api.cookie21.com'}/emails/logoO.png" alt="Cookie21 Logo">
             </div>
             
             <div class="content">
@@ -1007,7 +1283,7 @@ class EmailService {
       
       // URL base para imágenes y enlaces
       const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-      const docsUrl = `${baseUrl}/documentacion`;
+      const docsUrl = `${baseUrl}/documentation`;
       
       // Contenido específico para invitación si está incluida
       let invitationSection = '';
@@ -1132,7 +1408,7 @@ class EmailService {
         <body>
           <div class="container">
             <div class="header">
-              <img src="${baseUrl}/public/logo.webp" alt="Cookie21 Logo">
+              <img src="${process.env.BACKEND_URL || 'https://api.cookie21.com'}/emails/logoO.png" alt="Cookie21 Logo">
             </div>
             
             <div class="content">

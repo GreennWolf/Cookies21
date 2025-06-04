@@ -51,27 +51,13 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Rutas de archivos estáticos
-const publicFolderPath = path.resolve(process.cwd(), 'public');
+// FIXED: app.js está en /server/src/ pero public está en /server/public/
+const publicFolderPath = path.resolve(__dirname, '..', 'public');
 console.log(`📁 PUBLIC_FOLDER_PATH: ${publicFolderPath}`);
 
-// Configuración específica para archivos de templates (imágenes de banner)
-app.use('/templates', express.static(path.join(publicFolderPath, 'templates'), {
-  setHeaders: (res, path, stat) => {
-    // Agregar headers para mejorar rendimiento y compatibilidad
-    // Permitir cierto nivel de caché para un mejor rendimiento
-    res.set('Cache-Control', 'public, max-age=300'); // Caché de 5 minutos
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', 'GET');
-    res.set('Access-Control-Allow-Headers', 'Content-Type');
-    
-    // Logging reducido para no saturar la consola
-    if (path.includes('/images/')) {
-      console.log(`🖼️ STATIC: Sirviendo imagen: ${path.split('/images/')[1]}`);
-    } else {
-      console.log(`📄 STATIC: Sirviendo archivo estático: ${path}`);
-    }
-  }
-}));
+// MOVED: Emails configuration moved to correct position after rate limiting
+
+// MOVED: Templates configuration moved to correct position after rate limiting
 
 // Ruta para verificar el estado del sistema de archivos y rutas
 app.get('/debug-images', (req, res) => {
@@ -217,9 +203,6 @@ app.get('/direct-image/:bannerId/:filename', (req, res) => {
     });
 });
 
-// Configuración para otros archivos estáticos
-app.use('/public', express.static(publicFolderPath));
-app.use('/assets', express.static(path.join(publicFolderPath, 'assets')));
 
 // Asegurar que existan las carpetas necesarias para imágenes de banner
 const templatesImagesPath = path.join(publicFolderPath, 'templates', 'images');
@@ -300,6 +283,71 @@ const limiter = rateLimit({
 
 app.use(limiter);
 
+// ✅ Configuración para archivos estáticos (MOVED HERE for correct order)
+
+// Middleware de debug para verificar peticiones de archivos estáticos
+app.use((req, res, next) => {
+  if (req.url.startsWith('/emails/') || req.url.startsWith('/templates/') || req.url.startsWith('/public/')) {
+    console.log(`🔍 DEBUG: Petición de archivo estático: ${req.method} ${req.url}`);
+  }
+  next();
+});
+
+// Configuración específica para archivos de emails (logos y recursos de emails)
+app.use('/emails', express.static(path.join(publicFolderPath, 'emails'), {
+  setHeaders: (res, path, stat) => {
+    console.log(`📧 EMAIL: Sirviendo recurso de email: ${path}`);
+    res.set('Cache-Control', 'public, max-age=300'); // Caché de 5 minutos
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    
+    if (path.includes('logo')) {
+      console.log(`🖼️ EMAIL LOGO: ¡Logo de email servido desde /emails/!`);
+    }
+  }
+}));
+
+// Configuración específica para archivos de templates (imágenes de banner)
+app.use('/templates', express.static(path.join(publicFolderPath, 'templates'), {
+  setHeaders: (res, path, stat) => {
+    // Agregar headers para mejorar rendimiento y compatibilidad
+    res.set('Cache-Control', 'public, max-age=300'); // Caché de 5 minutos
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    
+    // Logging reducido para no saturar la consola
+    if (path.includes('/images/')) {
+      console.log(`🖼️ STATIC: Sirviendo imagen: ${path.split('/images/')[1]}`);
+    } else {
+      console.log(`📄 STATIC: Sirviendo archivo estático: ${path}`);
+    }
+  }
+}));
+
+// Configuración específica para archivos públicos (con logging y headers como templates)
+app.use('/public', express.static(publicFolderPath, {
+  setHeaders: (res, path, stat) => {
+    console.log(`📂 PUBLIC: Accediendo a archivo: ${path}`);
+    // Agregar headers para mejorar rendimiento y compatibilidad
+    res.set('Cache-Control', 'public, max-age=300'); // Caché de 5 minutos
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    
+    // Logging para debug - especialmente importante para el logo
+    if (path.includes('logo.webp')) {
+      console.log(`🖼️ LOGO: Sirviendo logo desde: ${path}`);
+    } else {
+      console.log(`📄 PUBLIC: Sirviendo archivo público: ${path}`);
+    }
+  }
+}));
+
+app.use('/assets', express.static(path.join(publicFolderPath, 'assets')));
+
+
 // Middleware para prevenir bloqueos por JSON mal formado
 app.use((err, req, res, next) => {
   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
@@ -321,6 +369,32 @@ app.get('/health', (req, res) => {
     timestamp: new Date(),
     version: process.env.npm_package_version || '1.0.0',
     environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Ruta de debug específica para verificar logo
+app.get('/debug-logo', (req, res) => {
+  const fs = require('fs');
+  const emailsPath = path.join(publicFolderPath, 'emails');
+  const logoWebpPath = path.join(emailsPath, 'logo.webp');
+  const logoPngPath = path.join(emailsPath, 'logo.png');
+  
+  res.json({
+    publicPath: publicFolderPath,
+    emailsPath: emailsPath,
+    emailsExists: fs.existsSync(emailsPath),
+    logoWebp: {
+      exists: fs.existsSync(logoWebpPath),
+      size: fs.existsSync(logoWebpPath) ? fs.statSync(logoWebpPath).size : null,
+      url: '/emails/logo.webp'
+    },
+    logoPng: {
+      exists: fs.existsSync(logoPngPath),
+      size: fs.existsSync(logoPngPath) ? fs.statSync(logoPngPath).size : null,
+      url: '/emails/logo.png',
+      inUse: true
+    },
+    emailsContents: fs.existsSync(emailsPath) ? fs.readdirSync(emailsPath) : []
   });
 });
 
@@ -354,6 +428,7 @@ app.use(`${apiV1}/advanced-analysis`, advancedCookieAnalysisRoutes);
 // También añadimos la ruta de documentación pública fuera del apiV1
 app.use('/documentation', documentationRoutes);
 
+// ⚠️ IMPORTANTE: El manejador 404 debe ir AL FINAL, después de archivos estáticos
 // Ruta 404 para endpoints no encontrados
 app.use((req, res, next) => {
   res.status(404).json({

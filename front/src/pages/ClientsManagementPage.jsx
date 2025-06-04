@@ -65,6 +65,18 @@ const ClientsManagementPage = () => {
     let createdDomains = [];
     let createdTemplate = null;
     
+    console.log('🔍 ClientsManagementPage: Datos recibidos del modal:', {
+      clientName: clientData.name,
+      configureBanner: clientData.configureBanner,
+      hasBannerConfig: !!clientData.bannerConfig,
+      hasCustomizedTemplate: !!clientData.bannerConfig?.customizedTemplate,
+      customizedTemplateKeys: clientData.bannerConfig?.customizedTemplate ? Object.keys(clientData.bannerConfig.customizedTemplate) : [],
+      layoutBg: clientData.bannerConfig?.customizedTemplate?.layout?.desktop?.backgroundColor,
+      componentCount: clientData.bannerConfig?.customizedTemplate?.components?.length,
+      hasCustomizations: !!clientData.bannerConfig?.customizations,
+      hasComponentUpdates: !!clientData.bannerConfig?.componentUpdates && Object.keys(clientData.bannerConfig.componentUpdates || {}).length > 0
+    });
+    
     try {
       // 1. Crear el cliente
       console.log("📝 Creando cliente...", clientData.name);
@@ -444,6 +456,14 @@ const ClientsManagementPage = () => {
           const hasImagesFromConfig = clientData.bannerConfig.images && Object.keys(clientData.bannerConfig.images).length > 0;
           const hasImagesFromWindow = window._imageFiles && Object.keys(window._imageFiles).length > 0;
           
+          console.log('🔍 DEBUG - Detección de imágenes:', {
+            hasImagesFromConfig,
+            hasCustomImageComponents,
+            hasImagesFromWindow,
+            imageKeys: clientData.bannerConfig.images ? Object.keys(clientData.bannerConfig.images) : [],
+            windowImageKeys: window._imageFiles ? Object.keys(window._imageFiles) : []
+          });
+          
           if (hasImagesFromConfig || hasCustomImageComponents || hasImagesFromWindow) {
             console.log('✅ Se detectaron imágenes personalizadas, creando template con imágenes');
             console.log('📊 Fuentes de imágenes:', {
@@ -714,17 +734,51 @@ const ClientsManagementPage = () => {
               // SIMPLIFICADO: Siempre crear un nuevo template con los datos modificados
               console.log(`🆕 Creando nuevo template con imágenes personalizadas`);
               
+              // CRÍTICO: Aplicar marcadores de imagen a los componentes que YA tienen customizations
+              const customizedComponents = clientData.bannerConfig.customizedTemplate.components || [];
+              
+              // Aplicar marcadores de imagen a los componentes customizados
+              const componentsWithCustomizationsAndImageMarkers = customizedComponents.map(customizedComp => {
+                // Buscar si este componente tiene marcador de imagen
+                const markerComp = componentsWithImageMarkers.find(marker => marker.id === customizedComp.id);
+                
+                if (markerComp && customizedComp.type === 'image') {
+                  // Preservar customizations pero aplicar marcador de imagen
+                  return {
+                    ...customizedComp, // Mantener customizations (posición, estilo, etc.)
+                    content: markerComp.content, // Aplicar marcador __IMAGE_REF__
+                    _hasCustomImage: markerComp._hasCustomImage,
+                    _customImageId: markerComp._customImageId,
+                    _imageSettings: markerComp._imageSettings,
+                    _pendingImageUpload: markerComp._pendingImageUpload
+                  };
+                }
+                
+                // Para componentes sin imagen, usar el customizado tal como está
+                return customizedComp;
+              });
+              
               // Usar el customizedTemplate que ya tiene todos los cambios aplicados
               const templateData = {
                 ...clientData.bannerConfig.customizedTemplate,
                 name: bannerData.name,
                 clientId: bannerData.clientId, // Importante: incluir el clientId
-                components: componentsWithImageMarkers, // Componentes con marcadores __IMAGE_REF__
+                components: componentsWithCustomizationsAndImageMarkers, // Componentes CON customizations Y marcadores
                 type: 'custom',
                 status: 'active'
               };
               
               // Agregar los datos del template al FormData
+              // NOTA: templateData ya contiene layout y components con todas las customizations aplicadas
+              console.log('📋 DEBUG - Agregando datos al FormData:', {
+                name: templateData.name,
+                clientId: templateData.clientId,
+                type: templateData.type,
+                hasLayout: !!templateData.layout,
+                hasComponents: !!templateData.components,
+                componentsCount: templateData.components?.length
+              });
+              
               formData.append('name', templateData.name);
               formData.append('clientId', templateData.clientId);
               formData.append('type', templateData.type);
@@ -732,6 +786,33 @@ const ClientsManagementPage = () => {
               formData.append('layout', JSON.stringify(templateData.layout));
               formData.append('components', JSON.stringify(templateData.components));
               formData.append('settings', JSON.stringify(templateData.settings || {}));
+              
+              // Agregar metadatos necesarios de la plantilla original
+              if (templateData.theme) {
+                formData.append('theme', JSON.stringify(templateData.theme));
+              }
+              if (templateData.metadata) {
+                formData.append('metadata', JSON.stringify(templateData.metadata));
+              }
+              
+              console.log('📤 Enviando template con customizations YA aplicadas en layout y components');
+              
+              // DEBUG: Verificar que las customizations estén aplicadas antes de enviar
+              console.log('🔍 DEBUG - Verificando customizations aplicadas (con imágenes):', {
+                layoutBackgroundColor: templateData.layout?.desktop?.backgroundColor,
+                acceptButtonStyle: templateData.components?.find(c => c.id === 'acceptAll')?.style?.desktop,
+                rejectButtonStyle: templateData.components?.find(c => c.id === 'rejectAll')?.style?.desktop,
+                preferencesButtonStyle: templateData.components?.find(c => c.id === 'preferencesBtn')?.style?.desktop,
+                acceptButtonPosition: templateData.components?.find(c => c.id === 'acceptAll')?.position?.desktop,
+                rejectButtonPosition: templateData.components?.find(c => c.id === 'rejectAll')?.position?.desktop,
+                preferencesButtonPosition: templateData.components?.find(c => c.id === 'preferencesBtn')?.position?.desktop,
+                imageComponent: {
+                  id: templateData.components?.find(c => c.type === 'image')?.id,
+                  content: templateData.components?.find(c => c.type === 'image')?.content,
+                  position: templateData.components?.find(c => c.type === 'image')?.position?.desktop,
+                  style: templateData.components?.find(c => c.type === 'image')?.style?.desktop
+                }
+              });
               
               // Crear el template
               const bannerResponse = await createTemplate(formData);
@@ -762,6 +843,8 @@ const ClientsManagementPage = () => {
                   status: 'active'
                 };
                 
+                console.log('📤 Enviando templateData (fallback) con customizations YA aplicadas en layout y components');
+                
                 const fallbackResponse = await createTemplate(templateData);
                 if (fallbackResponse.data && fallbackResponse.data.template && fallbackResponse.data.template._id) {
                   templateId = fallbackResponse.data.template._id;
@@ -775,24 +858,45 @@ const ClientsManagementPage = () => {
               }
             }
           } else {
-            // Crear banner sin imágenes
-            console.log('📝 Creando banner sin imágenes personalizadas');
+            // NO hay archivos File nuevos, pero puede que tenga customizations
+            console.log('📝 No hay archivos nuevos, pero hay customizations - Creando banner con imagen existente');
             console.log('❓ Estado de imágenes:', {
               images: clientData.bannerConfig.images,
-              hasImages: clientData.bannerConfig.images ? Object.keys(clientData.bannerConfig.images).length : 0
+              hasImages: clientData.bannerConfig.images ? Object.keys(clientData.bannerConfig.images).length : 0,
+              customizations: !!clientData.bannerConfig.customizations
             });
+            
             try {
-              // SIMPLIFICADO: Siempre crear un nuevo template con los datos modificados
-              console.log("🆕 Creando nuevo template con datos personalizados");
+              // USAR EL MISMO FLUJO QUE CUANDO HAY IMÁGENES pero sin archivos File
+              console.log("🆕 Creando banner con customizations aplicadas (sin archivos nuevos)");
               
               // Usar el customizedTemplate que ya tiene todos los cambios aplicados
               const templateData = {
                 ...clientData.bannerConfig.customizedTemplate,
                 name: bannerData.name,
-                clientId: bannerData.clientId, // Importante: incluir el clientId
+                clientId: bannerData.clientId,
                 type: 'custom',
                 status: 'active'
               };
+              
+              console.log('📤 Enviando templateData con customizations aplicadas');
+              
+              // DEBUG: Verificar que las customizations estén aplicadas
+              console.log('🔍 DEBUG - Verificando customizations aplicadas (sin archivos nuevos):', {
+                layoutBackgroundColor: templateData.layout?.desktop?.backgroundColor,
+                acceptButtonStyle: templateData.components?.find(c => c.id === 'acceptAll')?.style?.desktop,
+                rejectButtonStyle: templateData.components?.find(c => c.id === 'rejectAll')?.style?.desktop,
+                preferencesButtonStyle: templateData.components?.find(c => c.id === 'preferencesBtn')?.style?.desktop,
+                acceptButtonPosition: templateData.components?.find(c => c.id === 'acceptAll')?.position?.desktop,
+                rejectButtonPosition: templateData.components?.find(c => c.id === 'rejectAll')?.position?.desktop,
+                preferencesButtonPosition: templateData.components?.find(c => c.id === 'preferencesBtn')?.position?.desktop,
+                imageComponent: {
+                  id: templateData.components?.find(c => c.type === 'image')?.id,
+                  content: templateData.components?.find(c => c.type === 'image')?.content,
+                  position: templateData.components?.find(c => c.type === 'image')?.position?.desktop,
+                  style: templateData.components?.find(c => c.type === 'image')?.style?.desktop
+                }
+              });
               
               const bannerResponse = await createTemplate(templateData);
               

@@ -38,11 +38,161 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     fetchTemplates();
   }, []);
 
+  // Función para normalizar template (eliminar min/max dimensions)
+  const normalizeTemplate = (template) => {
+    if (!template) return null;
+    
+    const normalized = JSON.parse(JSON.stringify(template));
+    
+    // Limpiar min/max de todos los componentes
+    if (normalized.components) {
+      normalized.components = normalized.components.map(component => {
+        const cleanComponent = { ...component };
+        
+        // Limpiar estilos de todos los dispositivos
+        if (cleanComponent.style) {
+          Object.keys(cleanComponent.style).forEach(device => {
+            if (cleanComponent.style[device]) {
+              delete cleanComponent.style[device].minWidth;
+              delete cleanComponent.style[device].maxWidth;
+              delete cleanComponent.style[device].minHeight;
+              delete cleanComponent.style[device].maxHeight;
+            }
+          });
+        }
+        
+        return cleanComponent;
+      });
+    }
+    
+    return normalized;
+  };
+
+  // NUEVA: Función para pre-procesar template como si viniera del editor
+  const preprocessTemplateForConsistency = (template) => {
+    if (!template) return null;
+    
+    const processed = JSON.parse(JSON.stringify(template));
+    
+    if (processed.components) {
+      processed.components = processed.components.map(component => {
+        const processedComponent = { ...component };
+        
+        // Aplicar conversión inteligente de porcentajes para componentes hijos
+        if (processedComponent.parentId && processedComponent.style) {
+          // Buscar el contenedor padre
+          const parentComponent = processed.components.find(c => c.id === processedComponent.parentId);
+          if (parentComponent) {
+            Object.keys(processedComponent.style).forEach(device => {
+              const deviceStyle = processedComponent.style[device];
+              const parentStyle = parentComponent.style?.[device] || {};
+              
+              if (deviceStyle) {
+                // Simular el cálculo que hace el editor
+                const processedStyle = { ...deviceStyle };
+                
+                // Convertir porcentajes basados en dimensiones reales del padre MÁS GENEROSAS
+                let estimatedParentWidth = 200; // default más generoso
+                let estimatedParentHeight = 450; // default más generoso
+                
+                // Calcular dimensiones reales del padre si están disponibles
+                if (parentStyle.width && typeof parentStyle.width === 'string') {
+                  if (parentStyle.width.includes('%')) {
+                    // El padre es porcentaje del banner (usar dimensiones más generosas)
+                    const parentPercent = parseFloat(parentStyle.width);
+                    estimatedParentWidth = (parentPercent * 900) / 100; // banner más ancho: 900px
+                  } else if (parentStyle.width.includes('px')) {
+                    estimatedParentWidth = parseFloat(parentStyle.width) * 1.1; // 10% más generoso
+                  }
+                }
+                
+                if (parentStyle.height && typeof parentStyle.height === 'string') {
+                  if (parentStyle.height.includes('%')) {
+                    // El padre es porcentaje del banner (usar dimensiones más generosas)
+                    const parentPercent = parseFloat(parentStyle.height);
+                    estimatedParentHeight = (parentPercent * 450) / 100; // banner más alto: 450px
+                  } else if (parentStyle.height.includes('px')) {
+                    estimatedParentHeight = parseFloat(parentStyle.height) * 1.15; // 15% más generoso para altura
+                  }
+                }
+                
+                console.log(`🔧 Pre-proceso ${component.id} - Dimensiones padre estimadas:`, {
+                  parentId: component.parentId,
+                  estimatedParentWidth,
+                  estimatedParentHeight,
+                  originalParentStyle: parentStyle
+                });
+                
+                // Convertir porcentajes del hijo a píxeles con ajustes para legibilidad
+                if (processedStyle.width && typeof processedStyle.width === 'string' && processedStyle.width.includes('%')) {
+                  const percentValue = parseFloat(processedStyle.width);
+                  let pixelValue = (percentValue * estimatedParentWidth) / 100;
+                  
+                  // Asegurar tamaño mínimo para legibilidad del texto
+                  if (component.type === 'text' && pixelValue < 120) {
+                    pixelValue = Math.max(120, pixelValue * 1.2); // mínimo 120px o 20% más
+                  }
+                  
+                  processedStyle.width = `${Math.round(pixelValue)}px`;
+                  console.log(`📐 Pre-proceso width: ${component.id} - ${percentValue}% → ${Math.round(pixelValue)}px`);
+                }
+                
+                if (processedStyle.height && typeof processedStyle.height === 'string' && processedStyle.height.includes('%')) {
+                  const percentValue = parseFloat(processedStyle.height);
+                  let pixelValue = (percentValue * estimatedParentHeight) / 100;
+                  
+                  // Asegurar altura mínima para legibilidad del texto
+                  if (component.type === 'text' && pixelValue < 40) {
+                    pixelValue = Math.max(40, pixelValue * 1.3); // mínimo 40px o 30% más
+                  }
+                  
+                  processedStyle.height = `${Math.round(pixelValue)}px`;
+                  console.log(`📐 Pre-proceso height: ${component.id} - ${percentValue}% → ${Math.round(pixelValue)}px`);
+                }
+                
+                processedComponent.style[device] = processedStyle;
+              }
+            });
+          }
+        }
+        
+        return processedComponent;
+      });
+    }
+    
+    console.log('🔧 Template pre-procesado para consistencia:', {
+      originalComponents: template.components?.length || 0,
+      processedComponents: processed.components?.length || 0
+    });
+    
+    return processed;
+  };
+
   // Función para aplicar customizations al template
   const applyCustomizations = (template, customizations) => {
     if (!template) return null;
     
-    const customizedTemplate = JSON.parse(JSON.stringify(template));
+    // CRÍTICO: Normalizar template primero para eliminar min/max
+    const normalizedTemplate = normalizeTemplate(template);
+    
+    // NUEVO: Pre-procesar para consistencia si NO hay componentUpdates (primera carga)
+    const hasComponentUpdates = customizations.componentUpdates && Object.keys(customizations.componentUpdates).length > 0;
+    let templateToUse = normalizedTemplate;
+    
+    if (!hasComponentUpdates) {
+      console.log('🆕 PRIMERA CARGA: Pre-procesando template para consistencia...');
+      templateToUse = preprocessTemplateForConsistency(normalizedTemplate);
+    } else {
+      console.log('🔄 SEGUNDA CARGA: Usando template con componentUpdates...');
+    }
+    
+    console.log('🧹 Template preparado:', {
+      originalComponents: template.components?.length || 0,
+      finalComponents: templateToUse.components?.length || 0,
+      isFirstLoad: !hasComponentUpdates
+    });
+    
+    const customizedTemplate = JSON.parse(JSON.stringify(templateToUse));
     
     // Aplicar customizations a cada componente
     const applyToComponents = (components) => {

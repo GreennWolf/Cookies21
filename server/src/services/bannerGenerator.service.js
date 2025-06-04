@@ -305,6 +305,58 @@ class BannerGeneratorService {
               ${contentText}
             </button>
           `;
+        case 'language-button':
+          const langDisplayMode = c.content?.displayMode || 'flag-dropdown';
+          const defaultLang = c.content?.defaultLanguage || 'es';
+          const supportedLanguages = c.content?.supportedLanguages || ['es', 'en', 'fr', 'de', 'it'];
+          
+          let languageButtonContent;
+          switch (langDisplayMode) {
+            case 'flag-only':
+              languageButtonContent = '🇪🇸';
+              break;
+            case 'text-only':
+              languageButtonContent = defaultLang.toUpperCase();
+              break;
+            case 'icon-dropdown':
+              languageButtonContent = '🌐 ▼';
+              break;
+            default: // flag-dropdown
+              languageButtonContent = '🇪🇸 ▼';
+          }
+          
+          return `
+            <div 
+              class="cmp-language-button${lockedClass}"
+              data-component-id="${c.id}"
+              data-cmp-action="language-selector"
+              data-display-mode="${langDisplayMode}"
+              data-default-language="${defaultLang}"
+              data-supported-languages="${supportedLanguages.join(',')}"
+              role="button"
+              aria-label="Language Selector"
+              style="cursor: pointer; position: relative;"
+            >
+              ${languageButtonContent}
+              <div class="language-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 1000; min-width: 120px;">
+                ${supportedLanguages.map(lang => {
+                  const flags = {
+                    'es': '🇪🇸 Español',
+                    'en': '🇺🇸 English', 
+                    'fr': '🇫🇷 Français',
+                    'de': '🇩🇪 Deutsch',
+                    'it': '🇮🇹 Italiano',
+                    'pt': '🇵🇹 Português',
+                    'ru': '🇷🇺 Русский',
+                    'zh': '🇨🇳 中文',
+                    'ja': '🇯🇵 日本語',
+                    'ko': '🇰🇷 한국어'
+                  };
+                  return `<div class="language-option" data-lang="${lang}" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;">${flags[lang] || lang.toUpperCase()}</div>`;
+                }).join('')}
+              </div>
+            </div>
+          `;
         case 'link':
           return `
             <a 
@@ -1376,6 +1428,64 @@ class BannerGeneratorService {
             ${selector}.cmp-button:focus {
               outline: 2px solid rgba(0, 0, 0, 0.2);
               outline-offset: 2px;
+            }
+          `;
+          break;
+        case 'language-button':
+          css += `
+            ${selector}.cmp-language-button {
+              cursor: pointer;
+              border-radius: 6px;
+              background: #ffffff;
+              border: 1px solid #d1d5db;
+              padding: 4px 8px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              user-select: none;
+              transition: background-color 0.2s, border-color 0.2s;
+            }
+            ${selector}.cmp-language-button:hover {
+              background-color: #f9fafb;
+              border-color: #9ca3af;
+            }
+            ${selector}.cmp-language-button:focus {
+              outline: 2px solid #7c3aed;
+              outline-offset: 2px;
+            }
+            ${selector}.cmp-language-button .language-dropdown {
+              display: none;
+              position: absolute;
+              top: 100%;
+              left: 0;
+              background: white;
+              border: 1px solid #d1d5db;
+              border-radius: 6px;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+              z-index: 1000;
+              min-width: 150px;
+              max-height: 200px;
+              overflow-y: auto;
+            }
+            ${selector}.cmp-language-button.active .language-dropdown {
+              display: block;
+            }
+            ${selector}.cmp-language-button .language-option {
+              padding: 8px 12px;
+              cursor: pointer;
+              border-bottom: 1px solid #f3f4f6;
+              transition: background-color 0.2s;
+            }
+            ${selector}.cmp-language-button .language-option:last-child {
+              border-bottom: none;
+            }
+            ${selector}.cmp-language-button .language-option:hover {
+              background-color: #f3f4f6;
+            }
+            ${selector}.cmp-language-button .language-option.selected {
+              background-color: #ede9fe;
+              color: #7c3aed;
+              font-weight: 500;
             }
           `;
           break;

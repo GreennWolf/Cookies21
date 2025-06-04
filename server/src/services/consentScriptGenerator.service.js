@@ -1170,8 +1170,85 @@ class ConsentGeneratorService {
                     case 'save_preferences':
                       window.CMP.savePreferences();
                       break;
+                    case 'language-selector':
+                      // Manejar el selector de idioma
+                      var dropdown = btn.querySelector('.language-dropdown');
+                      if (dropdown) {
+                        btn.classList.toggle('active');
+                        if (btn.classList.contains('active')) {
+                          // Cerrar otros dropdowns abiertos
+                          document.querySelectorAll('.cmp-language-button.active').forEach(function(otherBtn) {
+                            if (otherBtn !== btn) {
+                              otherBtn.classList.remove('active');
+                            }
+                          });
+                        }
+                      }
+                      break;
                   }
                 });
+              });
+              
+              // Event listeners para opciones de idioma
+              document.querySelectorAll('.language-option').forEach(function(option) {
+                option.addEventListener('click', function(e) {
+                  e.stopPropagation();
+                  var selectedLang = this.getAttribute('data-lang');
+                  var languageButton = this.closest('.cmp-language-button');
+                  
+                  if (languageButton && window.CMP && window.CMP.changeLanguage) {
+                    window.CMP.changeLanguage(selectedLang);
+                  }
+                  
+                  // Cerrar el dropdown
+                  languageButton.classList.remove('active');
+                  
+                  // Actualizar la apariencia del botón
+                  var displayMode = languageButton.getAttribute('data-display-mode') || 'flag-dropdown';
+                  var buttonContent = languageButton.firstChild;
+                  
+                  var flags = {
+                    'es': '🇪🇸',
+                    'en': '🇺🇸',
+                    'fr': '🇫🇷',
+                    'de': '🇩🇪',
+                    'it': '🇮🇹',
+                    'pt': '🇵🇹',
+                    'ru': '🇷🇺',
+                    'zh': '🇨🇳',
+                    'ja': '🇯🇵',
+                    'ko': '🇰🇷'
+                  };
+                  
+                  switch (displayMode) {
+                    case 'flag-only':
+                      if (buttonContent) buttonContent.textContent = flags[selectedLang] || '🌐';
+                      break;
+                    case 'text-only':
+                      if (buttonContent) buttonContent.textContent = selectedLang.toUpperCase();
+                      break;
+                    case 'icon-dropdown':
+                      if (buttonContent) buttonContent.innerHTML = '🌐 ▼';
+                      break;
+                    default: // flag-dropdown
+                      if (buttonContent) buttonContent.innerHTML = (flags[selectedLang] || '🌐') + ' ▼';
+                  }
+                  
+                  // Marcar como seleccionada
+                  document.querySelectorAll('.language-option').forEach(function(opt) {
+                    opt.classList.remove('selected');
+                  });
+                  this.classList.add('selected');
+                });
+              });
+              
+              // Cerrar dropdowns al hacer click fuera
+              document.addEventListener('click', function(e) {
+                if (!e.target.closest('.cmp-language-button')) {
+                  document.querySelectorAll('.cmp-language-button.active').forEach(function(btn) {
+                    btn.classList.remove('active');
+                  });
+                }
               });
               
               // Event listeners para botones de vendors

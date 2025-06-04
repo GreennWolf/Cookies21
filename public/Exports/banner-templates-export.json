@@ -1,0 +1,3984 @@
+{
+  "exportInfo": {
+    "timestamp": "2025-06-04T16:00:25.343Z",
+    "totalTemplates": 5,
+    "exportedBy": "banner-templates-export-script",
+    "version": "1.0.0"
+  },
+  "templates": [
+    {
+      "name": "Plantilla Basica",
+      "type": "system",
+      "status": "draft",
+      "layout": {
+        "desktop": {
+          "type": "banner",
+          "position": "bottom",
+          "width": "100%",
+          "height": "400px",
+          "backgroundColor": "#ffffff",
+          "minHeight": "100px",
+          "floatingCorner": "bottom-right",
+          "floatingMargin": "20",
+          "maxWidth": "100%"
+        },
+        "tablet": {
+          "type": "banner",
+          "position": "bottom",
+          "width": "100%",
+          "height": "100%",
+          "backgroundColor": "#ffffff",
+          "minHeight": "100px",
+          "floatingCorner": "bottom-right",
+          "floatingMargin": "20",
+          "maxWidth": "100%"
+        },
+        "mobile": {
+          "type": "banner",
+          "position": "bottom",
+          "width": "100%",
+          "height": "100%",
+          "backgroundColor": "#ffffff",
+          "minHeight": "100px",
+          "floatingCorner": "bottom-right",
+          "floatingMargin": "20",
+          "maxWidth": "100%"
+        }
+      },
+      "components": [
+        {
+          "type": "container",
+          "id": "comp-1748780206877",
+          "content": {
+            "texts": {
+              "en": ""
+            },
+            "translatable": false
+          },
+          "style": {
+            "desktop": {
+              "width": "79.94880546075085%",
+              "height": "100%",
+              "maxWidth": "100%",
+              "minWidth": "200px",
+              "minHeight": "100px",
+              "padding": "10px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "tablet": {
+              "width": "100%",
+              "height": "60%",
+              "minWidth": "180px",
+              "minHeight": "90px",
+              "padding": "8px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "mobile": {
+              "width": "100%",
+              "height": "60%",
+              "maxWidth": "100%",
+              "minWidth": "160px",
+              "minHeight": "80px",
+              "padding": "6px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            }
+          },
+          "position": {
+            "desktop": {
+              "top": "0.00%",
+              "left": "0.00%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "tablet": {
+              "top": "40.00%",
+              "left": "0.00%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "mobile": {
+              "top": "39.80%",
+              "left": "0%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            }
+          },
+          "children": [
+            {
+              "id": "text_1748780833100_366",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Informacion de Cookies"
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "24px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.8272921108742%",
+                  "height": "13.819095477386934%",
+                  "fontWeight": "bold",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "24px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute",
+                  "fontWeight": "bold"
+                },
+                "mobile": {
+                  "fontSize": "21px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20px",
+                  "position": "absolute",
+                  "backgroundColor": "#ffffff",
+                  "fontWeight": "bold"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            },
+            {
+              "id": "text_1748780245738_774",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Utilizamos cookies propias y de terceros para analizar nuestros servicios y mostrarte publicidad relacionada con tus preferencias en base a un perfil elaborado a partir de tus hábitos de navegación (por ejemplo, páginas visitadas)."
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "98.8272921108742%",
+                  "height": "18%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "98.2107355864811%",
+                  "height": "20%",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "15%",
+                  "position": "absolute"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            },
+            {
+              "id": "text_1748780270158_562",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Puedes aceptar todas las cookies pulsando el botón “Aceptar todas” o rechazarlas en el botón “Rechazar todas”, y configurarlas en todo momento desde el “panel de configuración”, donde encontrarás una explicación y descripción de cada tipo de cookie. En todo momento aceptas las “cookies técnicas/necesarias” para el buen funcionamiento de la web."
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "98.8272921108742%",
+                  "height": "22%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            },
+            {
+              "id": "text_1748780282824_499",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Una cookie es un pequeño archivo de información que se guarda en tu ordenador, smartphone o tableta cada vez que visitas nuestra página web. Algunas pueden ser nuestras de NAT21, S.L., y otras pertenecen a empresas externas que prestan servicios para nuestra página web."
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "98.61407249466951%",
+                  "height": "22%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            }
+          ],
+          "parentId": null,
+          "displayMode": "flex",
+          "locked": false,
+          "centered": false,
+          "positioning": "absolute",
+          "responsiveConfig": {
+            "keepAspectRatio": false,
+            "maintainSizeOnMobile": false,
+            "alignmentPriority": "position",
+            "stackOrder": 0
+          },
+          "draggable": true,
+          "resizable": true,
+          "containerConfig": {
+            "desktop": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-evenly",
+              "alignItems": "center",
+              "gap": "0px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "tablet": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-evenly",
+              "alignItems": "center",
+              "gap": "8px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "mobile": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-between",
+              "alignItems": "flex-start",
+              "gap": "6px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "1fr",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            }
+          }
+        },
+        {
+          "type": "container",
+          "id": "comp-1748780141106",
+          "content": {
+            "texts": {
+              "en": ""
+            },
+            "translatable": false
+          },
+          "style": {
+            "desktop": {
+              "width": "20%",
+              "height": "100%",
+              "minWidth": "200px",
+              "minHeight": "100px",
+              "padding": "10px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "tablet": {
+              "width": "100%",
+              "height": "49.896907216494846%",
+              "maxWidth": "",
+              "minWidth": "180px",
+              "minHeight": "90px",
+              "padding": "8px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "mobile": {
+              "width": "100%",
+              "height": "40%",
+              "maxWidth": "100%",
+              "minWidth": "160px",
+              "minHeight": "80px",
+              "padding": "6px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            }
+          },
+          "position": {
+            "desktop": {
+              "top": "0.00%",
+              "left": "80.00%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "tablet": {
+              "top": "0.00%",
+              "left": "0%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "mobile": {
+              "top": "0.00%",
+              "left": "0%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            }
+          },
+          "children": [
+            {
+              "id": "image_1748780941381_788",
+              "type": "image",
+              "content": "https://api.cookie21.com/templates/images/683c4979b9f86e331e706249/img_image_1748780941381_788_1748889406113.webp",
+              "style": {
+                "desktop": {
+                  "width": "90.98712446351931%",
+                  "height": "15.07537688442211%",
+                  "objectFit": "contain",
+                  "position": "absolute",
+                  "_previewUrl": "https://api.cookie21.com/templates/images/683c4979b9f86e331e706249/img_image_1748780941381_788_1748889406113.webp"
+                },
+                "tablet": {
+                  "width": "80%",
+                  "height": "95px",
+                  "objectFit": "contain",
+                  "position": "absolute",
+                  "_previewUrl": "https://api.cookie21.com/templates/images/683c4979b9f86e331e706249/img_image_1748780941381_788_1748889406113.webp"
+                },
+                "mobile": {
+                  "width": "57.80346820809249%",
+                  "height": "33.201581027667984%",
+                  "objectFit": "contain",
+                  "position": "absolute",
+                  "maxWidth": "100%",
+                  "_previewUrl": "https://api.cookie21.com/templates/images/683c4979b9f86e331e706249/img_image_1748780941381_788_1748889406113.webp"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780141106",
+              "position": {
+                "desktop": {
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "tablet": {
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "mobile": {
+                  "top": "0%",
+                  "left": "0%"
+                }
+              }
+            },
+            {
+              "id": "acceptAll",
+              "type": "button",
+              "locked": true,
+              "content": {
+                "texts": {
+                  "en": "Accept All"
+                },
+                "translatable": true
+              },
+              "action": {
+                "type": "accept_all"
+              },
+              "style": {
+                "desktop": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "4px",
+                  "width": "80%",
+                  "fontWeight": "bold",
+                  "height": "8%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "18px",
+                  "padding": "4px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "13%",
+                  "fontWeight": "bold"
+                },
+                "mobile": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "2px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "10%",
+                  "fontWeight": "bold"
+                }
+              },
+              "position": {
+                "desktop": {
+                  "top": "34.45%",
+                  "left": "20.00%"
+                },
+                "tablet": {
+                  "top": "10.00%",
+                  "left": "9.87%"
+                },
+                "mobile": {
+                  "top": "10.00%",
+                  "left": "9.95%"
+                }
+              },
+              "parentId": "comp-1748780141106"
+            },
+            {
+              "id": "rejectAll",
+              "type": "button",
+              "locked": true,
+              "content": {
+                "texts": {
+                  "en": "Reject All"
+                },
+                "translatable": true
+              },
+              "action": {
+                "type": "reject_all"
+              },
+              "style": {
+                "desktop": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "4px",
+                  "width": "80%",
+                  "height": "8%",
+                  "fontWeight": "bold",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "18px",
+                  "padding": "4px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "13%",
+                  "fontWeight": "bold"
+                },
+                "mobile": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "2px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "10%",
+                  "fontWeight": "bold"
+                }
+              },
+              "position": {
+                "desktop": {
+                  "top": "25.45%",
+                  "left": "20.00%"
+                },
+                "tablet": {
+                  "top": "10.00%",
+                  "left": "9.87%"
+                },
+                "mobile": {
+                  "top": "10.00%",
+                  "left": "9.95%"
+                }
+              },
+              "parentId": "comp-1748780141106"
+            },
+            {
+              "id": "preferencesBtn",
+              "type": "button",
+              "locked": true,
+              "content": {
+                "texts": {
+                  "en": "Preferences"
+                },
+                "translatable": true
+              },
+              "action": {
+                "type": "show_preferences"
+              },
+              "style": {
+                "desktop": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#ffffff",
+                  "color": "#837c7c",
+                  "fontSize": "16px",
+                  "padding": "4px",
+                  "width": "80%",
+                  "borderColor": "#504e4e",
+                  "borderWidth": "1px",
+                  "borderStyle": "solid",
+                  "height": "8%",
+                  "fontWeight": "bold",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#ffffff",
+                  "color": "#837c7c",
+                  "fontSize": "17px",
+                  "padding": "4px",
+                  "position": "absolute",
+                  "height": "13%",
+                  "width": "90%",
+                  "fontWeight": "bold",
+                  "borderColor": "#504e4e",
+                  "borderWidth": "1px",
+                  "borderStyle": "solid"
+                },
+                "mobile": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#fff",
+                  "color": "#837c7c",
+                  "fontSize": "16px",
+                  "padding": "2px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "10%",
+                  "maxWidth": "100%",
+                  "fontWeight": "bold",
+                  "borderColor": "#504e4e",
+                  "borderWidth": "1px",
+                  "borderStyle": "solid"
+                }
+              },
+              "position": {
+                "desktop": {
+                  "top": "47.20%",
+                  "left": "20.00%"
+                },
+                "tablet": {
+                  "bottom": "10px",
+                  "right": "10px",
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "mobile": {
+                  "bottom": "10px",
+                  "right": "10px",
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              },
+              "parentId": "comp-1748780141106"
+            }
+          ],
+          "parentId": null,
+          "displayMode": "flex",
+          "locked": false,
+          "centered": false,
+          "positioning": "absolute",
+          "responsiveConfig": {
+            "keepAspectRatio": false,
+            "maintainSizeOnMobile": false,
+            "alignmentPriority": "position",
+            "stackOrder": 0
+          },
+          "draggable": true,
+          "resizable": true,
+          "containerConfig": {
+            "desktop": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-around",
+              "alignItems": "center",
+              "gap": "1px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "tablet": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-between",
+              "alignItems": "center",
+              "gap": "8px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "mobile": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-between",
+              "alignItems": "center",
+              "gap": "6px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "1fr",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            }
+          }
+        }
+      ],
+      "theme": {
+        "spacing": {
+          "unit": 8
+        },
+        "animation": {
+          "type": "fade",
+          "duration": 300
+        }
+      },
+      "metadata": {
+        "version": 21,
+        "createdBy": "682cb94ddfb87ba4bd71f5f1",
+        "lastModifiedBy": "682cb94ddfb87ba4bd71f5f1",
+        "isPublic": true,
+        "tags": [],
+        "category": "custom"
+      },
+      "createdAt": "2025-06-01T12:37:13.539Z",
+      "updatedAt": "2025-06-04T15:48:06.119Z",
+      "originalId": "683c4979b9f86e331e706249",
+      "clientId": null
+    },
+    {
+      "name": "Banner para www.data21.es",
+      "type": "custom",
+      "status": "active",
+      "layout": {
+        "desktop": {
+          "type": "banner",
+          "position": "bottom",
+          "width": "100%",
+          "height": "399px",
+          "backgroundColor": "#ffffff",
+          "minHeight": "100px",
+          "floatingCorner": "bottom-right",
+          "floatingMargin": "20",
+          "maxWidth": "100%"
+        },
+        "tablet": {
+          "type": "banner",
+          "position": "bottom",
+          "width": "100%",
+          "height": "100%",
+          "backgroundColor": "#ffffff",
+          "minHeight": "100px",
+          "floatingCorner": "bottom-right",
+          "floatingMargin": "20",
+          "maxWidth": "100%"
+        },
+        "mobile": {
+          "type": "banner",
+          "position": "bottom",
+          "width": "100%",
+          "height": "100%",
+          "backgroundColor": "#ffffff",
+          "minHeight": "100px",
+          "floatingCorner": "bottom-right",
+          "floatingMargin": "20",
+          "maxWidth": "100%"
+        }
+      },
+      "components": [
+        {
+          "type": "container",
+          "id": "comp-1748780206877",
+          "content": {
+            "texts": {
+              "en": ""
+            },
+            "translatable": false
+          },
+          "style": {
+            "desktop": {
+              "width": "79.94880546075085%",
+              "height": "100%",
+              "minWidth": "200px",
+              "minHeight": "100px",
+              "padding": "10px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "tablet": {
+              "width": "100%",
+              "height": "60%",
+              "minWidth": "180px",
+              "minHeight": "90px",
+              "padding": "8px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "mobile": {
+              "width": "100%",
+              "height": "60%",
+              "maxWidth": "100%",
+              "minWidth": "160px",
+              "minHeight": "80px",
+              "padding": "6px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            }
+          },
+          "position": {
+            "desktop": {
+              "top": "10.00%",
+              "left": "0.00%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "tablet": {
+              "top": "40.00%",
+              "left": "0.00%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "mobile": {
+              "top": "39.80%",
+              "left": "0%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            }
+          },
+          "children": [
+            {
+              "id": "text_1748780833100_366",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Informacion de Cookies"
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "24px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.8272921108742%",
+                  "height": "13.819095477386934%",
+                  "fontWeight": "bold",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "24px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute",
+                  "fontWeight": "bold"
+                },
+                "mobile": {
+                  "fontSize": "21px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20px",
+                  "position": "absolute",
+                  "backgroundColor": "#ffffff",
+                  "fontWeight": "bold"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            },
+            {
+              "id": "text_1748780245738_774",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Utilizamos cookies propias y de terceros para analizar nuestros servicios y mostrarte publicidad relacionada con tus preferencias en base a un perfil elaborado a partir de tus hábitos de navegación (por ejemplo, páginas visitadas)."
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "16px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.8272921108742%",
+                  "height": "18%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "98.2107355864811%",
+                  "height": "20%",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "15%",
+                  "position": "absolute"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            },
+            {
+              "id": "text_1748780270158_562",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Puedes aceptar todas las cookies pulsando el botón “Aceptar todas” o rechazarlas en el botón “Rechazar todas”, y configurarlas en todo momento desde el “panel de configuración”, donde encontrarás una explicación y descripción de cada tipo de cookie. En todo momento aceptas las “cookies técnicas/necesarias” para el buen funcionamiento de la web."
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "16px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.8272921108742%",
+                  "height": "22%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            },
+            {
+              "id": "text_1748780282824_499",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Una cookie es un pequeño archivo de información que se guarda en tu ordenador, smartphone o tableta cada vez que visitas nuestra página web. Algunas pueden ser nuestras de NAT21, S.L., y otras pertenecen a empresas externas que prestan servicios para nuestra página web."
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "16px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.61407249466951%",
+                  "height": "22%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            }
+          ],
+          "parentId": null,
+          "displayMode": "flex",
+          "locked": false,
+          "centered": false,
+          "positioning": "absolute",
+          "responsiveConfig": {
+            "keepAspectRatio": false,
+            "maintainSizeOnMobile": false,
+            "alignmentPriority": "position",
+            "stackOrder": 0
+          },
+          "draggable": true,
+          "resizable": true,
+          "containerConfig": {
+            "desktop": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-evenly",
+              "alignItems": "center",
+              "gap": "0px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "tablet": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-evenly",
+              "alignItems": "center",
+              "gap": "8px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "mobile": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-between",
+              "alignItems": "flex-start",
+              "gap": "6px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "1fr",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            }
+          }
+        },
+        {
+          "type": "container",
+          "id": "comp-1748780141106",
+          "content": {
+            "texts": {
+              "en": ""
+            },
+            "translatable": false
+          },
+          "style": {
+            "desktop": {
+              "width": "20%",
+              "height": "100%",
+              "minWidth": "200px",
+              "minHeight": "100px",
+              "padding": "10px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "tablet": {
+              "width": "100%",
+              "height": "49.896907216494846%",
+              "maxWidth": "",
+              "minWidth": "180px",
+              "minHeight": "90px",
+              "padding": "8px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "mobile": {
+              "width": "100%",
+              "height": "40%",
+              "maxWidth": "100%",
+              "minWidth": "160px",
+              "minHeight": "80px",
+              "padding": "6px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            }
+          },
+          "position": {
+            "desktop": {
+              "top": "0.00%",
+              "left": "80.00%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "tablet": {
+              "top": "0.00%",
+              "left": "0%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "mobile": {
+              "top": "0.00%",
+              "left": "0%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            }
+          },
+          "children": [
+            {
+              "id": "image_1748780941381_788",
+              "type": "image",
+              "content": "/templates/images/683f20365a6c8a95f848ffa2/img_image_1748780941381_788_1749048857753.webp",
+              "style": {
+                "desktop": {
+                  "width": "82.82828282828282%",
+                  "height": "11.586901763224182%",
+                  "objectFit": "contain",
+                  "position": "absolute",
+                  "_previewUrl": "blob:https://admin.cookie21.com/ab0a5440-e56b-44f7-bef9-7ed63690b5fd"
+                },
+                "tablet": {
+                  "width": "80%",
+                  "height": "95px",
+                  "objectFit": "contain",
+                  "position": "absolute",
+                  "_previewUrl": "blob:https://admin.cookie21.com/2045dd2e-d485-4fa9-ad23-591a74ad2e2a"
+                },
+                "mobile": {
+                  "width": "57.80346820809249%",
+                  "height": "33.201581027667984%",
+                  "objectFit": "contain",
+                  "position": "absolute",
+                  "maxWidth": "100%",
+                  "_previewUrl": "blob:https://admin.cookie21.com/104c156a-9bab-4556-bde2-cab9f4085a48"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780141106",
+              "position": {
+                "desktop": {
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "tablet": {
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "mobile": {
+                  "top": "0%",
+                  "left": "0%"
+                }
+              }
+            },
+            {
+              "id": "acceptAll",
+              "type": "button",
+              "locked": true,
+              "content": {
+                "texts": {
+                  "en": "Accept All"
+                },
+                "translatable": true
+              },
+              "action": {
+                "type": "accept_all"
+              },
+              "style": {
+                "desktop": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "4px",
+                  "width": "80%",
+                  "fontWeight": "bold",
+                  "height": "8%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "18px",
+                  "padding": "4px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "13%",
+                  "fontWeight": "bold"
+                },
+                "mobile": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "2px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "10%",
+                  "fontWeight": "bold"
+                }
+              },
+              "position": {
+                "desktop": {
+                  "top": "34.45%",
+                  "left": "20.00%"
+                },
+                "tablet": {
+                  "top": "10.00%",
+                  "left": "9.87%"
+                },
+                "mobile": {
+                  "top": "10.00%",
+                  "left": "9.95%"
+                }
+              },
+              "parentId": "comp-1748780141106"
+            },
+            {
+              "id": "rejectAll",
+              "type": "button",
+              "locked": true,
+              "content": {
+                "texts": {
+                  "en": "Reject All"
+                },
+                "translatable": true
+              },
+              "action": {
+                "type": "reject_all"
+              },
+              "style": {
+                "desktop": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "4px",
+                  "width": "80%",
+                  "height": "8%",
+                  "fontWeight": "bold",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "18px",
+                  "padding": "4px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "13%",
+                  "fontWeight": "bold"
+                },
+                "mobile": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "2px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "10%",
+                  "fontWeight": "bold"
+                }
+              },
+              "position": {
+                "desktop": {
+                  "top": "25.45%",
+                  "left": "20.00%"
+                },
+                "tablet": {
+                  "top": "10.00%",
+                  "left": "9.87%"
+                },
+                "mobile": {
+                  "top": "10.00%",
+                  "left": "9.95%"
+                }
+              },
+              "parentId": "comp-1748780141106"
+            },
+            {
+              "id": "preferencesBtn",
+              "type": "button",
+              "locked": true,
+              "content": {
+                "texts": {
+                  "en": "Preferences"
+                },
+                "translatable": true
+              },
+              "action": {
+                "type": "show_preferences"
+              },
+              "style": {
+                "desktop": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#ffffff",
+                  "color": "#837c7c",
+                  "fontSize": "16px",
+                  "padding": "4px",
+                  "width": "80%",
+                  "borderColor": "#504e4e",
+                  "borderWidth": "1px",
+                  "borderStyle": "solid",
+                  "height": "8%",
+                  "fontWeight": "bold",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#ffffff",
+                  "color": "#837c7c",
+                  "fontSize": "17px",
+                  "padding": "4px",
+                  "position": "absolute",
+                  "height": "13%",
+                  "width": "90%",
+                  "fontWeight": "bold",
+                  "borderColor": "#504e4e",
+                  "borderWidth": "1px",
+                  "borderStyle": "solid"
+                },
+                "mobile": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#fff",
+                  "color": "#837c7c",
+                  "fontSize": "16px",
+                  "padding": "2px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "10%",
+                  "maxWidth": "100%",
+                  "fontWeight": "bold",
+                  "borderColor": "#504e4e",
+                  "borderWidth": "1px",
+                  "borderStyle": "solid"
+                }
+              },
+              "position": {
+                "desktop": {
+                  "top": "47.20%",
+                  "left": "20.00%"
+                },
+                "tablet": {
+                  "bottom": "10px",
+                  "right": "10px",
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "mobile": {
+                  "bottom": "10px",
+                  "right": "10px",
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              },
+              "parentId": "comp-1748780141106"
+            }
+          ],
+          "parentId": null,
+          "displayMode": "flex",
+          "locked": false,
+          "centered": false,
+          "positioning": "absolute",
+          "responsiveConfig": {
+            "keepAspectRatio": false,
+            "maintainSizeOnMobile": false,
+            "alignmentPriority": "position",
+            "stackOrder": 0
+          },
+          "draggable": true,
+          "resizable": true,
+          "containerConfig": {
+            "desktop": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-around",
+              "alignItems": "center",
+              "gap": "1px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "tablet": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-between",
+              "alignItems": "center",
+              "gap": "8px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "mobile": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-between",
+              "alignItems": "center",
+              "gap": "6px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "1fr",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            }
+          }
+        }
+      ],
+      "theme": {
+        "spacing": {
+          "unit": 8
+        },
+        "animation": {
+          "type": "fade",
+          "duration": 300
+        }
+      },
+      "metadata": {
+        "version": 7,
+        "createdBy": "683ee9bb270fc9b506a5971a",
+        "lastModifiedBy": "682cb94ddfb87ba4bd71f5f1",
+        "isPublic": false,
+        "tags": [],
+        "category": "custom"
+      },
+      "createdAt": "2025-06-01T12:37:13.539Z",
+      "updatedAt": "2025-06-04T15:48:06.168Z",
+      "originalId": "683f20365a6c8a95f848ffa2",
+      "clientId": "683f20355a6c8a95f848ff94"
+    },
+    {
+      "name": "Banner para www.babycontrol.com",
+      "type": "custom",
+      "status": "active",
+      "layout": {
+        "desktop": {
+          "type": "banner",
+          "position": "bottom",
+          "width": "100%",
+          "height": "400px",
+          "backgroundColor": "#ffffff",
+          "minHeight": "100px",
+          "floatingCorner": "bottom-right",
+          "floatingMargin": "20",
+          "maxWidth": "100%"
+        },
+        "tablet": {
+          "type": "banner",
+          "position": "bottom",
+          "width": "100%",
+          "height": "100%",
+          "backgroundColor": "#ffffff",
+          "minHeight": "100px",
+          "floatingCorner": "bottom-right",
+          "floatingMargin": "20",
+          "maxWidth": "100%"
+        },
+        "mobile": {
+          "type": "banner",
+          "position": "bottom",
+          "width": "100%",
+          "height": "100%",
+          "backgroundColor": "#ffffff",
+          "minHeight": "100px",
+          "floatingCorner": "bottom-right",
+          "floatingMargin": "20",
+          "maxWidth": "100%"
+        }
+      },
+      "components": [
+        {
+          "type": "container",
+          "id": "comp-1748780206877",
+          "content": {
+            "texts": {
+              "en": ""
+            },
+            "translatable": false
+          },
+          "style": {
+            "desktop": {
+              "width": "79.94880546075085%",
+              "height": "100%",
+              "minWidth": "200px",
+              "minHeight": "100px",
+              "padding": "10px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "tablet": {
+              "width": "100%",
+              "height": "60%",
+              "minWidth": "180px",
+              "minHeight": "90px",
+              "padding": "8px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "mobile": {
+              "width": "100%",
+              "height": "60%",
+              "maxWidth": "100%",
+              "minWidth": "160px",
+              "minHeight": "80px",
+              "padding": "6px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            }
+          },
+          "position": {
+            "desktop": {
+              "top": "10.00%",
+              "left": "0.00%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "tablet": {
+              "top": "40.00%",
+              "left": "0.00%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "mobile": {
+              "top": "39.80%",
+              "left": "0%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            }
+          },
+          "children": [
+            {
+              "id": "text_1748780833100_366",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Informacion de Cookies"
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "24px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.8272921108742%",
+                  "height": "13.819095477386934%",
+                  "fontWeight": "bold",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "24px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute",
+                  "fontWeight": "bold"
+                },
+                "mobile": {
+                  "fontSize": "21px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20px",
+                  "position": "absolute",
+                  "backgroundColor": "#ffffff",
+                  "fontWeight": "bold"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            },
+            {
+              "id": "text_1748780245738_774",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Utilizamos cookies propias y de terceros para analizar nuestros servicios y mostrarte publicidad relacionada con tus preferencias en base a un perfil elaborado a partir de tus hábitos de navegación (por ejemplo, páginas visitadas)."
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "16px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.8272921108742%",
+                  "height": "18%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "98.2107355864811%",
+                  "height": "20%",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "15%",
+                  "position": "absolute"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            },
+            {
+              "id": "text_1748780270158_562",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Puedes aceptar todas las cookies pulsando el botón “Aceptar todas” o rechazarlas en el botón “Rechazar todas”, y configurarlas en todo momento desde el “panel de configuración”, donde encontrarás una explicación y descripción de cada tipo de cookie. En todo momento aceptas las “cookies técnicas/necesarias” para el buen funcionamiento de la web."
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "16px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.8272921108742%",
+                  "height": "22%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            },
+            {
+              "id": "text_1748780282824_499",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Una cookie es un pequeño archivo de información que se guarda en tu ordenador, smartphone o tableta cada vez que visitas nuestra página web. Algunas pueden ser nuestras de NAT21, S.L., y otras pertenecen a empresas externas que prestan servicios para nuestra página web."
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "16px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.61407249466951%",
+                  "height": "22%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            }
+          ],
+          "parentId": null,
+          "displayMode": "flex",
+          "locked": false,
+          "centered": false,
+          "positioning": "absolute",
+          "responsiveConfig": {
+            "keepAspectRatio": false,
+            "maintainSizeOnMobile": false,
+            "alignmentPriority": "position",
+            "stackOrder": 0
+          },
+          "draggable": true,
+          "resizable": true,
+          "containerConfig": {
+            "desktop": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-evenly",
+              "alignItems": "center",
+              "gap": "0px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "tablet": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-evenly",
+              "alignItems": "center",
+              "gap": "8px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "mobile": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-between",
+              "alignItems": "flex-start",
+              "gap": "6px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "1fr",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            }
+          }
+        },
+        {
+          "type": "container",
+          "id": "comp-1748780141106",
+          "content": {
+            "texts": {
+              "en": ""
+            },
+            "translatable": false
+          },
+          "style": {
+            "desktop": {
+              "width": "20%",
+              "height": "100%",
+              "minWidth": "200px",
+              "minHeight": "100px",
+              "padding": "10px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "tablet": {
+              "width": "100%",
+              "height": "49.896907216494846%",
+              "maxWidth": "",
+              "minWidth": "180px",
+              "minHeight": "90px",
+              "padding": "8px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "mobile": {
+              "width": "100%",
+              "height": "40%",
+              "maxWidth": "100%",
+              "minWidth": "160px",
+              "minHeight": "80px",
+              "padding": "6px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            }
+          },
+          "position": {
+            "desktop": {
+              "top": "0.00%",
+              "left": "80.00%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "tablet": {
+              "top": "0.00%",
+              "left": "0%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "mobile": {
+              "top": "0.00%",
+              "left": "0%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            }
+          },
+          "children": [
+            {
+              "id": "image_1748780941381_788",
+              "type": "image",
+              "content": "/templates/images/68405ca75a6c8a95f8494144/img_image_1748780941381_788_1749048878342.webp",
+              "style": {
+                "desktop": {
+                  "width": "81.31313131313132%",
+                  "height": "11.306532663316583%",
+                  "objectFit": "contain",
+                  "position": "absolute",
+                  "_previewUrl": "blob:https://admin.cookie21.com/a337142b-b7be-4c6b-8bd7-1ba190d9dc27"
+                },
+                "tablet": {
+                  "width": "80%",
+                  "height": "95px",
+                  "objectFit": "contain",
+                  "position": "absolute",
+                  "_previewUrl": "blob:https://admin.cookie21.com/d680da42-8be0-429d-908f-a25a1c388d8a"
+                },
+                "mobile": {
+                  "width": "57.80346820809249%",
+                  "height": "33.201581027667984%",
+                  "objectFit": "contain",
+                  "position": "absolute",
+                  "maxWidth": "100%",
+                  "_previewUrl": "blob:https://admin.cookie21.com/3c480d35-7521-44a0-b958-2f79563477d6"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780141106",
+              "position": {
+                "desktop": {
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "tablet": {
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "mobile": {
+                  "top": "0%",
+                  "left": "0%"
+                }
+              }
+            },
+            {
+              "id": "acceptAll",
+              "type": "button",
+              "locked": true,
+              "content": {
+                "texts": {
+                  "en": "Accept All"
+                },
+                "translatable": true
+              },
+              "action": {
+                "type": "accept_all"
+              },
+              "style": {
+                "desktop": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "4px",
+                  "width": "80%",
+                  "fontWeight": "bold",
+                  "height": "8%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "18px",
+                  "padding": "4px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "13%",
+                  "fontWeight": "bold"
+                },
+                "mobile": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "2px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "10%",
+                  "fontWeight": "bold"
+                }
+              },
+              "position": {
+                "desktop": {
+                  "top": "34.45%",
+                  "left": "20.00%"
+                },
+                "tablet": {
+                  "top": "10.00%",
+                  "left": "9.87%"
+                },
+                "mobile": {
+                  "top": "10.00%",
+                  "left": "9.95%"
+                }
+              },
+              "parentId": "comp-1748780141106"
+            },
+            {
+              "id": "rejectAll",
+              "type": "button",
+              "locked": true,
+              "content": {
+                "texts": {
+                  "en": "Reject All"
+                },
+                "translatable": true
+              },
+              "action": {
+                "type": "reject_all"
+              },
+              "style": {
+                "desktop": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "4px",
+                  "width": "80%",
+                  "height": "8%",
+                  "fontWeight": "bold",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "18px",
+                  "padding": "4px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "13%",
+                  "fontWeight": "bold"
+                },
+                "mobile": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "2px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "10%",
+                  "fontWeight": "bold"
+                }
+              },
+              "position": {
+                "desktop": {
+                  "top": "25.45%",
+                  "left": "20.00%"
+                },
+                "tablet": {
+                  "top": "10.00%",
+                  "left": "9.87%"
+                },
+                "mobile": {
+                  "top": "10.00%",
+                  "left": "9.95%"
+                }
+              },
+              "parentId": "comp-1748780141106"
+            },
+            {
+              "id": "preferencesBtn",
+              "type": "button",
+              "locked": true,
+              "content": {
+                "texts": {
+                  "en": "Preferences"
+                },
+                "translatable": true
+              },
+              "action": {
+                "type": "show_preferences"
+              },
+              "style": {
+                "desktop": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#ffffff",
+                  "color": "#837c7c",
+                  "fontSize": "16px",
+                  "padding": "4px",
+                  "width": "80%",
+                  "borderColor": "#504e4e",
+                  "borderWidth": "1px",
+                  "borderStyle": "solid",
+                  "height": "8%",
+                  "fontWeight": "bold",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#ffffff",
+                  "color": "#837c7c",
+                  "fontSize": "17px",
+                  "padding": "4px",
+                  "position": "absolute",
+                  "height": "13%",
+                  "width": "90%",
+                  "fontWeight": "bold",
+                  "borderColor": "#504e4e",
+                  "borderWidth": "1px",
+                  "borderStyle": "solid"
+                },
+                "mobile": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#fff",
+                  "color": "#837c7c",
+                  "fontSize": "16px",
+                  "padding": "2px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "10%",
+                  "maxWidth": "100%",
+                  "fontWeight": "bold",
+                  "borderColor": "#504e4e",
+                  "borderWidth": "1px",
+                  "borderStyle": "solid"
+                }
+              },
+              "position": {
+                "desktop": {
+                  "top": "47.20%",
+                  "left": "20.00%"
+                },
+                "tablet": {
+                  "bottom": "10px",
+                  "right": "10px",
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "mobile": {
+                  "bottom": "10px",
+                  "right": "10px",
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              },
+              "parentId": "comp-1748780141106"
+            }
+          ],
+          "parentId": null,
+          "displayMode": "flex",
+          "locked": false,
+          "centered": false,
+          "positioning": "absolute",
+          "responsiveConfig": {
+            "keepAspectRatio": false,
+            "maintainSizeOnMobile": false,
+            "alignmentPriority": "position",
+            "stackOrder": 0
+          },
+          "draggable": true,
+          "resizable": true,
+          "containerConfig": {
+            "desktop": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-around",
+              "alignItems": "center",
+              "gap": "1px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "tablet": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-between",
+              "alignItems": "center",
+              "gap": "8px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "mobile": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-between",
+              "alignItems": "center",
+              "gap": "6px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "1fr",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            }
+          }
+        }
+      ],
+      "theme": {
+        "spacing": {
+          "unit": 8
+        },
+        "animation": {
+          "type": "fade",
+          "duration": 300
+        }
+      },
+      "metadata": {
+        "version": 5,
+        "createdBy": "683ee9bb270fc9b506a5971a",
+        "lastModifiedBy": "682cb94ddfb87ba4bd71f5f1",
+        "isPublic": false,
+        "tags": [],
+        "category": "custom"
+      },
+      "createdAt": "2025-06-01T12:37:13.539Z",
+      "updatedAt": "2025-06-04T15:48:06.196Z",
+      "originalId": "68405ca75a6c8a95f8494144",
+      "clientId": "68405ca65a6c8a95f8494136"
+    },
+    {
+      "name": "Banner para www.matrijoya.com",
+      "type": "custom",
+      "status": "active",
+      "layout": {
+        "desktop": {
+          "type": "banner",
+          "position": "bottom",
+          "width": "100%",
+          "height": "400px",
+          "backgroundColor": "#dfdfdf",
+          "minHeight": "100px",
+          "floatingCorner": "bottom-right",
+          "floatingMargin": "20",
+          "maxWidth": "100%"
+        },
+        "tablet": {
+          "type": "banner",
+          "position": "bottom",
+          "width": "100%",
+          "height": "100%",
+          "backgroundColor": "#ffffff",
+          "minHeight": "100px",
+          "floatingCorner": "bottom-right",
+          "floatingMargin": "20",
+          "maxWidth": "100%"
+        },
+        "mobile": {
+          "type": "banner",
+          "position": "bottom",
+          "width": "100%",
+          "height": "100%",
+          "backgroundColor": "#ffffff",
+          "minHeight": "100px",
+          "floatingCorner": "bottom-right",
+          "floatingMargin": "20",
+          "maxWidth": "100%"
+        }
+      },
+      "components": [
+        {
+          "type": "container",
+          "id": "comp-1748780206877",
+          "content": {
+            "texts": {
+              "en": ""
+            },
+            "translatable": false
+          },
+          "style": {
+            "desktop": {
+              "width": "79.94880546075085%",
+              "height": "100%",
+              "minWidth": "200px",
+              "minHeight": "100px",
+              "padding": "10px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "tablet": {
+              "width": "100%",
+              "height": "60%",
+              "minWidth": "180px",
+              "minHeight": "90px",
+              "padding": "8px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "mobile": {
+              "width": "100%",
+              "height": "60%",
+              "maxWidth": "100%",
+              "minWidth": "160px",
+              "minHeight": "80px",
+              "padding": "6px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            }
+          },
+          "position": {
+            "desktop": {
+              "top": "10.00%",
+              "left": "0.00%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "tablet": {
+              "top": "40.00%",
+              "left": "0.00%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "mobile": {
+              "top": "39.80%",
+              "left": "0%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            }
+          },
+          "children": [
+            {
+              "id": "text_1748780833100_366",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Informacion de Cookies"
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "24px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.8272921108742%",
+                  "height": "13.819095477386934%",
+                  "fontWeight": "bold",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "24px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute",
+                  "fontWeight": "bold"
+                },
+                "mobile": {
+                  "fontSize": "21px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20px",
+                  "position": "absolute",
+                  "backgroundColor": "#ffffff",
+                  "fontWeight": "bold"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            },
+            {
+              "id": "text_1748780245738_774",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Utilizamos cookies propias y de terceros para analizar nuestros servicios y mostrarte publicidad relacionada con tus preferencias en base a un perfil elaborado a partir de tus hábitos de navegación (por ejemplo, páginas visitadas)."
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "16px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.8272921108742%",
+                  "height": "18%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "98.2107355864811%",
+                  "height": "20%",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "15%",
+                  "position": "absolute"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            },
+            {
+              "id": "text_1748780270158_562",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Puedes aceptar todas las cookies pulsando el botón “Aceptar todas” o rechazarlas en el botón “Rechazar todas”, y configurarlas en todo momento desde el “panel de configuración”, donde encontrarás una explicación y descripción de cada tipo de cookie. En todo momento aceptas las “cookies técnicas/necesarias” para el buen funcionamiento de la web."
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "16px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.8272921108742%",
+                  "height": "22%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            },
+            {
+              "id": "text_1748780282824_499",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Una cookie es un pequeño archivo de información que se guarda en tu ordenador, smartphone o tableta cada vez que visitas nuestra página web. Algunas pueden ser nuestras de NAT21, S.L., y otras pertenecen a empresas externas que prestan servicios para nuestra página web."
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "16px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.61407249466951%",
+                  "height": "22%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            }
+          ],
+          "parentId": null,
+          "displayMode": "flex",
+          "locked": false,
+          "centered": false,
+          "positioning": "absolute",
+          "responsiveConfig": {
+            "keepAspectRatio": false,
+            "maintainSizeOnMobile": false,
+            "alignmentPriority": "position",
+            "stackOrder": 0
+          },
+          "draggable": true,
+          "resizable": true,
+          "containerConfig": {
+            "desktop": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-evenly",
+              "alignItems": "center",
+              "gap": "0px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "tablet": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-evenly",
+              "alignItems": "center",
+              "gap": "8px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "mobile": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-between",
+              "alignItems": "flex-start",
+              "gap": "6px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "1fr",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            }
+          }
+        },
+        {
+          "type": "container",
+          "id": "comp-1748780141106",
+          "content": {
+            "texts": {
+              "en": ""
+            },
+            "translatable": false
+          },
+          "style": {
+            "desktop": {
+              "width": "20%",
+              "height": "100%",
+              "minWidth": "200px",
+              "minHeight": "100px",
+              "padding": "10px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "tablet": {
+              "width": "100%",
+              "height": "49.896907216494846%",
+              "maxWidth": "",
+              "minWidth": "180px",
+              "minHeight": "90px",
+              "padding": "8px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "mobile": {
+              "width": "100%",
+              "height": "40%",
+              "maxWidth": "100%",
+              "minWidth": "160px",
+              "minHeight": "80px",
+              "padding": "6px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            }
+          },
+          "position": {
+            "desktop": {
+              "top": "0.00%",
+              "left": "80.00%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "tablet": {
+              "top": "0.00%",
+              "left": "0%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "mobile": {
+              "top": "0.00%",
+              "left": "0%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            }
+          },
+          "children": [
+            {
+              "id": "image_1748780941381_788",
+              "type": "image",
+              "content": "/templates/images/6840610da0ada4326011d27d/img_image_1748780941381_788_1749049745564.png",
+              "style": {
+                "desktop": {
+                  "width": "90.98712446351931%",
+                  "height": "15.07537688442211%",
+                  "objectFit": "contain",
+                  "position": "absolute",
+                  "_previewUrl": "blob:https://admin.cookie21.com/c6c3e80d-b15e-4bba-a4ea-443b309b7d12"
+                },
+                "tablet": {
+                  "width": "80%",
+                  "height": "95px",
+                  "objectFit": "contain",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "width": "57.80346820809249%",
+                  "height": "33.201581027667984%",
+                  "objectFit": "contain",
+                  "position": "absolute",
+                  "maxWidth": "100%"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780141106",
+              "position": {
+                "desktop": {
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "tablet": {
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "mobile": {
+                  "top": "0%",
+                  "left": "0%"
+                }
+              }
+            },
+            {
+              "id": "acceptAll",
+              "type": "button",
+              "locked": true,
+              "content": {
+                "texts": {
+                  "en": "Accept All"
+                },
+                "translatable": true
+              },
+              "action": {
+                "type": "accept_all"
+              },
+              "style": {
+                "desktop": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "4px",
+                  "width": "80%",
+                  "fontWeight": "bold",
+                  "height": "8%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "18px",
+                  "padding": "4px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "13%",
+                  "fontWeight": "bold"
+                },
+                "mobile": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "2px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "10%",
+                  "fontWeight": "bold"
+                }
+              },
+              "position": {
+                "desktop": {
+                  "top": "34.45%",
+                  "left": "20.00%"
+                },
+                "tablet": {
+                  "top": "10.00%",
+                  "left": "9.87%"
+                },
+                "mobile": {
+                  "top": "10.00%",
+                  "left": "9.95%"
+                }
+              },
+              "parentId": "comp-1748780141106"
+            },
+            {
+              "id": "rejectAll",
+              "type": "button",
+              "locked": true,
+              "content": {
+                "texts": {
+                  "en": "Reject All"
+                },
+                "translatable": true
+              },
+              "action": {
+                "type": "reject_all"
+              },
+              "style": {
+                "desktop": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "4px",
+                  "width": "80%",
+                  "height": "8%",
+                  "fontWeight": "bold",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "18px",
+                  "padding": "4px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "13%",
+                  "fontWeight": "bold"
+                },
+                "mobile": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#3884FE",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "2px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "10%",
+                  "fontWeight": "bold"
+                }
+              },
+              "position": {
+                "desktop": {
+                  "top": "25.45%",
+                  "left": "20.00%"
+                },
+                "tablet": {
+                  "top": "10.00%",
+                  "left": "9.87%"
+                },
+                "mobile": {
+                  "top": "10.00%",
+                  "left": "9.95%"
+                }
+              },
+              "parentId": "comp-1748780141106"
+            },
+            {
+              "id": "preferencesBtn",
+              "type": "button",
+              "locked": true,
+              "content": {
+                "texts": {
+                  "en": "Preferences"
+                },
+                "translatable": true
+              },
+              "action": {
+                "type": "show_preferences"
+              },
+              "style": {
+                "desktop": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#ffffff",
+                  "color": "#837c7c",
+                  "fontSize": "16px",
+                  "padding": "4px",
+                  "width": "80%",
+                  "borderColor": "#504e4e",
+                  "borderWidth": "1px",
+                  "borderStyle": "solid",
+                  "height": "8%",
+                  "fontWeight": "bold",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#ffffff",
+                  "color": "#837c7c",
+                  "fontSize": "17px",
+                  "padding": "4px",
+                  "position": "absolute",
+                  "height": "13%",
+                  "width": "90%",
+                  "fontWeight": "bold",
+                  "borderColor": "#504e4e",
+                  "borderWidth": "1px",
+                  "borderStyle": "solid"
+                },
+                "mobile": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#fff",
+                  "color": "#837c7c",
+                  "fontSize": "16px",
+                  "padding": "2px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "10%",
+                  "maxWidth": "100%",
+                  "fontWeight": "bold",
+                  "borderColor": "#504e4e",
+                  "borderWidth": "1px",
+                  "borderStyle": "solid"
+                }
+              },
+              "position": {
+                "desktop": {
+                  "top": "47.20%",
+                  "left": "20.00%"
+                },
+                "tablet": {
+                  "bottom": "10px",
+                  "right": "10px",
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "mobile": {
+                  "bottom": "10px",
+                  "right": "10px",
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              },
+              "parentId": "comp-1748780141106"
+            }
+          ],
+          "parentId": null,
+          "displayMode": "flex",
+          "locked": false,
+          "centered": false,
+          "positioning": "absolute",
+          "responsiveConfig": {
+            "keepAspectRatio": false,
+            "maintainSizeOnMobile": false,
+            "alignmentPriority": "position",
+            "stackOrder": 0
+          },
+          "draggable": true,
+          "resizable": true,
+          "containerConfig": {
+            "desktop": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-around",
+              "alignItems": "center",
+              "gap": "1px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "tablet": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-between",
+              "alignItems": "center",
+              "gap": "8px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "mobile": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-between",
+              "alignItems": "center",
+              "gap": "6px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "1fr",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            }
+          }
+        }
+      ],
+      "theme": {
+        "spacing": {
+          "unit": 8
+        },
+        "animation": {
+          "type": "fade",
+          "duration": 300
+        }
+      },
+      "metadata": {
+        "version": 4,
+        "createdBy": "683ee9bb270fc9b506a5971a",
+        "lastModifiedBy": "683ee9bb270fc9b506a5971a",
+        "isPublic": false,
+        "tags": [],
+        "category": "custom"
+      },
+      "createdAt": "2025-06-01T12:37:13.539Z",
+      "updatedAt": "2025-06-04T15:48:06.228Z",
+      "originalId": "6840610da0ada4326011d27d",
+      "clientId": "6840610ca0ada4326011d26f"
+    },
+    {
+      "name": "Banner para ksdinstore.com",
+      "type": "custom",
+      "status": "active",
+      "layout": {
+        "desktop": {
+          "type": "banner",
+          "position": "bottom",
+          "width": "100%",
+          "height": "400px",
+          "backgroundColor": "#ffffff",
+          "minHeight": "100px",
+          "floatingCorner": "bottom-right",
+          "floatingMargin": "20",
+          "maxWidth": "100%"
+        },
+        "tablet": {
+          "type": "banner",
+          "position": "bottom",
+          "width": "100%",
+          "height": "100%",
+          "backgroundColor": "#ffffff",
+          "minHeight": "100px",
+          "floatingCorner": "bottom-right",
+          "floatingMargin": "20",
+          "maxWidth": "100%"
+        },
+        "mobile": {
+          "type": "banner",
+          "position": "bottom",
+          "width": "100%",
+          "height": "100%",
+          "backgroundColor": "#ffffff",
+          "minHeight": "100px",
+          "floatingCorner": "bottom-right",
+          "floatingMargin": "20",
+          "maxWidth": "100%"
+        }
+      },
+      "components": [
+        {
+          "type": "container",
+          "id": "comp-1748780206877",
+          "content": {
+            "texts": {
+              "en": ""
+            },
+            "translatable": false
+          },
+          "style": {
+            "desktop": {
+              "width": "79.94880546075085%",
+              "height": "100%",
+              "maxWidth": "100%",
+              "minWidth": "200px",
+              "minHeight": "100px",
+              "padding": "10px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "tablet": {
+              "width": "100%",
+              "height": "60%",
+              "minWidth": "180px",
+              "minHeight": "90px",
+              "padding": "8px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "mobile": {
+              "width": "100%",
+              "height": "60%",
+              "maxWidth": "100%",
+              "minWidth": "160px",
+              "minHeight": "80px",
+              "padding": "6px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            }
+          },
+          "position": {
+            "desktop": {
+              "top": "0.00%",
+              "left": "0.00%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "tablet": {
+              "top": "40.00%",
+              "left": "0.00%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "mobile": {
+              "top": "39.80%",
+              "left": "0%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            }
+          },
+          "children": [
+            {
+              "id": "text_1748780833100_366",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Informacion de Cookies"
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "24px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.8272921108742%",
+                  "height": "13.819095477386934%",
+                  "fontWeight": "bold",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "24px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute",
+                  "fontWeight": "bold"
+                },
+                "mobile": {
+                  "fontSize": "21px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20px",
+                  "position": "absolute",
+                  "backgroundColor": "#ffffff",
+                  "fontWeight": "bold"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            },
+            {
+              "id": "text_1748780245738_774",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Utilizamos cookies propias y de terceros para analizar nuestros servicios y mostrarte publicidad relacionada con tus preferencias en base a un perfil elaborado a partir de tus hábitos de navegación (por ejemplo, páginas visitadas)."
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "16px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.8272921108742%",
+                  "height": "18%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "98.2107355864811%",
+                  "height": "20%",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "15%",
+                  "position": "absolute"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            },
+            {
+              "id": "text_1748780270158_562",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Puedes aceptar todas las cookies pulsando el botón “Aceptar todas” o rechazarlas en el botón “Rechazar todas”, y configurarlas en todo momento desde el “panel de configuración”, donde encontrarás una explicación y descripción de cada tipo de cookie. En todo momento aceptas las “cookies técnicas/necesarias” para el buen funcionamiento de la web."
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "16px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.8272921108742%",
+                  "height": "22%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            },
+            {
+              "id": "text_1748780282824_499",
+              "type": "text",
+              "content": {
+                "texts": {
+                  "en": "Una cookie es un pequeño archivo de información que se guarda en tu ordenador, smartphone o tableta cada vez que visitas nuestra página web. Algunas pueden ser nuestras de NAT21, S.L., y otras pertenecen a empresas externas que prestan servicios para nuestra página web."
+                },
+                "translatable": true
+              },
+              "style": {
+                "desktop": {
+                  "fontSize": "16px",
+                  "color": "#3884FE",
+                  "padding": "8px",
+                  "width": "98.61407249466951%",
+                  "height": "22%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "fontSize": "16px",
+                  "color": "#374151",
+                  "padding": "8px",
+                  "width": "100%",
+                  "height": "20%",
+                  "position": "absolute"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780206877",
+              "position": {
+                "desktop": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "tablet": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                },
+                "mobile": {
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              }
+            }
+          ],
+          "parentId": null,
+          "displayMode": "flex",
+          "locked": false,
+          "centered": false,
+          "positioning": "absolute",
+          "responsiveConfig": {
+            "keepAspectRatio": false,
+            "maintainSizeOnMobile": false,
+            "alignmentPriority": "position",
+            "stackOrder": 0
+          },
+          "draggable": true,
+          "resizable": true,
+          "containerConfig": {
+            "desktop": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-evenly",
+              "alignItems": "center",
+              "gap": "0px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "tablet": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-evenly",
+              "alignItems": "center",
+              "gap": "8px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "mobile": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-between",
+              "alignItems": "flex-start",
+              "gap": "6px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "1fr",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            }
+          }
+        },
+        {
+          "type": "container",
+          "id": "comp-1748780141106",
+          "content": {
+            "texts": {
+              "en": ""
+            },
+            "translatable": false
+          },
+          "style": {
+            "desktop": {
+              "width": "20%",
+              "height": "100%",
+              "minWidth": "200px",
+              "minHeight": "100px",
+              "padding": "10px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "tablet": {
+              "width": "100%",
+              "height": "49.896907216494846%",
+              "maxWidth": "",
+              "minWidth": "180px",
+              "minHeight": "90px",
+              "padding": "8px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            },
+            "mobile": {
+              "width": "100%",
+              "height": "40%",
+              "maxWidth": "100%",
+              "minWidth": "160px",
+              "minHeight": "80px",
+              "padding": "6px",
+              "backgroundColor": "transparent",
+              "border": "none",
+              "borderRadius": "4px"
+            }
+          },
+          "position": {
+            "desktop": {
+              "top": "0.00%",
+              "left": "80.00%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "tablet": {
+              "top": "0.00%",
+              "left": "0%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            },
+            "mobile": {
+              "top": "0.00%",
+              "left": "0%",
+              "alignment": "default",
+              "offsetX": 0,
+              "offsetY": 0,
+              "transformX": "none",
+              "transformY": "none"
+            }
+          },
+          "children": [
+            {
+              "id": "image_1748780941381_788",
+              "type": "image",
+              "content": "https://api.cookie21.com/templates/images/683c4979b9f86e331e706249/img_image_1748780941381_788_1748889406113.webp",
+              "style": {
+                "desktop": {
+                  "width": "90.98712446351931%",
+                  "height": "15.07537688442211%",
+                  "objectFit": "contain",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "width": "80%",
+                  "height": "95px",
+                  "objectFit": "contain",
+                  "position": "absolute"
+                },
+                "mobile": {
+                  "width": "57.80346820809249%",
+                  "height": "33.201581027667984%",
+                  "objectFit": "contain",
+                  "position": "absolute",
+                  "maxWidth": "100%"
+                }
+              },
+              "locked": false,
+              "parentId": "comp-1748780141106",
+              "position": {
+                "desktop": {
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "tablet": {
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "mobile": {
+                  "top": "0%",
+                  "left": "0%"
+                }
+              },
+              "_hasCustomImage": true,
+              "_customImageId": "image_1748780941381_788"
+            },
+            {
+              "id": "acceptAll",
+              "type": "button",
+              "locked": true,
+              "content": {
+                "texts": {
+                  "en": "Accept All"
+                },
+                "translatable": true
+              },
+              "action": {
+                "type": "accept_all"
+              },
+              "style": {
+                "desktop": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#92fe39",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "4px",
+                  "width": "80%",
+                  "fontWeight": "bold",
+                  "height": "8%",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#92fe39",
+                  "color": "#fff",
+                  "fontSize": "18px",
+                  "padding": "4px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "13%",
+                  "fontWeight": "bold"
+                },
+                "mobile": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#92fe39",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "2px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "10%",
+                  "fontWeight": "bold"
+                }
+              },
+              "position": {
+                "desktop": {
+                  "top": "34.45%",
+                  "left": "20.00%"
+                },
+                "tablet": {
+                  "top": "10.00%",
+                  "left": "9.87%"
+                },
+                "mobile": {
+                  "top": "10.00%",
+                  "left": "9.95%"
+                }
+              },
+              "parentId": "comp-1748780141106"
+            },
+            {
+              "id": "rejectAll",
+              "type": "button",
+              "locked": true,
+              "content": {
+                "texts": {
+                  "en": "Reject All"
+                },
+                "translatable": true
+              },
+              "action": {
+                "type": "reject_all"
+              },
+              "style": {
+                "desktop": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#fe394d",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "4px",
+                  "width": "80%",
+                  "height": "8%",
+                  "fontWeight": "bold",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#fe394d",
+                  "color": "#fff",
+                  "fontSize": "18px",
+                  "padding": "4px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "13%",
+                  "fontWeight": "bold"
+                },
+                "mobile": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#fe394d",
+                  "color": "#fff",
+                  "fontSize": "16px",
+                  "padding": "2px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "10%",
+                  "fontWeight": "bold"
+                }
+              },
+              "position": {
+                "desktop": {
+                  "top": "25.45%",
+                  "left": "20.00%"
+                },
+                "tablet": {
+                  "top": "10.00%",
+                  "left": "9.87%"
+                },
+                "mobile": {
+                  "top": "10.00%",
+                  "left": "9.95%"
+                }
+              },
+              "parentId": "comp-1748780141106"
+            },
+            {
+              "id": "preferencesBtn",
+              "type": "button",
+              "locked": true,
+              "content": {
+                "texts": {
+                  "en": "Preferences"
+                },
+                "translatable": true
+              },
+              "action": {
+                "type": "show_preferences"
+              },
+              "style": {
+                "desktop": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#bd0000",
+                  "color": "#141414",
+                  "fontSize": "16px",
+                  "padding": "4px",
+                  "width": "80%",
+                  "borderColor": "#504e4e",
+                  "borderWidth": "1px",
+                  "borderStyle": "solid",
+                  "height": "8%",
+                  "fontWeight": "bold",
+                  "position": "absolute"
+                },
+                "tablet": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#bd0000",
+                  "color": "#141414",
+                  "fontSize": "17px",
+                  "padding": "4px",
+                  "position": "absolute",
+                  "height": "13%",
+                  "width": "90%",
+                  "fontWeight": "bold",
+                  "borderColor": "#504e4e",
+                  "borderWidth": "1px",
+                  "borderStyle": "solid"
+                },
+                "mobile": {
+                  "borderRadius": "4px",
+                  "backgroundColor": "#bd0000",
+                  "color": "#141414",
+                  "fontSize": "16px",
+                  "padding": "2px",
+                  "position": "absolute",
+                  "width": "90%",
+                  "height": "10%",
+                  "maxWidth": "100%",
+                  "fontWeight": "bold",
+                  "borderColor": "#504e4e",
+                  "borderWidth": "1px",
+                  "borderStyle": "solid"
+                }
+              },
+              "position": {
+                "desktop": {
+                  "top": "47.20%",
+                  "left": "20.00%"
+                },
+                "tablet": {
+                  "bottom": "10px",
+                  "right": "10px",
+                  "top": "0%",
+                  "left": "0%"
+                },
+                "mobile": {
+                  "bottom": "10px",
+                  "right": "10px",
+                  "top": "0.00%",
+                  "left": "0.00%"
+                }
+              },
+              "parentId": "comp-1748780141106"
+            }
+          ],
+          "parentId": null,
+          "displayMode": "flex",
+          "locked": false,
+          "centered": false,
+          "positioning": "absolute",
+          "responsiveConfig": {
+            "keepAspectRatio": false,
+            "maintainSizeOnMobile": false,
+            "alignmentPriority": "position",
+            "stackOrder": 0
+          },
+          "draggable": true,
+          "resizable": true,
+          "containerConfig": {
+            "desktop": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-around",
+              "alignItems": "center",
+              "gap": "1px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "tablet": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-between",
+              "alignItems": "center",
+              "gap": "8px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "repeat(2, 1fr)",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            },
+            "mobile": {
+              "displayMode": "flex",
+              "allowDrops": true,
+              "nestingLevel": 0,
+              "maxChildren": 50,
+              "flexDirection": "column",
+              "justifyContent": "space-between",
+              "alignItems": "center",
+              "gap": "6px",
+              "flexWrap": "nowrap",
+              "gridTemplateColumns": "1fr",
+              "gridTemplateRows": "auto",
+              "gridAutoFlow": "row",
+              "justifyItems": "flex-start"
+            }
+          }
+        }
+      ],
+      "theme": {
+        "spacing": {
+          "unit": 8
+        },
+        "animation": {
+          "type": "fade",
+          "duration": 300
+        }
+      },
+      "metadata": {
+        "version": 3,
+        "createdBy": "682cb94ddfb87ba4bd71f5f1",
+        "lastModifiedBy": "682cb94ddfb87ba4bd71f5f1",
+        "isPublic": false,
+        "tags": [],
+        "category": "custom"
+      },
+      "createdAt": "2025-06-01T12:37:13.539Z",
+      "updatedAt": "2025-06-04T15:48:06.252Z",
+      "originalId": "684065f2a0ada4326011d4be",
+      "clientId": "684065f1a0ada4326011d4b4"
+    }
+  ]
+}

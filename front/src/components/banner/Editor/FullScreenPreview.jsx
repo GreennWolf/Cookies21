@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Monitor, Smartphone, Tablet, ImageOff } from 'lucide-react';
 import { getImageUrl, handleImageError, processImageStyles } from '../../../utils/imageProcessing';
+import LanguageButton from '../LanguageButton';
 
 /**
  * Componente de vista previa a pantalla completa
@@ -738,7 +739,47 @@ const FullScreenPreview = ({
           </div>
         );
       }
+      case 'language-button': {
+        console.log('🌐 FullScreenPreview - Rendering language-button:', {
+          id: component.id,
+          content: component.content,
+          baseStyles
+        });
+        
+        return (
+          <div
+            key={component.id}
+            style={{
+              ...baseStyles,
+              width: baseStyles.width || '120px',
+              height: baseStyles.height || '35px',
+              minWidth: '80px',
+              minHeight: '30px',
+              boxSizing: 'border-box',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0,
+              margin: 0,
+              overflow: 'visible'
+            }}
+          >
+            <LanguageButton
+              config={component.content || {}}
+              isPreview={true}
+              style={{
+                [currentDevice]: {
+                  width: '100%',
+                  height: '100%'
+                }
+              }}
+              deviceView={currentDevice}
+            />
+          </div>
+        );
+      }
       default:
+        console.warn('❌ FullScreenPreview: Unknown component type:', component.type, component);
         return null;
     }
   };
@@ -957,6 +998,21 @@ const FullScreenPreview = ({
             {showBanner && (() => {
               const rootComponents = bannerConfig.components?.filter(comp => !comp.parentId) || [];
               const layout = bannerConfig.layout[currentDevice] || {};
+              
+              console.log('🎯 FullScreenPreview - Root components to render:', {
+                totalComponents: bannerConfig.components?.length || 0,
+                rootComponents: rootComponents.length,
+                components: rootComponents.map(comp => ({
+                  id: comp.id,
+                  type: comp.type,
+                  hasPosition: !!comp.position,
+                  hasStyle: !!comp.style,
+                  position: comp.position?.[currentDevice],
+                  style: comp.style?.[currentDevice]
+                })),
+                languageButtons: rootComponents.filter(comp => comp.type === 'language-button'),
+                currentDevice
+              });
               
               return (
                 <>

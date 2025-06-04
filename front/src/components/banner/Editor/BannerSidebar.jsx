@@ -11,7 +11,8 @@ import {
   Container,
   Lock,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Languages
 } from 'lucide-react';
 
 // Variable global temporal para almacenar datos del drag
@@ -82,6 +83,19 @@ function BannerSidebar({ bannerConfig }) {
         locked: false,
         action: { type: 'show_preferences' },
         content: { texts: { en: 'Cookie Settings', es: 'Configuración de Cookies' } }
+      },
+      {
+        id: 'languageBtn',
+        type: 'language-button',
+        label: 'Selector de Idioma',
+        icon: <Languages size={16} className="text-purple-600" />,
+        preview: 'Componente obligatorio para selección de idioma',
+        locked: false,
+        content: { 
+          displayMode: 'flag-dropdown',
+          supportedLanguages: ['es', 'en', 'fr', 'de', 'it'],
+          defaultLanguage: 'es'
+        }
       }
     ];
     
@@ -94,6 +108,9 @@ function BannerSidebar({ bannerConfig }) {
           if (comp.action.type === 'accept_all') existingButtonIds.push('acceptBtn');
           if (comp.action.type === 'reject_all') existingButtonIds.push('rejectBtn');
           if (comp.action.type === 'show_preferences') existingButtonIds.push('preferencesBtn');
+        }
+        if (comp.type === 'language-button') {
+          existingButtonIds.push('languageBtn');
         }
         // Buscar en hijos si es contenedor
         if (comp.type === 'container' && comp.children) {

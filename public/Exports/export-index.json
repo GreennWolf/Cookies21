@@ -1,0 +1,18 @@
+{
+  "lastExport": "2025-06-04T16:00:25.378Z",
+  "files": [
+    {
+      "filename": "banner-templates-export.json",
+      "type": "banner-templates",
+      "count": 5,
+      "size": 130126
+    }
+  ],
+  "stats": {
+    "total": 5,
+    "system": 1,
+    "client": 0,
+    "active": 4,
+    "inactive": 0
+  }
+}

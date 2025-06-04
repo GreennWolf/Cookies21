@@ -504,22 +504,98 @@ export const exportEmbeddableScript = async (templateId) => {
   }
 };
 
+// FUNCIÓN ELIMINADA: cleanupUnusedImages
+// La limpieza de imágenes ahora solo se realiza automáticamente cuando se eliminan banners
+
 /**
- * Limpia imágenes no utilizadas de un banner.
- * Detecta y elimina archivos de imagen que ya no están referenciados en los componentes.
- * 
+ * Detecta el idioma principal del contenido del banner
  * @param {string} templateId - ID de la plantilla de banner
- * @returns {Object} Resultado de la operación (éxito, imágenes eliminadas, imágenes conservadas)
+ * @returns {Promise<Object>} - Información del idioma detectado
  */
-export const cleanupUnusedImages = async (templateId) => {
+export const detectBannerLanguages = async (templateId) => {
   try {
-    console.log(`🧹 Limpiando imágenes no utilizadas del banner ${templateId}...`);
-    const response = await apiClient.post(`/api/v1/banner-templates/${templateId}/cleanup-images`);
-    console.log(`✅ Limpieza completada: ${response.data.data.deleted} eliminadas, ${response.data.data.kept} conservadas`);
+    console.log(`🌐 Detectando idiomas del banner ${templateId}...`);
+    const response = await apiClient.post(`/api/v1/banner-templates/${templateId}/detect-languages`);
+    console.log(`✅ Idioma detectado: ${response.data.data.detectedLanguage}`);
     return response.data;
   } catch (error) {
-    console.error('❌ Error al limpiar imágenes:', error);
-    throw new Error(error.response?.data?.message || 'Error al limpiar imágenes no utilizadas');
+    console.error('❌ Error al detectar idiomas:', error);
+    throw new Error(error.response?.data?.message || 'Error al detectar idiomas');
+  }
+};
+
+/**
+ * Traduce un banner a un idioma específico
+ * @param {string} templateId - ID de la plantilla de banner
+ * @param {string} targetLanguage - Código del idioma destino (es, fr, de, etc.)
+ * @returns {Promise<Object>} - Resultado de la traducción
+ */
+export const translateBanner = async (templateId, targetLanguage) => {
+  try {
+    console.log(`🌐 Traduciendo banner ${templateId} a ${targetLanguage}...`);
+    const response = await apiClient.post(`/api/v1/banner-templates/${templateId}/translate`, {
+      targetLanguage
+    });
+    console.log(`✅ Traducción completada: ${response.data.data.componentsTranslated} componentes traducidos`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error al traducir banner:', error);
+    throw new Error(error.response?.data?.message || 'Error al traducir banner');
+  }
+};
+
+/**
+ * Obtiene todas las traducciones disponibles de un banner
+ * @param {string} templateId - ID de la plantilla de banner
+ * @returns {Promise<Object>} - Traducciones del banner
+ */
+export const getBannerTranslations = async (templateId) => {
+  try {
+    console.log(`🌐 Obteniendo traducciones del banner ${templateId}...`);
+    const response = await apiClient.get(`/api/v1/banner-templates/${templateId}/translations`);
+    console.log(`✅ Idiomas disponibles: ${response.data.data.languages.join(', ')}`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error al obtener traducciones:', error);
+    throw new Error(error.response?.data?.message || 'Error al obtener traducciones');
+  }
+};
+
+/**
+ * Actualiza una traducción específica de un componente
+ * @param {string} templateId - ID de la plantilla de banner
+ * @param {string} language - Código del idioma
+ * @param {string} componentId - ID del componente
+ * @param {string} text - Nuevo texto traducido
+ * @returns {Promise<Object>} - Resultado de la actualización
+ */
+export const updateComponentTranslation = async (templateId, language, componentId, text) => {
+  try {
+    console.log(`🌐 Actualizando traducción manual para componente ${componentId}...`);
+    const response = await apiClient.put(`/api/v1/banner-templates/${templateId}/translations/${language}`, {
+      componentId,
+      text
+    });
+    console.log(`✅ Traducción actualizada`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error al actualizar traducción:', error);
+    throw new Error(error.response?.data?.message || 'Error al actualizar traducción');
+  }
+};
+
+/**
+ * Obtiene las estadísticas de uso de traducción
+ * @returns {Promise<Object>} - Estadísticas de uso
+ */
+export const getTranslationUsage = async () => {
+  try {
+    console.log(`📊 Obteniendo estadísticas de traducción...`);
+    const response = await apiClient.get('/api/v1/banner-templates/translation-usage');
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error al obtener estadísticas:', error);
+    throw new Error(error.response?.data?.message || 'Error al obtener estadísticas de traducción');
   }
 };
 

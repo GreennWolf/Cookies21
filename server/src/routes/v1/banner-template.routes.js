@@ -122,4 +122,30 @@ router.post(
   BannerTemplateController.cleanupDeletedBannersImages
 );
 
+// Rutas de traducción
+router.post(
+  '/:id/detect-languages',
+  BannerTemplateController.detectLanguages
+);
+
+router.post(
+  '/:id/translate',
+  BannerTemplateController.translateBanner
+);
+
+router.get(
+  '/:id/translations',
+  BannerTemplateController.getBannerTranslations
+);
+
+router.put(
+  '/:id/translations/:lang',
+  BannerTemplateController.updateTranslation
+);
+
+router.get(
+  '/translation-usage',
+  BannerTemplateController.getTranslationUsage
+);
+
 module.exports = router;

@@ -373,6 +373,16 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
     toast.info('Iniciando creación del cliente...', { autoClose: 2000 });
     
     try {
+      console.log("📦 CreateClientModal: Enviando datos al servidor:", {
+        clientName: clientData.name,
+        configureBanner: clientData.configureBanner,
+        hasBannerConfig: !!clientData.bannerConfig,
+        hasCustomizedTemplate: !!clientData.bannerConfig?.customizedTemplate,
+        customizedTemplateKeys: clientData.bannerConfig?.customizedTemplate ? Object.keys(clientData.bannerConfig.customizedTemplate) : [],
+        layoutBg: clientData.bannerConfig?.customizedTemplate?.layout?.desktop?.backgroundColor,
+        componentCount: clientData.bannerConfig?.customizedTemplate?.components?.length
+      });
+      
       // Mostrar toast de progreso
       const progressToast = toast.loading('Creando cliente y dominios...', { autoClose: false });
       
@@ -789,6 +799,11 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
                   <SimpleBannerConfigStep 
                     formData={formData} 
                     onChange={(field, value) => {
+                      console.log('🔄 CreateClientModal: Actualizando formData campo:', field, {
+                        hasValue: !!value,
+                        valueKeys: value ? Object.keys(value) : [],
+                        hasCustomizedTemplate: field === 'bannerConfig' ? !!value?.customizedTemplate : 'N/A'
+                      });
                       setFormData(prev => ({
                         ...prev,
                         [field]: value

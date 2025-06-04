@@ -7,10 +7,12 @@ import BannerPreview from './BannerPreview.jsx';
 import LayersPanel from './LayersPanel';
 import handleWidthValueChangeFn from './handleWidthValueChange';
 import handleFloatingMarginChange from './handleFloatingMarginChange';
-import { Save, Eye, Undo, Redo, Monitor, Smartphone, Tablet, ChevronLeft, X, Code, ClipboardCopy, Trash2, Layers, Settings } from 'lucide-react';
-import { exportEmbeddableScript, cleanupUnusedImages } from '../../../api/bannerTemplate';
+import { Save, Eye, Undo, Redo, Monitor, Smartphone, Tablet, ChevronLeft, X, Code, ClipboardCopy, Trash2, Layers, Settings, Globe } from 'lucide-react';
+import { exportEmbeddableScript } from '../../../api/bannerTemplate';
 import { useAuth } from '../../../contexts/AuthContext';
 import SimplePanelConfigModal from './SimplePanelConfigModal';
+import LanguageSelector from '../LanguageSelector';
+import { useTranslations } from '../../../hooks/useTranslations';
 
 function parseDimension(dim) {
   if (!dim || dim === 'auto') return { value: '', unit: 'auto' };
@@ -98,6 +100,17 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
   // Refs para evitar problemas
   const saveInProgressRef = useRef(false);
   const dimensionsInitializedRef = useRef(false);
+  
+  // Hook de traducciones
+  const {
+    currentLanguage,
+    availableLanguages,
+    isTranslating,
+    translateToLanguage,
+    detectLanguage,
+    getTranslatedComponents,
+    loadUsageStats
+  } = useTranslations(bannerConfig?._id, bannerConfig?.components);
 
   // Listener para eventos personalizados de configuración de contenedor - FASE 2
   useEffect(() => {
@@ -795,7 +808,8 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
       setSaveError(null);
       
       // Llamar al endpoint de limpieza
-      const response = await cleanupUnusedImages(bannerConfig._id);
+      // Limpieza de imágenes eliminada - se realiza automáticamente al eliminar banners
+      toast.error('La limpieza manual de imágenes ha sido deshabilitada');
       
       if (response.status === 'success') {
         // Mostrar resultado
@@ -860,6 +874,30 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
               >
                 <Layers size={16} />
               </button>
+              
+              {/* Selector de idioma */}
+              <div className="flex items-center gap-2 border-l pl-2">
+                <Globe size={16} className="text-gray-600" />
+                <LanguageSelector
+                  currentLanguage={currentLanguage}
+                  availableLanguages={availableLanguages}
+                  onLanguageChange={translateToLanguage}
+                  isLoading={isTranslating}
+                  size="small"
+                  showFlags={true}
+                  showNames={false}
+                  variant="dropdown"
+                />
+                {bannerConfig?._id && availableLanguages.length === 1 && (
+                  <button
+                    onClick={detectLanguage}
+                    className="text-xs text-blue-600 hover:text-blue-700"
+                    title="Detectar idioma del contenido"
+                  >
+                    Auto-detectar
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <button 
@@ -1148,7 +1186,16 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
         <div className="flex-1 w-full p-0 overflow-auto bg-gray-100">
           {showPreview ? (
             <div className="w-full h-full">
-              <BannerPreview bannerConfig={bannerConfig || { layout: { desktop: {} }, components: [] }} profile={{}} deviceView={deviceView} />
+              <BannerPreview 
+                bannerConfig={{
+                  ...(bannerConfig || { layout: { desktop: {} }, components: [] }),
+                  components: bannerConfig?.components || []
+                }} 
+                profile={{}} 
+                deviceView={deviceView}
+                currentLanguage={currentLanguage}
+                availableLanguages={availableLanguages}
+              />
             </div>
           ) : (
             <BannerCanvas
@@ -1346,6 +1393,30 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
             >
               <Settings size={16} />
             </button>
+            
+            {/* Selector de idioma */}
+            <div className="flex items-center gap-2 border-l pl-2">
+              <Globe size={16} className="text-gray-600" />
+              <LanguageSelector
+                currentLanguage={currentLanguage}
+                availableLanguages={availableLanguages}
+                onLanguageChange={translateToLanguage}
+                isLoading={isTranslating}
+                size="small"
+                showFlags={true}
+                showNames={false}
+                variant="dropdown"
+              />
+              {bannerConfig?._id && availableLanguages.length === 1 && (
+                <button
+                  onClick={detectLanguage}
+                  className="text-xs text-blue-600 hover:text-blue-700"
+                  title="Detectar idioma del contenido"
+                >
+                  Auto-detectar
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button 
@@ -1715,7 +1786,16 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
         <div className={`${showPreview ? 'w-full' : 'flex-1'} overflow-auto p-8 ${getDeviceWidth()}`}>
           {showPreview ? (
             <div className="w-full h-full">
-              <BannerPreview bannerConfig={bannerConfig || { layout: { desktop: {} }, components: [] }} profile={{}} deviceView={deviceView} />
+              <BannerPreview 
+                bannerConfig={{
+                  ...(bannerConfig || { layout: { desktop: {} }, components: [] }),
+                  components: bannerConfig?.components || []
+                }} 
+                profile={{}} 
+                deviceView={deviceView}
+                currentLanguage={currentLanguage}
+                availableLanguages={availableLanguages}
+              />
             </div>
           ) : (
             <BannerCanvas

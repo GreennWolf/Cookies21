@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
 import { Trash2, Move, Image as ImageIcon } from 'lucide-react';
+import LanguageButton from '../LanguageButton';
 import DropZoneIndicator from './DropZoneIndicator'; // FASE 4
 import { 
   validateContainerDrop, 
@@ -66,7 +67,8 @@ const ComponentRenderer = ({
   allComponents = [], // NUEVA PROP - FASE 4: Todos los componentes para validación de anidamiento
   resizeStep = 5,
   isChild = false, // NUEVA PROP: Indica si es un componente hijo
-  parentId = null // NUEVA PROP: ID del contenedor padre (para componentes hijos)
+  parentId = null, // NUEVA PROP: ID del contenedor padre (para componentes hijos)
+  isPreview = false // NUEVA PROP: Indica si está en modo preview o editor
 }) => {
   // Log de debug para verificar props - SOLO EN DESARROLLO
   // React.useEffect(() => {
@@ -93,6 +95,86 @@ const ComponentRenderer = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   const previousImageUrlRef = useRef(null);
   const [aspectRatio, setAspectRatio] = useState(null);
+  
+  // Effect para verificar estado inicial de imágenes
+  useEffect(() => {
+    if (component.type === 'image') {
+      const imageInfo = (() => {
+        try {
+          const info = {
+            isTemporaryRef: false,
+            isValidImageUrl: false,
+            imageSource: null,
+            imageType: 'local'
+          };
+          
+          let contentUrl = '';
+          
+          if (typeof component.content === 'string') {
+            contentUrl = component.content;
+          } else if (component.content?.texts?.en && typeof component.content.texts.en === 'string') {
+            contentUrl = component.content.texts.en;
+          }
+          
+          if (contentUrl) {
+            if (contentUrl.startsWith('__IMAGE_REF__')) {
+              info.isTemporaryRef = true;
+              info.imageType = 'temp';
+            }
+            
+            if (contentUrl.startsWith('data:image') || 
+                contentUrl.startsWith('/') || 
+                contentUrl.match(/^https?:\/\//)) {
+              info.isValidImageUrl = true;
+              info.imageSource = contentUrl;
+              info.imageType = contentUrl.startsWith('http') || 
+                             contentUrl.startsWith('/') ? 'server' : 'local';
+            }
+          }
+          
+          const deviceStyle = component.styles?.[deviceView] || {};
+          if (deviceStyle._previewUrl) {
+            info.imageSource = deviceStyle._previewUrl;
+            info.isValidImageUrl = true;
+            info.imageType = 'preview';
+          }
+          
+          return info;
+        } catch (error) {
+          return {
+            isTemporaryRef: false,
+            isValidImageUrl: false,
+            imageSource: null,
+            imageType: 'local'
+          };
+        }
+      })();
+      
+      // Si hay una imagen válida, verificar si ya está en caché
+      if (imageInfo.imageSource) {
+        const cachedResult = imageLoadCache.get(imageInfo.imageSource);
+        if (cachedResult === true) {
+          setImageLoaded(true);
+          setImageError(false);
+        } else if (cachedResult === false) {
+          setImageError(true);
+          setImageLoaded(true);
+        } else {
+          // Imagen nueva, resetear estados
+          setImageLoaded(false);
+          setImageError(false);
+        }
+        
+        console.log('🖼️ ComponentRenderer: Estado inicial imagen:', {
+          componentId: component.id,
+          imageSource: imageInfo.imageSource,
+          cached: cachedResult,
+          imageLoaded: cachedResult === true,
+          imageError: cachedResult === false
+        });
+      }
+    }
+  }, [component.type, component.content, component.styles, deviceView, component.id]);
   
   // FASE 4: Estados para drag over en contenedores
   const [isDragOver, setIsDragOver] = useState(false);
@@ -270,6 +352,18 @@ const ComponentRenderer = ({
     const img = e.target;
     setImageLoaded(true);
     setImageError(false);
+    
+    // Agregar al caché de carga exitosa
+    const imageSource = img.src;
+    if (imageSource) {
+      imageLoadCache.set(imageSource, true);
+      console.log('✅ ComponentRenderer: Imagen cargada exitosamente:', {
+        componentId: component.id,
+        imageSource,
+        naturalWidth: img.naturalWidth,
+        naturalHeight: img.naturalHeight
+      });
+    }
     
     // Calcular y guardar aspect ratio
     const imgUrl = getImageUrl();
@@ -1117,8 +1211,8 @@ const applyBoundsValidation = (value, isWidth = true) => {
     return value; // Solo aplicar límites si es hijo de contenedor
   }
   
-  // Límites del 95% del contenedor padre
-  const maxLimit = isWidth ? referenceSize.width * 0.95 : referenceSize.height * 0.95;
+  // LIMITACIÓN MEJORADA: Límites del 98% del contenedor padre para dar más espacio
+  const maxLimit = isWidth ? referenceSize.width * 0.98 : referenceSize.height * 0.98;
   return Math.min(value, maxLimit);
 };
 
@@ -1994,6 +2088,7 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
             resizeStep={resizeStep}
             isChild={true} // MARK: Child component flag
             parentId={component.id} // Pass parent container ID
+            isPreview={isPreview} // CRÍTICO: Propagar el modo preview
           />
           
           {/* FASE 4: Handle específico para drag de hijos en modo libre */}
@@ -2060,60 +2155,47 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
   // Verificar y determinar información de imagen de forma segura
   const getImageInfo = () => {
     try {
-      // Valores predeterminados
+      const imageSource = getImageUrl(); // Usar la función existente
+      
       const info = {
         isTemporaryRef: false,
-        isValidImageUrl: false,
-        imageSource: null,
+        isValidImageUrl: !!imageSource,
+        imageSource,
         imageType: 'local'
       };
       
-      // Obtener la URL real (puede estar en component.content o en component.content.texts.en)
-      let contentUrl = '';
-      
-      if (typeof component.content === 'string') {
-        // Si el contenido es directamente un string, usarlo como URL
-        contentUrl = component.content;
-      } else if (component.content?.texts?.en && typeof component.content.texts.en === 'string') {
-        // Si el contenido está en texts.en, usarlo como URL
-        contentUrl = component.content.texts.en;
-      }
-      
-      // Verificar si hay una URL válida
-      if (contentUrl) {
-        // Verificar si es referencia temporal
-        if (contentUrl.startsWith('__IMAGE_REF__')) {
+      if (imageSource) {
+        // Verificar tipo de imagen
+        if (imageSource.startsWith('__IMAGE_REF__')) {
           info.isTemporaryRef = true;
           info.imageType = 'temp';
-        }
-        
-        // Verificar si es URL válida
-        if (contentUrl.startsWith('data:image') || 
-            contentUrl.startsWith('/') || 
-            contentUrl.match(/^https?:\/\//)) {
-          info.isValidImageUrl = true;
-          info.imageSource = contentUrl;
-          info.imageType = contentUrl.startsWith('http') || 
-                         contentUrl.startsWith('/') ? 'server' : 'local';
+        } else if (deviceStyle._previewUrl && imageSource === deviceStyle._previewUrl) {
+          info.imageType = 'preview';
+        } else if (imageSource.startsWith('http') || imageSource.startsWith('/')) {
+          info.imageType = 'server';
+        } else if (imageSource.startsWith('data:image')) {
+          info.imageType = 'local';
         }
       }
       
-      // Si hay vista previa en el estilo, usarla con prioridad (usar deviceStyle original para metadatos)
-      if (deviceStyle._previewUrl) {
-        info.imageSource = deviceStyle._previewUrl;
-      } else {
+      // Debug log para imágenes (solo si hay problemas)
+      if (!info.isValidImageUrl) {
+        console.log('🖼️ ComponentRenderer: Sin imagen válida:', {
+          componentId: component.id,
+          content: component.content,
+          previewUrl: deviceStyle._previewUrl,
+          finalImageSource: info.imageSource
+        });
       }
       
       return info;
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Error al procesar imagen:', error);
-      }
+      console.error('Error al procesar imagen:', error);
       return {
         isTemporaryRef: false,
         isValidImageUrl: false,
         imageSource: null,
-        imageType: 'unknown'
+        imageType: 'local'
       };
     }
   };
@@ -2472,6 +2554,11 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
               }}
               onLoad={handleImageLoad}
               onError={(e) => {
+                console.log('🚨 ComponentRenderer: Error cargando imagen:', {
+                  componentId: component.id,
+                  imageSource: imageInfo.imageSource,
+                  error: e.target.error
+                });
                 setImageError(true);
                 setImageLoaded(true);
                 // Guardar en caché que esta imagen dio error
@@ -2662,6 +2749,100 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
               zIndex: 10
             }}>
               {resizeStep}px
+            </div>
+          )}
+        </div>
+      );
+      break;
+    case 'language-button':
+      // Usar el componente LanguageButton
+      content = (
+        <div 
+          ref={containerRef}
+          style={{
+            position: 'relative',
+            width: convertedDeviceStyle.width || '120px',
+            height: convertedDeviceStyle.height || '35px',
+            minWidth: '80px',
+            minHeight: '30px',
+            boxSizing: 'border-box'
+          }}
+        >
+          <LanguageButton
+            config={component.content || {}}
+            isPreview={isPreview}
+            isSelected={isSelected}
+            style={{
+              [deviceView]: {
+                ...convertedDeviceStyle,
+                width: '100%',
+                height: '100%'
+              }
+            }}
+            onStyleChange={onUpdateStyle}
+            onConfigChange={(newConfig) => {
+              if (onUpdateContent) {
+                onUpdateContent(component.id, newConfig);
+              }
+            }}
+            deviceView={deviceView}
+          />
+          
+          {/* Badge de "Obligatorio" - SOLO en modo editor */}
+          {!isPreview && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '-8px',
+                right: '-8px',
+                backgroundColor: '#7c3aed',
+                color: 'white',
+                fontSize: '10px',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                zIndex: 1000,
+                fontWeight: 'bold'
+              }}
+            >
+              Obligatorio
+            </div>
+          )}
+          
+          {/* Control de resize */}
+          {!component.locked && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '0',
+                right: '0',
+                width: '20px',
+                height: '20px',
+                backgroundColor: 'rgba(124, 58, 237, 0.7)',
+                cursor: 'nwse-resize',
+                borderTopLeftRadius: '3px',
+                zIndex: 10000
+              }}
+              className="resize-handle"
+              data-resize-handle="true"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleResizeStart(e);
+              }}
+              onDragStart={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              title="Redimensionar selector de idioma"
+              draggable={false}
+            >
+              <div style={{
+                width: '0',
+                height: '0',
+                borderStyle: 'solid',
+                borderWidth: '0 0 8px 8px',
+                borderColor: 'transparent transparent #ffffff transparent'
+              }}/>
             </div>
           )}
         </div>

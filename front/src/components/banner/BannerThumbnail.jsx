@@ -189,16 +189,19 @@ const BannerThumbnail = ({ bannerConfig, className = '', deviceView = 'desktop' 
       ) || []
     }));
     
-    console.log('🔍 Thumbnail Debug:', {
-      totalComponents: components.length,
-      rootComponents: components.filter(c => !c.parentId).length,
-      containers: containers.length,
-      containerDetails,
-      images: components.filter(c => c.type === 'image').length,
-      allComponentTypes: components.map(c => ({ id: c.id, type: c.type, parentId: c.parentId })),
-      dimensions: containerDimensions,
-      thumbDims: containerDimensions.width ? getThumbnailDimensions() : 'not ready'
-    });
+    // Log reducido para debug
+    if (Math.random() < 0.05) { // Solo log 5% de las veces
+      console.log('🔍 Thumbnail Debug:', {
+        totalComponents: components.length,
+        rootComponents: components.filter(c => !c.parentId).length,
+        containers: containers.length,
+        containerDetails,
+        images: components.filter(c => c.type === 'image').length,
+        allComponentTypes: components.map(c => ({ id: c.id, type: c.type, parentId: c.parentId })),
+        dimensions: containerDimensions,
+        thumbDims: containerDimensions.width ? getThumbnailDimensions() : 'not ready'
+      });
+    }
   }
   
   // Función mejorada para obtener estilos de layout sin escalado distorsionador
@@ -435,13 +438,16 @@ const BannerThumbnail = ({ bannerConfig, className = '', deviceView = 'desktop' 
         const imageUrl = getImageUrl(component, deviceView, 'thumbnail');
         const hasError = imageErrors[component.id];
         
-        console.log(`🖼️ Thumbnail: Procesando imagen ${component.id}:`, {
-          imageUrl,
-          hasError,
-          contentType: typeof component.content,
-          content: component.content,
-          hasPreviewUrl: !!component.style?.[deviceView]?._previewUrl
-        });
+        // Log reducido para evitar spam en consola
+        if (Math.random() < 0.1) { // Solo log 10% de las veces
+          console.log(`🖼️ Thumbnail: Procesando imagen ${component.id}:`, {
+            imageUrl,
+            hasError,
+            contentType: typeof component.content,
+            content: component.content,
+            hasPreviewUrl: !!component.style?.[deviceView]?._previewUrl
+          });
+        }
         
         // Show error placeholder if image failed to load
         if (hasError) {

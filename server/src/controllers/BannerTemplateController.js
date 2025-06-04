@@ -16,6 +16,7 @@ const { bannerUpload, ensureDirectoryExists } = require('../utils/multerConfig')
 const bannerExportService = require('../services/bannerExport.service');
 const componentProcessor = require('../services/componentProcessor.service');
 const { getBaseUrl } = require('../config/urls');
+const bannerTranslationService = require('../services/bannerTranslation.service');
 
 const moveFromTempToBannerFolder = async (tempFilePath, bannerId, filename) => {
   try {
@@ -72,6 +73,11 @@ const moveFromTempToBannerFolder = async (tempFilePath, bannerId, filename) => {
     console.error(`Error moviendo archivo: ${error.message}`);
     throw error;
   }
+};
+
+// Helper function para determinar si es una plantilla del sistema
+const isSystemTemplate = (data) => {
+  return data?.type === 'system' || data?.isSystemTemplate === true;
 };
 
 class BannerTemplateController {
@@ -551,27 +557,161 @@ uploadBase64Image = async (req, res) => {
     const systemTemplates = allTemplates.filter(t => t.type === 'system');
     console.log(`🔧 Plantillas de sistema: ${systemTemplates.length}`);
     
-    const activeSystemTemplates = systemTemplates.filter(t => t.status === 'active');
+    const activeSystemTemplates = systemTemplates.filter(t => t.status != 'archived');
     console.log(`✅ Plantillas de sistema activas: ${activeSystemTemplates.length}`);
     
-    const publicActiveSystemTemplates = activeSystemTemplates.filter(t => t.metadata?.isPublic === true);
-    console.log(`🌐 Plantillas de sistema activas y públicas: ${publicActiveSystemTemplates.length}`);
+    // Ya no necesitamos filtrar por isPublic, todos los templates de sistema son públicos
+    console.log(`🌐 Plantillas de sistema activas (todas son públicas): ${activeSystemTemplates.length}`);
     
-    // Consulta original
-    const templates = await BannerTemplate.find({
+    // Consulta simplificada: buscar todos los templates del sistema activos
+    let templates = await BannerTemplate.find({
       type: 'system',
-      status: 'active',
-      'metadata.isPublic': true
+      status: { $ne: 'archived' }
     });
     
-    console.log(`📋 Plantillas finales encontradas: ${templates.length}`);
+    console.log(`📋 Plantillas del sistema encontradas: ${templates.length}`);
+    
+    // Si no hay plantillas del sistema, crear una automáticamente
+    if (templates.length === 0) {
+      console.log('🏗️ No hay plantillas del sistema, creando una automáticamente...');
+      
+      try {
+        const defaultTemplate = await BannerTemplate.create({
+          name: 'Banner Básico del Sistema',
+          type: 'system',
+          status: 'active',
+          metadata: {
+            category: 'basic',
+            version: 1,
+            tags: ['basic', 'cookie', 'consent'],
+            createdBy: 'system-auto'
+          },
+          layout: {
+            desktop: {
+              backgroundColor: '#ffffff',
+              borderRadius: '8px',
+              padding: '20px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              border: '1px solid #e5e7eb'
+            }
+          },
+          components: [
+            {
+              id: 'title',
+              type: 'text',
+              content: {
+                texts: {
+                  en: 'We use cookies',
+                  es: 'Usamos cookies'
+                }
+              },
+              position: {
+                desktop: { top: '0%', left: '0%' }
+              },
+              style: {
+                desktop: {
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#1f2937',
+                  marginBottom: '12px'
+                }
+              }
+            },
+            {
+              id: 'description',
+              type: 'text',
+              content: {
+                texts: {
+                  en: 'This website uses cookies to ensure you get the best experience.',
+                  es: 'Este sitio web utiliza cookies para garantizar la mejor experiencia.'
+                }
+              },
+              position: {
+                desktop: { top: '30%', left: '0%' }
+              },
+              style: {
+                desktop: {
+                  fontSize: '14px',
+                  color: '#6b7280',
+                  marginBottom: '16px',
+                  lineHeight: '1.5'
+                }
+              }
+            },
+            {
+              id: 'rejectBtn',
+              type: 'button',
+              content: {
+                texts: {
+                  en: 'Reject',
+                  es: 'Rechazar'
+                }
+              },
+              action: {
+                type: 'reject_all'
+              },
+              position: {
+                desktop: { top: '70%', left: '0%' }
+              },
+              style: {
+                desktop: {
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '10px 16px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }
+              }
+            },
+            {
+              id: 'acceptBtn',
+              type: 'button',
+              content: {
+                texts: {
+                  en: 'Accept All',
+                  es: 'Aceptar Todo'
+                }
+              },
+              action: {
+                type: 'accept_all'
+              },
+              position: {
+                desktop: { top: '70%', left: '40%' }
+              },
+              style: {
+                desktop: {
+                  backgroundColor: '#10b981',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '10px 16px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }
+              }
+            }
+          ]
+        });
+        
+        templates = [defaultTemplate];
+        console.log('✅ Plantilla del sistema creada automáticamente:', defaultTemplate._id);
+        
+      } catch (error) {
+        console.error('❌ Error creando plantilla automática:', error);
+        // Continuar sin plantilla si hay error
+      }
+    }
+    
     if (templates.length > 0) {
       console.log('📝 Primeras plantillas:', templates.slice(0, 2).map(t => ({ 
         id: t._id, 
         name: t.name, 
         type: t.type, 
-        status: t.status, 
-        isPublic: t.metadata?.isPublic 
+        status: t.status
       })));
     }
 
@@ -835,7 +975,6 @@ createSystemTemplate = async (req, res) => {
         createdBy: userId,
         lastModifiedBy: userId,
         version: 1,
-        isPublic: templateData.metadata?.isPublic !== false,
         category: templateData.metadata?.category || 'basic'
       },
       status: 'active'
@@ -1088,7 +1227,7 @@ createSystemTemplate = async (req, res) => {
       query = {
         $or: [
           { clientId: queryClientId, type: 'custom' },
-          { type: 'system', 'metadata.isPublic': true }
+          { type: 'system' }
         ]
       };
       
@@ -1100,7 +1239,7 @@ createSystemTemplate = async (req, res) => {
       query = {
         $or: [
           { type: 'custom' },  // Todas las plantillas personalizadas de todos los clientes
-          { type: 'system', 'metadata.isPublic': true }
+          { type: 'system' }
         ]
       };
     } 
@@ -1109,7 +1248,7 @@ createSystemTemplate = async (req, res) => {
       query = {
         $or: [
           { clientId, type: 'custom' },
-          { type: 'system', 'metadata.isPublic': true }
+          { type: 'system' }
         ]
       };
     }
@@ -1143,12 +1282,12 @@ createSystemTemplate = async (req, res) => {
       templates = await BannerTemplate.find(query)
         .populate('clientId', 'name email status')
         .sort({
-          'metadata.isPublic': -1,
+          type: -1,  // system primero, custom después
           updatedAt: -1
         });
     } else {
       templates = await BannerTemplate.find(query).sort({
-        'metadata.isPublic': -1,
+        type: -1,  // system primero, custom después
         updatedAt: -1
       });
     }
@@ -1175,7 +1314,7 @@ createSystemTemplate = async (req, res) => {
       // Para usuarios normales, deben ser del cliente o plantillas del sistema
       query.$or = [
         { clientId },
-        { type: 'system', 'metadata.isPublic': true }
+        { type: 'system' }
       ];
     }
     
@@ -1607,7 +1746,7 @@ createSystemTemplate = async (req, res) => {
       };
       
       // Si es owner y solicita crear plantilla del sistema
-      if (req.isOwner && (templateData.type === 'system' || templateData.isSystemTemplate)) {
+      if (req.isOwner && isSystemTemplate(templateData)) {
         console.log('✅ CREANDO BANNER DE SISTEMA');
         console.log('- templateData.type:', templateData.type);
         console.log('- templateData.isSystemTemplate:', templateData.isSystemTemplate);
@@ -1647,7 +1786,7 @@ createSystemTemplate = async (req, res) => {
       console.log('💾 DATOS A GUARDAR:');
       console.log('- type:', templateWithMetadata.type);
       console.log('- clientId:', templateWithMetadata.clientId);
-      console.log('- metadata.isPublic:', templateWithMetadata.metadata.isPublic);
+      // metadata.isPublic ya no es necesario, todos los banners system son públicos
       console.log('- metadata.category:', templateWithMetadata.metadata.category);
       
       const createdTemplate = await BannerTemplate.create(templateWithMetadata);
@@ -1882,7 +2021,7 @@ createSystemTemplate = async (req, res) => {
       _id: id,
       $or: [
         { clientId },
-        { type: 'system', 'metadata.isPublic': true }
+        { type: 'system' }
       ]
     });
 
@@ -1927,7 +2066,6 @@ createSystemTemplate = async (req, res) => {
       createdBy: userId,
       lastModifiedBy: userId,
       version: 1,
-      isPublic: false,
       category: 'custom',
       clonedFrom: id // Guardar referencia al template original
     };
@@ -2593,17 +2731,15 @@ createSystemTemplate = async (req, res) => {
       // IMPORTANTE: Manejar cambios de tipo solo para owners
       if (req.isOwner) {
         // Los owners pueden cambiar el tipo de plantilla
-        if (updates.type === 'system' || updates.isSystemTemplate) {
+        if (isSystemTemplate(updates)) {
           console.log('✅ CONVIRTIENDO A BANNER DE SISTEMA');
           updateData.type = 'system';
           updateData.clientId = null;
           
           // Manejar metadata según cómo se construyó updateData
           if ('metadata' in updates) {
-            updateData.metadata.isPublic = true;
             updateData.metadata.category = updateData.metadata.category || 'basic';
           } else {
-            updateData['metadata.isPublic'] = true;
             updateData['metadata.category'] = existingTemplate.metadata?.category || 'basic';
           }
         } else if (updates.type === 'custom') {
@@ -2675,30 +2811,8 @@ createSystemTemplate = async (req, res) => {
         console.log(`ℹ️ CLEANUP: No hay archivos temporales para limpiar`);
       }
       
-      // 8. Limpiar imágenes no utilizadas SOLO si no se han subido imágenes nuevas
-      if (validFiles.length === 0 && req.query.cleanup === 'true') {
-        try {
-          const imageProcessorService = require('../services/imageProcessor.service');
-          console.log('🧹 Iniciando limpieza de imágenes no utilizadas...');
-          
-          const cleanupResult = await imageProcessorService.cleanupUnusedImages(
-            id, 
-            updatedTemplate.components,
-            { type: updatedTemplate.type, status: updatedTemplate.status }
-          );
-          
-          if (cleanupResult.success) {
-            console.log(`✅ Limpieza de imágenes completada: ${cleanupResult.deleted} eliminadas, ${cleanupResult.kept} mantenidas`);
-          } else {
-            console.error('❌ Error en limpieza de imágenes:', cleanupResult.error);
-          }
-        } catch (cleanupError) {
-          console.error('❌ Error ejecutando limpieza de imágenes:', cleanupError);
-          // No interrumpir el flujo principal si falla la limpieza
-        }
-      } else {
-        console.log('ℹ️ Omitiendo limpieza automática de imágenes porque se subieron nuevas imágenes');
-      }
+      // 8. Limpieza de imágenes no utilizadas ELIMINADA
+      // Se mantiene solo la limpieza automática de banners eliminados
       
       // 8. Responder con éxito
       res.status(200).json({
@@ -2811,7 +2925,7 @@ createSystemTemplate = async (req, res) => {
       _id: id,
       $or: [
         { clientId },
-        { type: 'system', 'metadata.isPublic': true }
+        { type: 'system' }
       ]
     });
 
@@ -2850,7 +2964,7 @@ createSystemTemplate = async (req, res) => {
       _id: id,
       $or: [
         { clientId },
-        { type: 'system', 'metadata.isPublic': true }
+        { type: 'system' }
       ]
     });
 
@@ -2938,7 +3052,7 @@ createSystemTemplate = async (req, res) => {
       _id: id,
       $or: [
         { clientId },
-        { type: 'system', 'metadata.isPublic': true }
+        { type: 'system' }
       ]
     });
 
@@ -3396,7 +3510,7 @@ createSystemTemplate = async (req, res) => {
       _id: id,
       $or: [
         { clientId },
-        { type: 'system', 'metadata.isPublic': true }
+        { type: 'system' }
       ]
     });
   
@@ -3534,18 +3648,12 @@ createSystemTemplate = async (req, res) => {
         });
       }
       
-      // Process the cleanup
-      const imageProcessorService = require('../services/imageProcessor.service');
-      console.log(`🔍 Iniciando limpieza de imágenes para banner ${id} con ${template.components.length} componentes`);
+      // Función de limpieza de imágenes ELIMINADA
+      // Ya no se permite limpiar imágenes manualmente
       
-      const result = await imageProcessorService.cleanupUnusedImages(id, template.components, { type: template.type, status: template.status });
-      
-      console.log(`✅ Limpieza completada: ${result.deleted} imágenes eliminadas, ${result.kept} imágenes conservadas`);
-      
-      // Return cleanup result
-      res.status(200).json({
-        status: 'success',
-        message: 'Image cleanup completed',
+      res.status(410).json({
+        status: 'error',
+        message: 'Manual image cleanup has been disabled. Images are automatically cleaned when banners are deleted.',
         data: {
           deleted: result.deleted,
           kept: result.kept,
@@ -3642,21 +3750,8 @@ createSystemTemplate = async (req, res) => {
       // Log información sobre la plantilla a eliminar
       console.log(`📋 Eliminando plantilla: ${template.name} (tipo: ${template.type})`);
       
-      // Cleanup images before deleting the template
-      if (template.components && Array.isArray(template.components)) {
-        try {
-          const imageProcessorService = require('../services/imageProcessor.service');
-          const cleanupResult = await imageProcessorService.cleanupUnusedImages(
-            id, 
-            template.components, 
-            { type: template.type, status: template.status }
-          );
-          console.log(`🧹 Limpieza de imágenes: ${cleanupResult.deleted} eliminadas, ${cleanupResult.kept} conservadas`);
-        } catch (cleanupError) {
-          console.warn(`⚠️ Error durante limpieza de imágenes: ${cleanupError.message}`);
-          // No fallar la eliminación si hay problemas con la limpieza de imágenes
-        }
-      }
+      // Las imágenes se limpiarán automáticamente con el cron job cuando se elimine el banner
+      // No es necesario limpiar manualmente aquí
       
       // Eliminar la plantilla de la base de datos
       await BannerTemplate.findByIdAndDelete(id);
@@ -3697,6 +3792,170 @@ createSystemTemplate = async (req, res) => {
       console.error(`❌ Error eliminando plantilla: ${error.message}`);
       throw new AppError(`Error deleting template: ${error.message}`, 500);
     }
+  });
+
+  /**
+   * Detecta el idioma de los textos en un banner
+   */
+  detectLanguages = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    
+    const template = await BannerTemplate.findOne({
+      _id: id,
+      $or: [
+        { clientId: req.clientId },
+        { type: 'system' }
+      ]
+    });
+
+    if (!template) {
+      throw new AppError('Template not found', 404);
+    }
+
+    // Extraer todos los textos del banner
+    const texts = [];
+    const extractTexts = (components) => {
+      components.forEach(comp => {
+        if (comp.content) {
+          if (typeof comp.content === 'string') {
+            texts.push(comp.content);
+          } else if (comp.content.texts?.en) {
+            texts.push(comp.content.texts.en);
+          }
+        }
+        if (comp.children) {
+          extractTexts(comp.children);
+        }
+      });
+    };
+
+    extractTexts(template.components);
+
+    // Detectar idioma
+    let detectedLanguage = 'en';
+    if (texts.length > 0) {
+      const translationService = require('../services/translation.service');
+      const service = new translationService();
+      detectedLanguage = await service.detectLanguage(texts.join(' '));
+    }
+
+    // Actualizar el banner
+    template.translationStats.autoDetectedLanguage = detectedLanguage;
+    await template.save();
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        detectedLanguage,
+        textsAnalyzed: texts.length,
+        supportedLanguages: template.translationStats.supportedLanguages
+      }
+    });
+  });
+
+  /**
+   * Traduce un banner a un idioma específico
+   */
+  translateBanner = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const { targetLanguage } = req.body;
+
+    if (!targetLanguage) {
+      throw new AppError('Target language is required', 400);
+    }
+
+    const result = await bannerTranslationService.translateBannerComponents(
+      id,
+      targetLanguage,
+      { clientId: req.clientId }
+    );
+
+    res.status(200).json({
+      status: 'success',
+      data: result
+    });
+  });
+
+  /**
+   * Obtiene todas las traducciones de un banner
+   */
+  getBannerTranslations = catchAsync(async (req, res) => {
+    const { id } = req.params;
+
+    const translations = await bannerTranslationService.getBannerTranslations(id);
+
+    res.status(200).json({
+      status: 'success',
+      data: translations
+    });
+  });
+
+  /**
+   * Actualiza una traducción específica
+   */
+  updateTranslation = catchAsync(async (req, res) => {
+    const { id, lang } = req.params;
+    const { componentId, text } = req.body;
+
+    const template = await BannerTemplate.findOne({
+      _id: id,
+      clientId: req.clientId
+    });
+
+    if (!template) {
+      throw new AppError('Template not found', 404);
+    }
+
+    // Buscar y actualizar el componente
+    let updated = false;
+    const updateComponent = (components) => {
+      for (const comp of components) {
+        if (comp.id === componentId) {
+          if (!comp.content.texts) {
+            comp.content = {
+              texts: { en: comp.content },
+              originalLanguage: 'en'
+            };
+          }
+          comp.content.texts[lang] = text;
+          updated = true;
+          return;
+        }
+        if (comp.children) {
+          updateComponent(comp.children);
+        }
+      }
+    };
+
+    updateComponent(template.components);
+
+    if (!updated) {
+      throw new AppError('Component not found', 404);
+    }
+
+    // Añadir idioma si no existe
+    if (!template.translationStats.supportedLanguages.includes(lang)) {
+      template.translationStats.supportedLanguages.push(lang);
+    }
+
+    await template.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Translation updated successfully'
+    });
+  });
+
+  /**
+   * Obtiene estadísticas de uso de traducciones
+   */
+  getTranslationUsage = catchAsync(async (req, res) => {
+    const stats = bannerTranslationService.getUsageStats();
+
+    res.status(200).json({
+      status: 'success',
+      data: stats
+    });
   });
 }
 

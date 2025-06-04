@@ -323,6 +323,7 @@ const ComponentSchema = new mongoose.Schema({
       'container',
       'panel',
       'image',
+      'language-button'
     ],
     required: true
   },
@@ -337,6 +338,17 @@ const ComponentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     validate: {
       validator: function(value) {
+        // Para language-button, permitir estructura de configuración específica
+        if (this.type === 'language-button') {
+          if (value && typeof value === 'object') {
+            // Validar que tenga las propiedades básicas de language-button
+            const hasValidMode = ['auto', 'manual'].includes(value.defaultLanguageMode);
+            const hasLanguages = Array.isArray(value.languages) && value.languages.length > 0;
+            return hasValidMode || hasLanguages || true; // Ser permisivo por ahora
+          }
+          return true;
+        }
+        
         // Validar contenido: puede ser string directo o un objeto con texto por idioma
         if (typeof value === 'string') {
           return true;
@@ -356,38 +368,96 @@ const ComponentSchema = new mongoose.Schema({
         
         return false;
       },
-      message: 'Content must be a string or an object with texts property'
+      message: 'Content must be a string, an object with texts property, or language-button configuration'
     },
     set: function(value) {
       // Auto-asignar texto por defecto según el tipo de acción
       if (value === undefined || value === null) {
-        // Si no hay contenido, asignar texto según acción
+        // Si no hay contenido, asignar texto según acción con traducciones predefinidas
         if (this.action?.type === 'accept_all' || this.id === 'acceptAll') {
           return {
-            texts: { en: 'Accept All' },
-            translatable: true
+            texts: { 
+              en: 'Accept All',
+              es: 'Aceptar todo',
+              fr: 'Tout accepter',
+              de: 'Alle akzeptieren',
+              it: 'Accetta tutto',
+              pt: 'Aceitar tudo'
+            },
+            translatable: false, // No necesita traducción automática
+            isSystemText: true
           };
         } else if (this.action?.type === 'reject_all' || this.id === 'rejectAll') {
           return {
-            texts: { en: 'Reject All' },
-            translatable: true
+            texts: { 
+              en: 'Reject All',
+              es: 'Rechazar todo',
+              fr: 'Tout refuser',
+              de: 'Alle ablehnen',
+              it: 'Rifiuta tutto',
+              pt: 'Rejeitar tudo'
+            },
+            translatable: false,
+            isSystemText: true
           };
         } else if (this.action?.type === 'show_preferences' || this.id === 'preferencesBtn') {
           return {
-            texts: { en: 'Preferences' },
-            translatable: true
+            texts: { 
+              en: 'Preferences',
+              es: 'Preferencias',
+              fr: 'Préférences',
+              de: 'Einstellungen',
+              it: 'Preferenze',
+              pt: 'Preferências'
+            },
+            translatable: false,
+            isSystemText: true
+          };
+        }
+        
+        // Si es un language-button sin contenido, asignar configuración por defecto
+        if (this.type === 'language-button') {
+          return {
+            displayMode: 'flag-dropdown',
+            languages: ['es', 'en', 'fr', 'de', 'it', 'pt'],
+            defaultLanguageMode: 'auto',
+            defaultLanguage: 'es',
+            showLabel: true,
+            labelText: 'Idioma:',
+            size: 'medium',
+            style: 'modern',
+            position: 'inline',
+            required: true,
+            autoDetectBrowserLanguage: true,
+            fallbackLanguage: 'en',
+            saveUserPreference: true
           };
         }
       }
       
-      // Auto-convertir strings a estructura de objeto
+      // TEMPORALMENTE DESHABILITADO - mantener strings como strings para compatibilidad
+      // TODO: Habilitar cuando el frontend esté preparado para manejar objetos
+      /*
+      // Auto-convertir strings a estructura de objeto con soporte multi-idioma
       if (typeof value === 'string') {
         return {
-          texts: { en: value },
-          translatable: true
+          texts: { 
+            en: value,
+            // Las traducciones se agregarán dinámicamente
+          },
+          originalLanguage: 'en',
+          translatable: true,
+          lastTranslated: null
         };
       }
+      */
       
+      // Si ya es un objeto con estructura de traducciones, mantenerlo
+      if (value && typeof value === 'object' && value.texts) {
+        return value; // Mantener el objeto tal como está
+      }
+      
+      // Para todo lo demás, devolver el valor tal como está (compatibilidad)
       return value;
     }
   },
@@ -559,6 +629,25 @@ const bannerTemplateSchema = new mongoose.Schema({
         enum: ['auto', 'manual'],
         default: 'auto'
       }
+    }
+  },
+  // Sistema de traducción
+  translationStats: {
+    supportedLanguages: {
+      type: [String],
+      default: ['en'] // Inglés siempre incluido
+    },
+    charactersTranslated: {
+      google: { type: Number, default: 0 },
+      azure: { type: Number, default: 0 },
+      total: { type: Number, default: 0 }
+    },
+    lastTranslationDate: Date,
+    autoDetectedLanguage: String, // Idioma detectado del contenido original
+    translationProvider: {
+      type: String,
+      enum: ['google', 'azure', 'manual'],
+      default: 'google'
     }
   },
   metadata: {

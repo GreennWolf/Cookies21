@@ -36,9 +36,18 @@ const BrowserSimulatorPreview = ({
     const baseStyles = {
       backgroundColor: layout.backgroundColor || '#ffffff',
       width: layout.width || '100%',
-      height: layout.height || 'auto',
-      minHeight: layout.minHeight || '100px'
+      height: layout.height || 'auto'
+      // ELIMINADO: minHeight - no usamos límites mínimos
     };
+    
+    // DEBUG: Verificar dimensiones en BrowserSimulatorPreview
+    console.log('🖥️ BrowserSimulatorPreview getLayoutStyles:', {
+      bannerType: layout.type,
+      width: baseStyles.width,
+      height: baseStyles.height,
+      minHeight: baseStyles.minHeight,
+      deviceView: currentDevice
+    });
     
     if (layout.type === 'banner') {
       // Banner
@@ -96,7 +105,58 @@ const BrowserSimulatorPreview = ({
     return baseStyles;
   };
 
-  // Función para convertir porcentajes a píxeles en vista previa
+  // Función simplificada para elementos mock (sin getComputedStyle)
+  const convertPercentageToPixelsMock = (styleObj, referenceWidth, referenceHeight, isChildComponent = false) => {
+    if (!styleObj) return styleObj;
+    
+    const converted = { ...styleObj };
+    
+    try {
+      // SIMPLIFICADO: Conversión directa de width
+      if (converted.width && typeof converted.width === 'string' && converted.width.includes('%')) {
+        let percentValue = parseFloat(converted.width);
+        
+        // Para hijos, limitar al 98% para evitar desbordamiento
+        if (isChildComponent && percentValue > 98) {
+          percentValue = 98;
+        }
+        
+        const pixelValue = (percentValue * referenceWidth) / 100;
+        converted.width = `${Math.round(pixelValue)}px`;
+      }
+      
+      // SIMPLIFICADO: Conversión directa de height
+      if (converted.height && typeof converted.height === 'string' && converted.height.includes('%')) {
+        let percentValue = parseFloat(converted.height);
+        
+        // Para hijos, limitar al 95% para dejar espacio
+        if (isChildComponent && percentValue > 95) {
+          percentValue = 95;
+        }
+        
+        const pixelValue = (percentValue * referenceHeight) / 100;
+        converted.height = `${Math.round(pixelValue)}px`;
+      }
+      
+      // Convertir propiedades de posición (left, right, top, bottom)
+      ['left', 'right', 'top', 'bottom'].forEach(prop => {
+        if (converted[prop] && typeof converted[prop] === 'string' && converted[prop].includes('%')) {
+          let percentValue = parseFloat(converted[prop]);
+          if (isChildComponent && percentValue > 95) percentValue = 95;
+          const isHorizontalProp = prop === 'left' || prop === 'right';
+          const pixelValue = (percentValue * (isHorizontalProp ? referenceWidth : referenceHeight)) / 100;
+          converted[prop] = `${Math.round(pixelValue)}px`;
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error en convertPercentageToPixelsMock:', error);
+    }
+    
+    return converted;
+  };
+
+  // Función de adaptación inteligente de tamaños mejorada (BrowserSimulatorPreview)
   const convertPercentageToPixels = (styleObj, referenceContainer, isChildComponent = false) => {
     if (!referenceContainer || !styleObj) return styleObj;
     
@@ -105,60 +165,68 @@ const BrowserSimulatorPreview = ({
     try {
       const containerRect = referenceContainer.getBoundingClientRect();
       
-      // Aplicar límites para componentes hijos
-      const applyChildLimits = (value, isWidth = true) => {
-        if (!isChildComponent) return value;
-        // Límite del 95% del contenedor para hijos
-        const maxLimit = isWidth ? containerRect.width * 0.95 : containerRect.height * 0.95;
-        const limited = Math.min(value, maxLimit);
-        return limited;
-      };
+      // CRÍTICO: Para componentes hijos, usar las dimensiones internas del contenedor (descontando padding)
+      let referenceWidth = containerRect.width;
+      let referenceHeight = containerRect.height;
       
-      // Convertir width
-      if (converted.width && typeof converted.width === 'string') {
-        let pixelValue;
+      if (isChildComponent) {
+        // Solo obtener padding si no es un elemento mock
+        if (!referenceContainer.__isMockElement) {
+          // Obtener padding del contenedor padre para calcular área interna disponible
+          const computedStyle = window.getComputedStyle(referenceContainer);
+          const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+          const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+          const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+          const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+          
+          // Área interna disponible para los hijos
+          referenceWidth = containerRect.width - paddingLeft - paddingRight;
+          referenceHeight = containerRect.height - paddingTop - paddingBottom;
+        }
+        // Para elementos mock, usar dimensiones directas (ya no tiene padding real)
+      }
+      
+      // SIMPLIFICADO: Conversión directa de width
+      if (converted.width && typeof converted.width === 'string' && converted.width.includes('%')) {
+        let percentValue = parseFloat(converted.width);
         
-        if (converted.width.includes('%')) {
-          const percentValue = parseFloat(converted.width);
-          pixelValue = (percentValue * containerRect.width) / 100;
-        } else if (converted.width.includes('px')) {
-          pixelValue = parseFloat(converted.width);
-        } else {
-          pixelValue = parseFloat(converted.width) || 0;
+        // Para hijos, limitar al 98% para evitar desbordamiento
+        if (isChildComponent && percentValue > 98) {
+          percentValue = 98;
         }
         
-        pixelValue = applyChildLimits(pixelValue, true);
+        const pixelValue = (percentValue * referenceWidth) / 100;
+        converted.width = `${Math.round(pixelValue)}px`;
+      } else if (converted.width && typeof converted.width === 'string' && converted.width.includes('px')) {
+        const pixelValue = parseFloat(converted.width);
         converted.width = `${Math.round(pixelValue)}px`;
       }
       
-      // Convertir height
-      if (converted.height && typeof converted.height === 'string') {
-        let pixelValue;
+      // SIMPLIFICADO: Conversión directa de height
+      if (converted.height && typeof converted.height === 'string' && converted.height.includes('%')) {
+        let percentValue = parseFloat(converted.height);
         
-        if (converted.height.includes('%')) {
-          const percentValue = parseFloat(converted.height);
-          pixelValue = (percentValue * containerRect.height) / 100;
-        } else if (converted.height.includes('px')) {
-          pixelValue = parseFloat(converted.height);
-        } else {
-          pixelValue = parseFloat(converted.height) || 0;
+        // Para hijos, limitar al 95% para dejar espacio
+        if (isChildComponent && percentValue > 95) {
+          percentValue = 95;
         }
         
-        pixelValue = applyChildLimits(pixelValue, false);
+        const pixelValue = (percentValue * referenceHeight) / 100;
+        converted.height = `${Math.round(pixelValue)}px`;
+      } else if (converted.height && typeof converted.height === 'string' && converted.height.includes('px')) {
+        const pixelValue = parseFloat(converted.height);
         converted.height = `${Math.round(pixelValue)}px`;
       }
       
-      // Convertir otras propiedades
-      ['maxWidth', 'minWidth', 'maxHeight', 'minHeight'].forEach(prop => {
+      // ELIMINADO: Ya no necesitamos tamaños mínimos porque el template viene pre-procesado
+      
+      // Convertir propiedades de posición (left, right, top, bottom)
+      ['left', 'right', 'top', 'bottom'].forEach(prop => {
         if (converted[prop] && typeof converted[prop] === 'string' && converted[prop].includes('%')) {
-          const percentValue = parseFloat(converted[prop]);
-          const isWidthProp = prop.includes('Width');
-          let pixelValue = (percentValue * (isWidthProp ? containerRect.width : containerRect.height)) / 100;
-          
-          if ((prop === 'maxWidth' || prop === 'maxHeight') && isChildComponent) {
-            pixelValue = applyChildLimits(pixelValue, isWidthProp);
-          }
-          
+          let percentValue = parseFloat(converted[prop]);
+          if (isChildComponent && percentValue > 95) percentValue = 95;
+          const isHorizontalProp = prop === 'left' || prop === 'right';
+          const pixelValue = (percentValue * (isHorizontalProp ? referenceWidth : referenceHeight)) / 100;
           converted[prop] = `${Math.round(pixelValue)}px`;
         }
       });
@@ -235,21 +303,90 @@ const BrowserSimulatorPreview = ({
       left: component.position?.[currentDevice]?.left
     });
     
-    const convertedProcessedStyle = component.parentId && parentContainerRef?.current ? 
-      convertPercentageToPixels(processedStyle, parentContainerRef.current, true) : 
-      bannerContainerRef.current ? 
+    // CRÍTICO: Para componentes hijos, usar una estrategia de fallback más inteligente
+    let convertedProcessedStyle;
+    
+    if (component.parentId) {
+      // 1. Intentar buscar el contenedor padre en el DOM
+      let effectiveParentRef = parentContainerRef?.current;
+      if (!effectiveParentRef) {
+        effectiveParentRef = document.querySelector(`[data-component-id="${component.parentId}"]`);
+      }
+      
+      // 2. Si encontramos el padre, usarlo para cálculos
+      if (effectiveParentRef) {
+        console.log(`✅ BrowserSim: Contenedor padre ${component.parentId} encontrado`);
+        convertedProcessedStyle = convertPercentageToPixels(processedStyle, effectiveParentRef, true);
+      } else {
+        // 3. FALLBACK: Buscar el padre en los datos del banner para obtener sus dimensiones
+        const parentComponent = bannerConfig.components?.find(c => c.id === component.parentId);
+        if (parentComponent && bannerContainerRef.current) {
+          const parentStyle = parentComponent.style?.[currentDevice] || {};
+          const bannerRect = bannerContainerRef.current.getBoundingClientRect();
+          
+          // Calcular dimensiones estimadas del contenedor padre
+          let parentWidth = bannerRect.width;
+          let parentHeight = bannerRect.height;
+          
+          if (parentStyle.width && typeof parentStyle.width === 'string' && parentStyle.width.includes('%')) {
+            parentWidth = (parseFloat(parentStyle.width) * bannerRect.width) / 100;
+          } else if (parentStyle.width && typeof parentStyle.width === 'string' && parentStyle.width.includes('px')) {
+            parentWidth = parseFloat(parentStyle.width);
+          }
+          
+          if (parentStyle.height && typeof parentStyle.height === 'string' && parentStyle.height.includes('%')) {
+            parentHeight = (parseFloat(parentStyle.height) * bannerRect.height) / 100;
+          } else if (parentStyle.height && typeof parentStyle.height === 'string' && parentStyle.height.includes('px')) {
+            parentHeight = parseFloat(parentStyle.height);
+          }
+          
+          console.log(`🔧 BrowserSim: Usando dimensiones estimadas del padre ${component.parentId}:`, {
+            parentWidth, parentHeight, 
+            parentStyle: parentStyle
+          });
+          
+          // Crear objeto mock con las dimensiones calculadas + getComputedStyle mock
+          const mockParentRef = {
+            getBoundingClientRect: () => ({
+              width: parentWidth,
+              height: parentHeight
+            }),
+            // Mock de getComputedStyle para evitar el error
+            __isMockElement: true
+          };
+          
+          // Usar conversión simplificada sin getComputedStyle para el mock
+          convertedProcessedStyle = convertPercentageToPixelsMock(processedStyle, parentWidth, parentHeight, true);
+        } else {
+          console.log(`❌ BrowserSim: No se pudo encontrar padre ${component.parentId}, usando banner como referencia`);
+          convertedProcessedStyle = bannerContainerRef.current ? 
+            convertPercentageToPixels(processedStyle, bannerContainerRef.current, false) :
+            processedStyle;
+        }
+      }
+    } else {
+      // Componente raíz: usar banner como referencia
+      convertedProcessedStyle = bannerContainerRef.current ? 
         convertPercentageToPixels(processedStyle, bannerContainerRef.current, false) :
         processedStyle;
+    }
         
     console.log(`📊 BrowserSim: Procesando ${component.id} - Style DESPUÉS convert:`, {
       width: convertedProcessedStyle.width,
       height: convertedProcessedStyle.height
     });
     
+    // CRÍTICO: Limpiar min/max del estilo convertido (igual que InteractiveBannerPreview)
+    const cleanedStyle = { ...convertedProcessedStyle };
+    delete cleanedStyle.minWidth;
+    delete cleanedStyle.maxWidth;
+    delete cleanedStyle.minHeight;
+    delete cleanedStyle.maxHeight;
+    
     // Base styles with positioning - igual que BannerPreview original
     const baseStyles = component.parentId ? {
       // Para hijos de contenedores: mantener todos los estilos pero sin posicionamiento
-      ...convertedProcessedStyle,
+      ...cleanedStyle,
       visibility: 'visible',
       opacity: 1,
       position: undefined,
@@ -272,7 +409,7 @@ const BrowserSimulatorPreview = ({
       position: 'absolute',
       top: devicePos.top || '0px',
       left: devicePos.left || '0px',
-      ...convertedProcessedStyle,
+      ...cleanedStyle,
       transform: 'translate(0, 0)',
       willChange: 'transform',
       visibility: 'visible',
@@ -318,17 +455,14 @@ const BrowserSimulatorPreview = ({
         const textStyle = {
           ...finalTextStyle,
           width: finalTextStyle.width || '150px',
-          height: finalTextStyle.height || '40px',
-          minWidth: '50px',
-          minHeight: '20px',
-          maxWidth: finalTextStyle.width,
-          maxHeight: finalTextStyle.height,
+          height: finalTextStyle.height || 'auto', // Permitir altura automática
+          minHeight: finalTextStyle.height || '40px', // Mantener altura mínima
           boxSizing: 'border-box',
           borderWidth: finalTextStyle.borderWidth || '0px',
           borderStyle: finalTextStyle.borderStyle || 'solid',
           borderColor: finalTextStyle.borderColor || 'transparent',
-          padding: finalTextStyle.padding || '10px',
-          overflow: 'hidden',
+          padding: finalTextStyle.padding || '8px', // Padding más pequeño
+          overflow: 'visible', // Permitir que el contenido sea visible
           wordWrap: 'break-word',
           wordBreak: 'break-word',
           position: 'relative',
@@ -347,12 +481,13 @@ const BrowserSimulatorPreview = ({
           >
             <div style={{
               width: '100%',
-              maxWidth: '100%',
+              height: 'auto', // Altura automática para el contenido
               textAlign: finalTextStyle.textAlign || 'left',
               wordBreak: 'break-word',
-              overflow: 'hidden',
+              overflow: 'visible', // Permitir contenido visible
               whiteSpace: 'normal',
-              overflowWrap: 'break-word'
+              overflowWrap: 'break-word',
+              lineHeight: '1.4' // Mejor espaciado de líneas
             }}>
               {displayContent || 'Texto'}
             </div>
@@ -388,8 +523,6 @@ const BrowserSimulatorPreview = ({
               ...baseStyles,
               width: finalWidth,
               height: finalHeight,
-              minWidth: '80px',
-              minHeight: '30px',
               boxSizing: 'border-box',
               display: 'flex',
               alignItems: 'center',

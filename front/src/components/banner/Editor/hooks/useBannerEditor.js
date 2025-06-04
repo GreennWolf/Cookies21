@@ -54,6 +54,22 @@ const getDefaultContent = (type, actionType = null) => {
       if (actionType === 'reject_all') return { texts: { en: 'Reject All' }, translatable: true };
       if (actionType === 'show_preferences') return { texts: { en: 'Preferences' }, translatable: true };
       return 'Nuevo botón';
+    case 'language-button':
+      return {
+        displayMode: 'flag-dropdown',
+        languages: ['es', 'en', 'fr', 'de', 'it', 'pt'],
+        defaultLanguageMode: 'auto',
+        defaultLanguage: 'es',
+        showLabel: true,
+        labelText: 'Idioma:',
+        size: 'medium',
+        style: 'modern',
+        position: 'inline',
+        required: true,
+        autoDetectBrowserLanguage: true,
+        fallbackLanguage: 'en',
+        saveUserPreference: true
+      };
     case 'image':
       return ''; // Las imágenes empiezan vacías
     case 'container':
@@ -107,6 +123,37 @@ const getDefaultStylesForNewComponent = (type, actionType = null) => {
         desktop: { borderRadius: '4px', backgroundColor: '#007bff', color: '#fff', fontSize: '16px', padding: '8px 16px' },
         tablet: { borderRadius: '4px', backgroundColor: '#007bff', color: '#fff', fontSize: '14px', padding: '6px 12px' },
         mobile: { borderRadius: '4px', backgroundColor: '#007bff', color: '#fff', fontSize: '12px', padding: '4px 8px' }
+      };
+      
+    case 'language-button':
+      return {
+        desktop: { 
+          width: '120px', 
+          height: '35px',
+          backgroundColor: '#ffffff', 
+          border: '1px solid #d1d5db',
+          borderRadius: '6px',
+          fontSize: '14px',
+          padding: '4px 8px'
+        },
+        tablet: { 
+          width: '110px', 
+          height: '32px',
+          backgroundColor: '#ffffff', 
+          border: '1px solid #d1d5db',
+          borderRadius: '6px',
+          fontSize: '13px',
+          padding: '4px 6px'
+        },
+        mobile: { 
+          width: '100px', 
+          height: '30px',
+          backgroundColor: '#ffffff', 
+          border: '1px solid #d1d5db',
+          borderRadius: '6px',
+          fontSize: '12px',
+          padding: '3px 6px'
+        }
       };
       
     case 'image':
@@ -357,6 +404,14 @@ export function useBannerEditor() {
             translatable: true
           };
         }
+      case 'language-button':
+        return {
+          displayMode: 'flag-dropdown',
+          languages: ['es', 'en', 'fr', 'de'],
+          defaultLanguage: 'es',
+          showLabel: true,
+          required: true
+        };
       case 'container':
         return {
           texts: { en: '' },
@@ -463,6 +518,23 @@ export function useBannerEditor() {
           desktop: { ...baseStyles, width: '200px', height: 'auto' },
           tablet: { ...baseStyles, width: '150px', height: 'auto' },
           mobile: { ...baseStyles, width: '100px', height: 'auto' }
+        };
+        
+      case 'language-button':
+        baseStyles = {
+          backgroundColor: '#ffffff',
+          border: '1px solid #d1d5db',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        };
+        
+        return {
+          desktop: { ...baseStyles, width: '120px', height: '35px', fontSize: '14px', padding: '4px 8px' },
+          tablet: { ...baseStyles, width: '110px', height: '32px', fontSize: '13px', padding: '4px 6px' },
+          mobile: { ...baseStyles, width: '100px', height: '30px', fontSize: '12px', padding: '3px 6px' }
         };
         
       case 'container':
@@ -676,6 +748,12 @@ export function useBannerEditor() {
 
   // Agregar un nuevo componente con soporte para datos iniciales
   const addComponent = useCallback((componentType, position, initialData = {}) => {
+    console.log('🆕 useBannerEditor: addComponent called', {
+      componentType,
+      position,
+      initialData,
+      timestamp: Date.now()
+    });
     
     // Verificación de parámetros
     if (!componentType) {
@@ -2647,7 +2725,7 @@ export function useBannerEditor() {
   const updateChildPositionForDevice = useCallback((componentId, device, newPosition) => {
     
     // Asegurar que las posiciones estén en formato de porcentaje
-    const processedPosition = {};
+    let processedPosition = {};
     
     if (newPosition.top !== undefined) {
       processedPosition.top = ensurePercentage(newPosition.top);
@@ -3203,6 +3281,97 @@ const handleSave = useCallback(async (customConfig = null, isSystemTemplate = fa
     
     const configToSave = customConfig || bannerConfig;
     
+    // VALIDACIÓN DE COMPONENTE OBLIGATORIO LANGUAGE-BUTTON SEGÚN EL PLAN
+    const hasLanguageButton = (components) => {
+      if (!components || !Array.isArray(components)) return false;
+      
+      for (const comp of components) {
+        // Verificar si es un language-button
+        if (comp.type === 'language-button') {
+          return true;
+        }
+        
+        // Buscar recursivamente en componentes hijos (contenedores)
+        if (comp.children && Array.isArray(comp.children)) {
+          if (hasLanguageButton(comp.children)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+    
+    // Verificar que exista al menos un language-button en el banner
+    if (!hasLanguageButton(configToSave.components)) {
+      const errorMessage = 'Este banner debe incluir un componente "Selector de Idioma" para cumplir con los requisitos de traducción. Por favor, agregue uno antes de guardar.';
+      
+      // Mostrar advertencia al usuario
+      if (window.confirm(`⚠️ ${errorMessage}\n\n¿Desea agregar automáticamente un selector de idioma?`)) {
+        // Auto-agregar un language-button por defecto
+        const defaultLanguageButton = {
+          id: `language-button-${Date.now()}`,
+          type: 'language-button',
+          content: {
+            displayMode: 'flag-dropdown',
+            languages: ['es', 'en', 'fr', 'de', 'it', 'pt'],
+            defaultLanguageMode: 'auto',
+            defaultLanguage: 'es',
+            showLabel: true,
+            labelText: 'Idioma:',
+            size: 'medium',
+            style: 'modern',
+            position: 'inline',
+            required: true,
+            autoDetectBrowserLanguage: true,
+            fallbackLanguage: 'en',
+            saveUserPreference: true
+          },
+          style: {
+            desktop: { 
+              width: '120px', 
+              height: '40px',
+              fontSize: '14px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+              backgroundColor: '#ffffff',
+              color: '#374151'
+            },
+            tablet: { 
+              width: '110px', 
+              height: '36px',
+              fontSize: '13px'
+            },
+            mobile: { 
+              width: '100px', 
+              height: '32px',
+              fontSize: '12px'
+            }
+          },
+          position: {
+            desktop: { top: '10%', left: '80%' },
+            tablet: { top: '10%', left: '75%' },
+            mobile: { top: '10%', left: '70%' }
+          },
+          locked: false,
+          required: true
+        };
+        
+        // Agregar el componente al banner
+        configToSave.components = [...(configToSave.components || []), defaultLanguageButton];
+        
+        // Actualizar también el estado local del banner
+        setBannerConfig(prev => ({
+          ...prev,
+          components: [...(prev.components || []), defaultLanguageButton]
+        }));
+        
+        console.log('✅ Language-button agregado automáticamente al banner');
+      } else {
+        // Usuario canceló, no guardar
+        throw new Error(errorMessage);
+      }
+    }
+    
     // TEMPORALMENTE DESHABILITADO: Validación de botones (no existía en versión anterior)
     // const requiredButtonTypes = ['accept_all', 'reject_all', 'show_preferences'];
     // const missingButtons = [];
@@ -3718,41 +3887,8 @@ const setInitialConfig = useCallback((config, autoSelect = false) => {
       // Asegurar que existen posiciones para cada dispositivo
       if (!component.position.desktop) component.position.desktop = { ...defaultPosition };
       
-      // CORRECCIÓN ESPECIAL: Detectar y corregir el bug de offset de 30-60px en botones de preferencias
-      if (component.id === 'preferencesBtn' || component.action?.type === 'show_preferences') {
-        ['desktop', 'tablet', 'mobile'].forEach(device => {
-          if (component.position[device]) {
-            const pos = component.position[device];
-            
-            // Corregir valores problemáticos en left y right
-            if (pos.left && typeof pos.left === 'string') {
-              // Si tiene formato píxeles con valores entre 30-60px, probablemente es el bug
-              if (pos.left.endsWith('px')) {
-                const leftPx = parseFloat(pos.left);
-                if (leftPx >= 30 && leftPx <= 60) {
-                  pos.left = '0px';
-                }
-              }
-            }
-            
-            if (pos.right && typeof pos.right === 'string') {
-              // Si tiene formato píxeles con valores entre 30-60px, probablemente es el bug
-              if (pos.right.endsWith('px')) {
-                const rightPx = parseFloat(pos.right);
-                if (rightPx >= 30 && rightPx <= 60) {
-                  pos.right = '0px';
-                }
-              }
-            }
-            
-            // También corregir transformaciones innecesarias en botones laterales
-            if ((pos.left === '0px' || pos.right === '0px') && pos.transformX) {
-              delete pos.transformX;
-              delete pos.transform;
-            }
-          }
-        });
-      }
+      // NOTA: Eliminada la "corrección especial" que estaba reseteando posiciones 
+      // del botón de preferencias a 0,0 cuando tenía valores entre 30-60px
       
       // Asegurar formato de porcentaje
       component.position.desktop.top = ensurePercentage(component.position.desktop.top);
