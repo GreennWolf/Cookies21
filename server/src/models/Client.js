@@ -85,6 +85,11 @@ const clientSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'SubscriptionPlan'
     },
+    status: {
+      type: String,
+      enum: ['active', 'cancelled', 'expired', 'suspended'],
+      default: 'active'
+    },
     startDate: {
       type: Date,
       default: Date.now
@@ -244,6 +249,70 @@ clientSchema.statics.validateApiKey = async function(apiKey) {
     permissions: keyInfo.permissions,
     ipRestrictions: keyInfo.ipRestrictions,
     domains: client.domains
+  };
+};
+
+// Método para verificar si la suscripción está activa y válida
+clientSchema.methods.isSubscriptionActive = function() {
+  const now = new Date();
+  
+  // Verificar si el cliente está activo
+  if (this.status !== 'active') {
+    return {
+      isActive: false,
+      reason: 'CLIENT_INACTIVE',
+      message: 'El cliente está inactivo o suspendido'
+    };
+  }
+  
+  // Verificar el estado de la suscripción
+  if (this.subscription.status && this.subscription.status !== 'active') {
+    const statusMessages = {
+      'cancelled': 'La suscripción ha sido cancelada',
+      'expired': 'La suscripción ha expirado',
+      'suspended': 'La suscripción ha sido suspendida'
+    };
+    
+    return {
+      isActive: false,
+      reason: this.subscription.status.toUpperCase(),
+      message: statusMessages[this.subscription.status] || 'La suscripción no está activa'
+    };
+  }
+  
+  // Si es ilimitada, siempre está activa (mientras el cliente esté activo)
+  if (this.subscription.isUnlimited) {
+    return {
+      isActive: true,
+      reason: 'UNLIMITED',
+      message: 'Suscripción ilimitada'
+    };
+  }
+  
+  // Verificar fechas de la suscripción
+  if (this.subscription.startDate && now < this.subscription.startDate) {
+    return {
+      isActive: false,
+      reason: 'NOT_STARTED',
+      message: 'La suscripción aún no ha comenzado',
+      startDate: this.subscription.startDate
+    };
+  }
+  
+  if (this.subscription.endDate && now > this.subscription.endDate) {
+    return {
+      isActive: false,
+      reason: 'EXPIRED',
+      message: 'La suscripción ha expirado',
+      endDate: this.subscription.endDate
+    };
+  }
+  
+  return {
+    isActive: true,
+    reason: 'ACTIVE',
+    message: 'Suscripción activa',
+    endDate: this.subscription.endDate
   };
 };
 

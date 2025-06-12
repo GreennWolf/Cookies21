@@ -52,6 +52,14 @@ export const transformBannerImageUrls = (config, apiBaseUrl = import.meta.env.VI
       
       // CASE 1: Image components need special handling
       if (component.type === 'image') {
+        // Log para debug de imágenes en contenedores
+        if (component.parentId) {
+          console.log(`🔍 Procesando imagen hijo ${component.id} con parentId ${component.parentId}:`, {
+            contentBefore: component.content,
+            hasPreviewUrl: !!component.style?.desktop?._previewUrl
+          });
+        }
+        
         // Direct string content (most common for images)
         if (typeof component.content === 'string') {
           component.content = transformUrl(component.content);
@@ -106,6 +114,14 @@ export const transformBannerImageUrls = (config, apiBaseUrl = import.meta.env.VI
       // Process children recursively if they exist
       if (component.children && Array.isArray(component.children)) {
         component.children = processComponents(component.children);
+      }
+      
+      // Log final para imágenes en contenedores después de transformación
+      if (component.type === 'image' && component.parentId) {
+        console.log(`✅ Imagen hijo ${component.id} procesada:`, {
+          contentAfter: component.content,
+          hasValidUrl: typeof component.content === 'string' && component.content.startsWith('http')
+        });
       }
       
       return component;

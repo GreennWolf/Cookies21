@@ -152,7 +152,7 @@ class IABService {
       // Lista estática de vendors compatible con el validador CMP
       return {
         gvlSpecificationVersion: 2,
-        vendorListVersion: 348,
+        vendorListVersion: 3,
         tcfPolicyVersion: 2,
         lastUpdated: "2023-06-01T00:00:00Z",
         purposes: {

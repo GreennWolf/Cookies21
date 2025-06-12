@@ -25,10 +25,9 @@ function BannerEditorPage() {
           
           // console.log('📊 Datos recibidos del servidor:', template);
           
-          // Procesar componentes para asegurar consistencia de datos
-          if (template.components) {
-            template.components = template.components.map(comp => {
-              const processedComp = { ...comp };
+          // Función recursiva para procesar componentes y sus hijos
+          const processComponentRecursively = (comp) => {
+            const processedComp = { ...comp };
               
               // Procesar content
               if (processedComp.content === undefined || processedComp.content === null) {
@@ -99,8 +98,18 @@ function BannerEditorPage() {
                 mobile: ensurePercentage(processedComp.position.mobile || processedComp.position.desktop || { top: '0%', left: '0%' })
               };
               
+              // IMPORTANTE: Procesar hijos recursivamente si existen
+              if (processedComp.children && Array.isArray(processedComp.children)) {
+                console.log(`🔄 BannerEditorPage: Procesando ${processedComp.children.length} hijos del componente ${processedComp.id}`);
+                processedComp.children = processedComp.children.map(processComponentRecursively);
+              }
+              
               return processedComp;
-            });
+            };
+          
+          // Procesar componentes para asegurar consistencia de datos
+          if (template.components) {
+            template.components = template.components.map(processComponentRecursively);
           }
           
           // console.log('✅ Plantilla procesada lista para el editor:', template);

@@ -157,7 +157,7 @@ generateScript = catchAsync(async (req, res) => {
     _id: templateId || domain.settings?.defaultTemplateId,
     $or: [
       { clientId },
-      { type: 'system', 'metadata.isPublic': true }
+      { type: 'system' }
     ]
   });
 
@@ -168,7 +168,7 @@ generateScript = catchAsync(async (req, res) => {
     template = await BannerTemplate.findOne({
       $or: [
         { clientId },
-        { type: 'system', 'metadata.isPublic': true }
+        { type: 'system' }
       ]
     });
     
@@ -178,6 +178,7 @@ generateScript = catchAsync(async (req, res) => {
       throw new AppError('Banner template not found', 404);
     }
   }
+
 
   // Obtener base URL desde variables de entorno o configuración
   const baseUrl = getBaseUrl();
@@ -216,7 +217,7 @@ generateScript = catchAsync(async (req, res) => {
   }
 
   // Generar las partes del script
-  const tcfApiImplementation = tcfService.generateTCFApiImplementation({
+  const tcfApiImplementation = await tcfService.generateTCFApiImplementation({
     cmpId: iabConfig.cmpId,
     cmpVersion: iabConfig.cmpVersion,
     gdprAppliesDefault: domain.settings?.gdprAppliesDefault || true
@@ -317,7 +318,7 @@ generateScript = catchAsync(async (req, res) => {
       _id: templateId || domain.settings?.defaultTemplateId,
       $or: [
         { clientId },
-        { type: 'system', 'metadata.isPublic': true }
+        { type: 'system' }
       ]
     });
 
@@ -328,7 +329,7 @@ generateScript = catchAsync(async (req, res) => {
       template = await BannerTemplate.findOne({
         $or: [
           { clientId },
-          { type: 'system', 'metadata.isPublic': true }
+          { type: 'system' }
         ]
       });
       
@@ -538,7 +539,7 @@ generateScript = catchAsync(async (req, res) => {
       _id: templateId || domain.settings?.defaultTemplateId,
       $or: [
         { clientId },
-        { type: 'system', 'metadata.isPublic': true }
+        { type: 'system' }
       ]
     });
 
@@ -549,7 +550,7 @@ generateScript = catchAsync(async (req, res) => {
       template = await BannerTemplate.findOne({
         $or: [
           { clientId },
-          { type: 'system', 'metadata.isPublic': true }
+          { type: 'system' }
         ]
       });
       
@@ -656,7 +657,7 @@ generateScript = catchAsync(async (req, res) => {
    * Obtener banner HTML/CSS para una plantilla
    */
   /**
- * Obtener banner HTML/CSS para una plantilla
+ * Obtener banner HTML/CSS para una plantilla específica
  */
 getBanner = catchAsync(async (req, res) => {
   const { templateId } = req.params;
@@ -693,6 +694,118 @@ getBanner = catchAsync(async (req, res) => {
       css,
       preferences,
       config: template
+    }
+  });
+});
+
+/**
+ * Obtener banner HTML/CSS para un dominio específico
+ * Este endpoint determina dinámicamente qué banner mostrar según la configuración del dominio
+ */
+getBannerByDomain = catchAsync(async (req, res) => {
+  const { domainId } = req.params;
+
+  console.log(`🔍 [getBannerByDomain] Buscando banner para dominio: ${domainId}`);
+
+  // Buscar dominio
+  const domain = await Domain.findById(domainId);
+  if (!domain) {
+    console.error(`❌ [getBannerByDomain] Dominio no encontrado: ${domainId}`);
+    throw new AppError('Domain not found', 404);
+  }
+
+  console.log(`✅ [getBannerByDomain] Dominio encontrado:`, {
+    domain: domain.domain,
+    clientId: domain.clientId,
+    defaultTemplateId: domain.settings?.defaultTemplateId
+  });
+
+  // Determinar qué template usar
+  let template = null;
+  let templateSource = 'none';
+  
+  // Primero intentar usar el template asignado al dominio
+  if (domain.settings?.defaultTemplateId) {
+    console.log(`🎨 [getBannerByDomain] Buscando template asignado al dominio: ${domain.settings.defaultTemplateId}`);
+    template = await BannerTemplate.findById(domain.settings.defaultTemplateId);
+    if (template) {
+      templateSource = 'domain-specific';
+      console.log(`✅ [getBannerByDomain] Template del dominio encontrado: ${template._id} (${template.name})`);
+    } else {
+      console.log(`⚠️ [getBannerByDomain] Template del dominio no encontrado: ${domain.settings.defaultTemplateId}`);
+    }
+  } else {
+    console.log(`ℹ️ [getBannerByDomain] El dominio no tiene template asignado`);
+  }
+
+  // Si no hay template asignado o no existe, buscar el template del cliente
+  if (!template) {
+    console.log(`🔍 [getBannerByDomain] Buscando template activo del cliente: ${domain.clientId}`);
+    template = await BannerTemplate.findOne({
+      clientId: domain.clientId,
+      status: 'active'
+    }).sort({ updatedAt: -1 }); // Tomar el más reciente del cliente
+    
+    if (template) {
+      templateSource = 'client-default';
+      console.log(`✅ [getBannerByDomain] Template del cliente encontrado: ${template._id} (${template.name || 'sin nombre'})`);
+    } else {
+      console.log(`⚠️ [getBannerByDomain] No se encontró template activo del cliente ${domain.clientId}`);
+    }
+  }
+
+  // Si aún no hay template, buscar uno del sistema
+  if (!template) {
+    console.log(`🔍 [getBannerByDomain] Buscando template del sistema`);
+    template = await BannerTemplate.findOne({
+      type: 'system',
+      status: 'active'
+    }).sort({ updatedAt: -1 });
+    
+    if (template) {
+      templateSource = 'system-default';
+      console.log(`✅ [getBannerByDomain] Template del sistema encontrado: ${template._id} (${template.name})`);
+    }
+  }
+
+  if (!template) {
+    throw new AppError('No banner template available for this domain', 404);
+  }
+
+  // Generar HTML y CSS del banner
+  const { generateHTML, generateCSS } = require('../services/bannerGenerator.service');
+  
+  const html = await generateHTML(template);
+  const css = await generateCSS(template);
+
+  // Generar panel de preferencias
+  let preferences;
+  try {
+    preferences = consentScriptGenerator.generatePreferencesPanel({
+      colors: template.theme?.colors,
+      texts: template.settings?.texts || {},
+      showVendorTab: true
+    });
+  } catch (error) {
+    logger.warn('Error generating preferences panel, using fallback:', error);
+    preferences = this._generateFallbackPreferencesPanel(template);
+  }
+
+  console.log(`📦 [getBannerByDomain] Enviando respuesta con template: ${template._id} (fuente: ${templateSource})`);
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      html,
+      css,
+      preferences,
+      config: template,
+      domainInfo: {
+        domain: domain.domain,
+        clientId: domain.clientId,
+        templateId: template._id,
+        templateSource: templateSource
+      }
     }
   });
 });
@@ -844,6 +957,11 @@ detectCountry = catchAsync(async (req, res) => {
   serveEmbedScript = catchAsync(async (req, res) => {
     const { domainId } = req.params;
     
+    // Verificar suscripción primero - si está inactiva, devolver script de error
+    if (req.subscriptionInactive) {
+      return this._serveInactiveSubscriptionScript(req, res);
+    }
+    
     // Verificar si se solicita explícitamente el modo desarrollo
     const devMode = req.query.dev === 'true' || 
                    req.query.dev === '1' || 
@@ -888,6 +1006,14 @@ detectCountry = catchAsync(async (req, res) => {
         throw new AppError('Domain not found', 404);
       }
       
+      // 1.1. Obtener datos del cliente para personalizar la política de privacidad
+      const Client = require('../models/Client');
+      const client = await Client.findById(domain.clientId);
+      if (!client) {
+        console.warn(`⚠️ Cliente no encontrado para dominio: ${domainId}`);
+      }
+      console.log(`👤 Cliente cargado:`, client ? client.name : 'No encontrado');
+      
       // 2. Obtener template por defecto configurado para el dominio
       const templateId = domain.settings?.defaultTemplateId;
       if (!templateId) {
@@ -926,7 +1052,9 @@ detectCountry = catchAsync(async (req, res) => {
         // MEJORA: Inyectar cookies y vendors en el panel de preferencias
         // Esto es clave para pasar la validación del CMP
         cookies: cookies,
-        vendorList: vendorList
+        vendorList: vendorList,
+        // Datos del cliente para política de privacidad personalizada
+        clientData: client
       });
       
       // Reemplazar todas las URLs relativas en el HTML
@@ -1008,6 +1136,8 @@ detectCountry = catchAsync(async (req, res) => {
       // Añadir cookiesByCategory y vendorsData a las opciones del script
       scriptOptions.cookiesByCategory = cookiesByCategory;
       scriptOptions.vendorList = vendorsData;
+      // Añadir datos del cliente para política de privacidad personalizada
+      scriptOptions.clientData = client;
       
       // Generar script con datos enriquecidos
       let script = await bannerExportService.generateEmbeddableScript(
@@ -1034,8 +1164,8 @@ detectCountry = catchAsync(async (req, res) => {
         cmpVersion: 1,
         gdprAppliesDefault: true,
         publisherCC: domain.settings?.publisherCC || 'ES',
-        tcString: "CPBZjG9PBZjG9AHABBENBDCsAP_AAH_AAAAAIEtf_X__b3_j-_59f_t0eY1P9_7_v-0zjhfdt-8N2f_X_L8X42M7vF36pq4KuR4Eu3LBIQdlHOHcTUmw6okVrzPsbk2cr7NKJ7PEinMbe2dYGH9_n93TuZKY7__f__z_v-v_v____f_7-3f3__5_3---_e_V_99zLv9____39nP___9v-_9____giGASYal5AF2JY4Mk0aVQogRhWEhUAoAKKAYWiAwAcHBTsrAI9QQsAEJqAjAiBBiCjBgEAAAkASERASAHggEQBEAgABACpAQgAI2AQWAFgYBAAKAaFiBFAEIEhBkcFRymBARItFBPJWAJRd7GmEIZb4EUCj-iowEazRAsDISFg5jgCQEvFkgeYo3yAAA.YAAAAAAAAAAA",
-        vendorListVersion: vendorList ? vendorList.version : 348,
+        tcString: "CPinQIAPinQIAAGABCENATEIAACAAAAAAAAAAIpxQgAIBgCKgUA.II7Nd_X__bX9n-_7_6ft0eY1f9_r37uQzDhfNk-8F3L_W_LwX52E7NF36tq4KmR4ku1bBIQNlHMHUDUmwaokVrzHsak2cpyNKJ_JkknsZe2dYGF9Pn9lD-YKZ7_5_9_f52T_9_9_-39z3_9f___dv_-__-vjf_599n_v9fV_78_Kf9______-____________8A",
+        vendorListVersion: vendorList ? vendorList.version : 3,
         // Inyectar datos de cookies y vendors para el validador
         cookiesByCategory,
         vendorList: vendorsData
@@ -1420,7 +1550,7 @@ detectCountry = catchAsync(async (req, res) => {
               apiVersion: '2.2',
               cmpVersion: 1,
               cmpId: "${process.env.IAB_CMP_ID || 28}",
-              gvlVersion: 348,
+              gvlVersion: 3,
               tcfPolicyVersion: 2
             }, true);
             return;
@@ -1578,8 +1708,8 @@ detectCountry = catchAsync(async (req, res) => {
             if (window.fetch) {
               // Usar la variable global apiBaseUrl definida en la inicialización
               const apiUrl = typeof apiBaseUrl !== 'undefined' 
-                           ? apiBaseUrl + "/consent/interaction/${domainId}" 
-                           : "${baseUrl}/api/v1/consent/interaction/${domainId}";
+                           ? apiBaseUrl + "/consent-script/interaction/${domainId}" 
+                           : "${baseUrl}/api/v1/consent-script/interaction/${domainId}";
               console.log("[CMP] Enviando datos demográficos a:", apiUrl);
               fetch(apiUrl, {
                 method: 'POST',
@@ -3313,6 +3443,147 @@ getVendorList = catchAsync(async (req, res) => {
     
     return base + path;
   }
+
+  // Método para servir script cuando la suscripción está inactiva
+  _serveInactiveSubscriptionScript = (req, res) => {
+    const { subscriptionReason } = req;
+    
+    // Crear mensaje específico según la razón
+    let message = '';
+    switch (subscriptionReason) {
+      case 'CLIENT_INACTIVE':
+        message = 'Cuenta inactiva';
+        break;
+      case 'EXPIRED':
+        message = 'Suscripción expirada';
+        break;
+      case 'NOT_STARTED':
+        message = 'Suscripción no iniciada';
+        break;
+      default:
+        message = 'Suscripción inactiva';
+    }
+    
+    // Script que no muestra banner pero mantiene compatibilidad básica
+    const inactiveScript = `
+// Cookie21 - Suscripción inactiva
+(function() {
+  'use strict';
+  
+  console.warn('Cookie21: ${message}. El banner de consentimiento está deshabilitado.');
+  
+  // Crear API mínima para evitar errores en sitios que esperan __tcfapi
+  window.__tcfapi = function(command, version, callback, parameter) {
+    if (typeof callback === 'function') {
+      // Responder siempre que el CMP no está cargado
+      callback({
+        cmpLoaded: false,
+        cmpId: 0,
+        gdprApplies: false,
+        eventStatus: 'cmpuishown',
+        error: 'Subscription inactive'
+      }, false);
+    }
+  };
+  
+  // API básica de Cookie21 que no hace nada
+  window.Cookie21 = {
+    status: 'inactive',
+    reason: '${subscriptionReason}',
+    message: '${message}',
+    showBanner: function() { 
+      console.warn('Cookie21: No se puede mostrar el banner. ${message}.'); 
+    },
+    hideBanner: function() { },
+    getConsent: function() { return null; },
+    setConsent: function() { 
+      console.warn('Cookie21: No se puede establecer consentimiento. ${message}.'); 
+    }
+  };
+  
+  // Disparar evento para informar que Cookie21 está cargado pero inactivo
+  if (typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new CustomEvent('cookie21:inactive', {
+      detail: {
+        reason: '${subscriptionReason}',
+        message: '${message}'
+      }
+    }));
+  }
+  
+})();`;
+    
+    // Configurar headers apropiados
+    res.set('Content-Type', 'application/javascript');
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('X-Content-Type-Options', 'nosniff');
+    
+    // Log para auditoría
+    logger.warn(`Script servido para suscripción inactiva`, {
+      domainId: req.params.domainId,
+      clientId: req.client?._id,
+      reason: subscriptionReason,
+      ip: req.ip
+    });
+    
+    return res.send(inactiveScript);
+  };
+
+  /**
+   * Obtiene los proveedores de un dominio para el panel de preferencias
+   */
+  getProviders = catchAsync(async (req, res) => {
+    const { domain } = req.query;
+    
+    logger.info(`[API] Getting providers for domain: ${domain}`);
+    
+    if (!domain) {
+      throw new AppError('Domain parameter is required', 400);
+    }
+
+    try {
+      const providers = await consentScriptGenerator.getDomainProviders(domain);
+      
+      logger.info(`[API] Returning ${providers.length} providers for domain: ${domain}`);
+      
+      res.json({
+        status: 'success',
+        data: providers
+      });
+    } catch (error) {
+      logger.error('Error getting providers for domain:', error);
+      throw new AppError('Error fetching providers data', 500);
+    }
+  });
+
+  /**
+   * Obtiene las cookies de un dominio agrupadas por categoría para el panel de preferencias
+   */
+  getCookies = catchAsync(async (req, res) => {
+    const { domain } = req.query;
+    
+    logger.info(`[API] Getting cookies for domain: ${domain}`);
+    
+    if (!domain) {
+      throw new AppError('Domain parameter is required', 400);
+    }
+
+    try {
+      const cookiesByCategory = await consentScriptGenerator.getDomainCookiesByCategory(domain);
+      
+      const totalCookies = Object.values(cookiesByCategory).reduce((acc, cookies) => acc + cookies.length, 0);
+      logger.info(`[API] Returning ${totalCookies} cookies in ${Object.keys(cookiesByCategory).length} categories for domain: ${domain}`);
+      
+      res.json({
+        status: 'success',
+        data: cookiesByCategory
+      });
+    } catch (error) {
+      logger.error('Error getting cookies for domain:', error);
+      throw new AppError('Error fetching cookies data', 500);
+    }
+  });
 }
 
 module.exports = new ConsentScriptController();

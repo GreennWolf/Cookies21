@@ -5,6 +5,7 @@ const BannerTemplateController = require('../../controllers/BannerTemplateContro
 const { validateRequest } = require('../../middleware/validateRequest');
 const { bannerTemplateValidation } = require('../../validations/banner-tamplate.validation');
 const { protect } = require('../../middleware/auth');
+const { checkSubscriptionWithReadOnlyMode } = require('../../middleware/subscriptionCheck');
 const { bannerImageUpload } = require('../../utils/multerConfig');
 const { cacheControl } = require('../../middleware/cache');
 
@@ -37,58 +38,67 @@ router.patch(
 // Rutas de cliente
 router.get(
   '/',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(bannerTemplateValidation.getClientTemplates),
   BannerTemplateController.getClientTemplates
 );
 
 router.get(
   '/:id',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(bannerTemplateValidation.getTemplate),
   BannerTemplateController.getTemplate
 );
 
 router.patch(
   '/:id/unarchive',
+  checkSubscriptionWithReadOnlyMode,
   BannerTemplateController.unarchiveTemplate
 );
 
 // Creación y actualización de template con soporte para imágenes
-router.post('/', bannerImageUpload, BannerTemplateController.createTemplate);
+router.post('/', checkSubscriptionWithReadOnlyMode, bannerImageUpload, BannerTemplateController.createTemplate);
 
 router.post(
   '/:id/clone',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(bannerTemplateValidation.cloneTemplate),
   BannerTemplateController.cloneTemplate
 );
 
-router.patch('/:id', bannerImageUpload, BannerTemplateController.updateTemplate);
+router.patch('/:id', checkSubscriptionWithReadOnlyMode, bannerImageUpload, BannerTemplateController.updateTemplate);
 
 router.post(
   '/preview',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(bannerTemplateValidation.previewTemplate),
   BannerTemplateController.previewTemplate
 );
 
 router.patch(
   '/:id/archive',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(bannerTemplateValidation.archiveTemplate),
   BannerTemplateController.archiveTemplate
 );
 
 router.get(
   '/:id/export',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(bannerTemplateValidation.exportConfig),
   BannerTemplateController.exportConfig
 );
 
 router.get(
   '/:id/versions',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(bannerTemplateValidation.getVersions),
   BannerTemplateController.getTemplateVersions
 );
 
 router.post(
   '/:id/restore',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(bannerTemplateValidation.restoreVersion),
   BannerTemplateController.restoreVersion
 );
@@ -101,6 +111,7 @@ router.post(
 
 router.delete(
   '/:id',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(bannerTemplateValidation.deleteTemplate),
   BannerTemplateController.deleteTemplate
 );
@@ -125,21 +136,25 @@ router.post(
 // Rutas de traducción
 router.post(
   '/:id/detect-languages',
+  checkSubscriptionWithReadOnlyMode,
   BannerTemplateController.detectLanguages
 );
 
 router.post(
   '/:id/translate',
+  checkSubscriptionWithReadOnlyMode,
   BannerTemplateController.translateBanner
 );
 
 router.get(
   '/:id/translations',
+  checkSubscriptionWithReadOnlyMode,
   BannerTemplateController.getBannerTranslations
 );
 
 router.put(
   '/:id/translations/:lang',
+  checkSubscriptionWithReadOnlyMode,
   BannerTemplateController.updateTranslation
 );
 

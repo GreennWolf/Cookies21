@@ -34,7 +34,7 @@ class AuditService {
       }
       
       // Valida que action es una de las permitidas
-      const validActions = ['create', 'update', 'delete', 'generate', 'consent', 'view'];
+      const validActions = ['create', 'update', 'delete', 'generate', 'consent', 'view', 'cancel_subscription', 'reactivate_subscription'];
       if (!validActions.includes(action)) {
         throw new Error(`Invalid action: ${action}. Valid actions are: ${validActions.join(', ')}`);
       }

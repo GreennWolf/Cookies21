@@ -53,12 +53,13 @@ const ImageUploader = ({ componentId, currentImage, onImageUpdate, disabled = fa
     setError(null);
     setLoading(true);
     
-    // Crear un identificador único y más simple para este archivo
+    // Crear nombre de archivo simple y limpio
     const timestamp = Date.now();
+    const fileExtension = file.name.split('.').pop() || 'png';
     
-    // Nombre explícito para facilitar la asociación
-    // IMPORTANTE: El ID del componente al inicio para búsqueda directa
-    const imageRef = `__IMAGE_REF__${componentId}_${timestamp}`;
+    // Nombre super simple: comp-[ID]-[timestamp].[ext]
+    const cleanFileName = `comp-${componentId}-${timestamp}.${fileExtension}`;
+    const imageRef = `__IMAGE_REF__${cleanFileName}`;
     
     // Crear vista previa para mostrar localmente
     const reader = new FileReader();
@@ -83,10 +84,8 @@ const ImageUploader = ({ componentId, currentImage, onImageUpdate, disabled = fa
       };
       img.src = base64;
       
-      // Renombrar el archivo para hacer más clara la asociación con el componente
-      // NOTA: Ponemos el ID del componente al principio para facilitar la búsqueda por startsWith
-      // Usar un formato de nombre predecible y simplificado para mejor identificación
-      const renamedFile = new File([file], `IMAGE_REF_${componentId}_${timestamp}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`, {
+      // Crear archivo con nombre limpio
+      const renamedFile = new File([file], cleanFileName, {
         type: file.type,
         lastModified: file.lastModified
       });

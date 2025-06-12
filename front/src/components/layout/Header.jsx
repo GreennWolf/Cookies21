@@ -1,7 +1,9 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../contexts/AuthContext';
 import { logout } from '../../api/auth';
+import { getClients } from '../../api/client';
+import { renewalNotificationManager } from '../../utils/renewalNotifications';
 import { toast } from 'react-hot-toast';
 import logo from '../../assets/logo.png';
 // Alternative logos available:
@@ -13,10 +15,40 @@ import logo from '../../assets/logo.png';
 const Header = () => {
   const { user, setAuthData } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [pendingRenewalCount, setPendingRenewalCount] = useState(0);
   
   const isOwner = user?.role === 'owner';
   const isAdmin = user?.role === 'admin';
   const canManageUsers = isOwner || isAdmin;
+
+  // Obtener el contador de solicitudes pendientes para owners
+  useEffect(() => {
+    if (isOwner) {
+      fetchPendingRenewalCount();
+      // Actualizar cada 60 segundos
+      const interval = setInterval(fetchPendingRenewalCount, 60000);
+      
+      // Suscribirse a notificaciones en tiempo real
+      const unsubscribe = renewalNotificationManager.subscribe(() => {
+        fetchPendingRenewalCount();
+      });
+      
+      return () => {
+        clearInterval(interval);
+        unsubscribe();
+      };
+    }
+  }, [isOwner]);
+
+  const fetchPendingRenewalCount = async () => {
+    try {
+      const response = await getClients({ subscriptionStatus: 'pending_renewal', limit: 100 });
+      const pendingCount = response.data.clients.filter(client => client.hasPendingRenewal).length;
+      setPendingRenewalCount(pendingCount);
+    } catch (error) {
+      console.error('Error fetching pending renewal count:', error);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -44,8 +76,13 @@ const Header = () => {
 
             {isOwner && (
               <>
-                <Link to="/dashboard/clients" className="hover:text-gray-300">
+                <Link to="/dashboard/clients" className="hover:text-gray-300 relative">
                   Clientes
+                  {pendingRenewalCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-white text-[#235C88] text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-lg animate-pulse border-2 border-[#235C88]">
+                      {pendingRenewalCount > 9 ? '9+' : pendingRenewalCount}
+                    </span>
+                  )}
                 </Link>
                 <Link to="/dashboard/plans" className="hover:text-gray-300">
                   Planes

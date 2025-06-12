@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { getScanResults } from '../../api/cookieScan';
+import { getScanResults, getAnalysisResults } from '../../api/cookieScan';
 
 const ScanResultsModal = ({ isOpen, onClose, scanId, scanInfo }) => {
   const [results, setResults] = useState(null);
@@ -15,7 +15,13 @@ const ScanResultsModal = ({ isOpen, onClose, scanId, scanInfo }) => {
   const fetchScanResults = async () => {
     setLoading(true);
     try {
-      const response = await getScanResults(scanId);
+      // Determinar si es un análisis avanzado o escaneo normal
+      const isAdvancedAnalysis = scanInfo?.isAdvancedAnalysis || scanInfo?.scanType === 'advanced';
+      
+      const response = isAdvancedAnalysis 
+        ? await getAnalysisResults(scanId)
+        : await getScanResults(scanId);
+      
       console.log('Raw scan results:', response.data); // Debug log
       setResults(response.data);
     } catch (error) {

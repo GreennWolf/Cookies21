@@ -39,11 +39,18 @@ router.post(
   ConsentScriptController.getProviderScript
 );
 
-// Banner específico
+// Banner específico por template ID
 router.get(
   '/banner/:templateId',
   cacheControl('1 hour'),
   ConsentScriptController.getBanner
+);
+
+// Banner específico por dominio (determina dinámicamente qué template usar)
+router.get(
+  '/banner/domain/:domainId',
+  cacheControl('30 minutes'),
+  ConsentScriptController.getBannerByDomain
 );
 
 // Rutas públicas
@@ -53,5 +60,15 @@ router.post(
   ConsentScriptController.logInteraction
 );
 
+// Rutas para datos dinámicos del panel de preferencias (públicas)
+router.get(
+  '/providers',
+  ConsentScriptController.getProviders
+);
+
+router.get(
+  '/cookies',
+  ConsentScriptController.getCookies
+);
 
 module.exports = router;

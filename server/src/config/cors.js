@@ -4,6 +4,8 @@ const Domain = require('../models/Domain');
 const STATIC_ALLOWED_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:5173',
+  'http://127.0.0.1:5500',
+  'http://127.0.0.1:3000',
   'https://admin.cookie21.com'
 ];
 
@@ -58,7 +60,7 @@ const corsOptions = {
       if (!origin) return callback(null, true);
       
       // En desarrollo, permitir cualquier origen
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'development') {
         return callback(null, true);
       }
       

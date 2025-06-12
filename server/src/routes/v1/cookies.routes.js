@@ -4,6 +4,7 @@ const CookieController = require('../../controllers/CookieController');
 const { validateRequest } = require('../../middleware/validateRequest');
 const { cookieValidation } = require('../../validations/cookie.validation');
 const { protect, restrictTo } = require('../../middleware/auth');
+const { checkSubscriptionWithReadOnlyMode } = require('../../middleware/subscriptionCheck');
 
 // Todas las rutas requieren autenticación
 router.use(protect);
@@ -18,30 +19,47 @@ router.get(
 // Rutas por dominio
 router.get(
   '/domain/:domainId',
+  checkSubscriptionWithReadOnlyMode,
   CookieController.getCookies
 );
 
 router.get(
   '/domain/:domainId/stats',
+  checkSubscriptionWithReadOnlyMode,
   CookieController.getCookieStats
 );
 
 // Rutas CRUD básicas
 router.post(
   '/',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(cookieValidation.createCookie),
   CookieController.createCookie
 );
 
 router.get(
   '/:id',
+  checkSubscriptionWithReadOnlyMode,
   CookieController.getCookie
 );
 
 router.patch(
   '/:id',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(cookieValidation.updateCookie),
   CookieController.updateCookie
+);
+
+router.delete(
+  '/bulk',
+  checkSubscriptionWithReadOnlyMode,
+  CookieController.deleteCookies
+);
+
+router.delete(
+  '/:id',
+  checkSubscriptionWithReadOnlyMode,
+  CookieController.deleteCookie
 );
 
 // Gestión de estado

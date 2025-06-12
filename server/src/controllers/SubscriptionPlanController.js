@@ -323,7 +323,8 @@ class SubscriptionPlanController {
     
     // Preparar información de suscripción
     const subscriptionData = {
-      plan: plan.name,
+      plan: plan.name.toLowerCase(),
+      planId: plan._id, // Asegurar que se asigne el planId
       startDate: startDate ? new Date(startDate) : new Date(),
       maxUsers: customMaxUsers || plan.limits.maxUsers,
       isUnlimited: isUnlimited || plan.limits.isUnlimitedUsers,
@@ -371,18 +372,26 @@ class SubscriptionPlanController {
     }
     
     // Actualizar suscripción del cliente
-    client.subscription = subscriptionData;
+    Object.assign(client.subscription, subscriptionData);
+    
+    // Marcar el campo como modificado para asegurar que se guarde
+    client.markModified('subscription');
+    
     await client.save();
     
     logger.info(`Plan "${plan.name}" asignado al cliente "${client.name}" (${client._id})`);
+    
+    // Recargar el cliente con el plan populado
+    const updatedClient = await Client.findById(client._id)
+      .populate('subscription.planId', 'name description features limits pricing');
     
     res.status(200).json({
       status: 'success',
       data: {
         client: {
-          id: client._id,
-          name: client.name,
-          subscription: client.subscription
+          id: updatedClient._id,
+          name: updatedClient.name,
+          subscription: updatedClient.subscription
         }
       }
     });

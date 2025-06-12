@@ -117,8 +117,11 @@ function ContainerContentPanel({
         };
       case 'image':
         return {
-          // No establecer dimensiones fijas para imágenes hijas - deben mantener aspect ratio natural
-          // El CSS del ComponentRenderer manejará el sizing con auto + maxWidth/maxHeight
+          // ARREGLADO: Establecer dimensiones por defecto para imágenes en contenedores
+          // Sin esto, las imágenes nuevas no se muestran hasta que el usuario configure dimensiones
+          width: '150px',
+          height: '113px', // Aspect ratio 4:3 por defecto
+          objectFit: 'contain'
         };
       default:
         return {};

@@ -13,12 +13,13 @@ const cookieSchema = new mongoose.Schema({
   },
   provider: {
     type: String,  // Debe ser String, no un objeto
-    default: 'Unknown'
+    default: 'Propios'
   },
   category: {
     type: String,
-    enum: ['necessary', 'analytics', 'marketing', 'personalization','unknown'],
-    required: true
+    enum: ['necessary', 'analytics', 'marketing', 'personalization', 'functional', 'advertising', 'social', 'other'],
+    required: true,
+    default: 'personalization'
   },
   description: {
     en: {
@@ -56,7 +57,7 @@ const cookieSchema = new mongoose.Schema({
     httpOnly: {type:Boolean},
     sameSite: {
       type: String,
-      enum: ['Strict', 'Lax', 'None' , '']
+      enum: ['Strict', 'Lax', 'None', 'strict', 'lax', 'none', '']
     }
   },
   detection: {
@@ -129,8 +130,8 @@ const cookieSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Índices
-cookieSchema.index({ domainId: 1, name: 1 });
+// Índices - Una cookie es única por dominio y nombre solamente
+cookieSchema.index({ domainId: 1, name: 1 }, { unique: true });
 cookieSchema.index({ category: 1 });
 cookieSchema.index({ status: 1 });
 cookieSchema.index({ 'compliance.iabVendorId': 1 });

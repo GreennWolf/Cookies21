@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useBannerEditor } from './hooks/useBannerEditor';
 import { useAuth } from '../../../contexts/AuthContext';
-import { Save, Eye, Undo, Redo, Monitor, Smartphone, Tablet, ChevronLeft, X, Trash2, Layers, Settings } from 'lucide-react';
+import { Save, Eye, Undo, Redo, Monitor, Smartphone, Tablet, ChevronLeft, X, Trash2, Layers, Settings, Globe } from 'lucide-react';
 // import { cleanupUnusedImages } from '../../../api/bannerTemplate'; // ELIMINADO
 
 // Importamos los componentes existentes que reutilizaremos
@@ -11,6 +11,7 @@ import BannerPropertyPanel from './BannerPropertyPanel';
 import BannerPreview from './BannerPreview';
 import FullScreenPreview from './FullScreenPreview';
 import LayersPanel from './LayersPanel';
+import TranslationConfigPanel from './TranslationConfigPanel';
 
 // Importamos nuestros nuevos componentes
 import CollapsiblePanel from './CollapsiblePanel';
@@ -143,7 +144,14 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
     handleToggleComponentVisibility,
     handleToggleComponentLock,
     handleRenameComponent,
-    handleReorderComponents
+    handleReorderComponents,
+    // Propiedades de traducción
+    isAutoTranslating,
+    translationConfig,
+    updateTranslationConfig,
+    setSourceLanguage,
+    setTargetLanguages,
+    toggleAutoTranslate
   } = useBannerEditor();
 
   // Estado para las mismas propiedades que BannerEditor.jsx
@@ -1466,6 +1474,18 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
               <Eye size={18} />
               <span>Vista previa</span>
             </button>
+            
+            {/* Panel de configuración de traducción */}
+            <div className="relative">
+              <TranslationConfigPanel
+                translationConfig={translationConfig}
+                updateTranslationConfig={updateTranslationConfig}
+                setSourceLanguage={setSourceLanguage}
+                setTargetLanguages={setTargetLanguages}
+                toggleAutoTranslate={toggleAutoTranslate}
+                isAutoTranslating={isAutoTranslating}
+              />
+            </div>
             
             {bannerConfig._id && (
               <button 

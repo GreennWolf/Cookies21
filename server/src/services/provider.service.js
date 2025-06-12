@@ -321,8 +321,8 @@ class ProviderService {
   
   _createUnknownProvider(source) {
     return {
-      name: 'Unknown',
-      category: 'unknown',
+      name: 'Propios',
+      category: 'other',
       domain: (source && source.domain) || (source && source.url) || 'unknown',
       verified: false
     };

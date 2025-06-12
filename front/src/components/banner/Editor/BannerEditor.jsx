@@ -12,6 +12,7 @@ import { exportEmbeddableScript } from '../../../api/bannerTemplate';
 import { useAuth } from '../../../contexts/AuthContext';
 import SimplePanelConfigModal from './SimplePanelConfigModal';
 import LanguageSelector from '../LanguageSelector';
+import TranslationConfigPanel from './TranslationConfigPanel';
 import { useTranslations } from '../../../hooks/useTranslations';
 
 function parseDimension(dim) {
@@ -70,7 +71,14 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
     handleMoveToContainer,
     validateContainerMove,
     getComponentInfo,
-    getComponentHierarchy
+    getComponentHierarchy,
+    isAutoTranslating,
+    // Configuración de traducción
+    translationConfig,
+    updateTranslationConfig,
+    setSourceLanguage,
+    setTargetLanguages,
+    toggleAutoTranslate
   } = useBannerEditor();
 
   const [widthValue, setWidthValue] = useState('');
@@ -545,6 +553,11 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
 
   // Función unificada para actualizar estilo (hijo o principal)
   const handleUpdateStyle = (componentId, style) => {
+    // Solo log para imágenes en contenedores
+    if (isChildComponent(componentId)) {
+      console.log(`🎯 BannerEditor: Actualizando estilo de componente hijo ${componentId}:`, style);
+    }
+    
     // Si el estilo viene con un deviceView como clave, extraerlo
     if (style && typeof style === 'object' && style[deviceView]) {
       style = style[deviceView];
@@ -929,15 +942,29 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
                 </button>
               )}
               
+              {/* Panel de configuración de traducción */}
+              <div className="relative">
+                <TranslationConfigPanel
+                  translationConfig={translationConfig}
+                  updateTranslationConfig={updateTranslationConfig}
+                  setSourceLanguage={setSourceLanguage}
+                  setTargetLanguages={setTargetLanguages}
+                  toggleAutoTranslate={toggleAutoTranslate}
+                  isAutoTranslating={isAutoTranslating}
+                />
+              </div>
+              
               <button 
                 onClick={handleSaveClick}
-                disabled={isSaving || saveInProgressRef.current}
+                disabled={isSaving || saveInProgressRef.current || isAutoTranslating}
                 className={`flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 
-                  ${(isSaving || saveInProgressRef.current) ? 'opacity-70 cursor-not-allowed' : ''}`}
-                title="Guardar"
+                  ${(isSaving || saveInProgressRef.current || isAutoTranslating) ? 'opacity-70 cursor-not-allowed' : ''}`}
+                title={isAutoTranslating ? "Traduciendo..." : "Guardar"}
               >
-                <Save size={16} />
-                <span className="text-sm">{isSaving ? 'Guardando...' : 'Guardar'}</span>
+                {isAutoTranslating ? <Globe size={16} className="animate-spin" /> : <Save size={16} />}
+                <span className="text-sm">
+                  {isAutoTranslating ? 'Traduciendo...' : (isSaving ? 'Guardando...' : 'Guardar')}
+                </span>
               </button>
             </div>
           </div>
@@ -1447,6 +1474,24 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
               </button>
             )}
             
+            {/* Panel de configuración de traducción */}
+            <div className="relative">
+              {/* Botón de prueba temporal */}
+              <button className="flex items-center gap-2 px-3 py-1.5 bg-purple-500 text-white rounded hover:bg-purple-600 text-sm">
+                <Globe size={16} />
+                <span>Traducción TEST</span>
+              </button>
+              
+              {/* <TranslationConfigPanel
+                translationConfig={translationConfig}
+                updateTranslationConfig={updateTranslationConfig}
+                setSourceLanguage={setSourceLanguage}
+                setTargetLanguages={setTargetLanguages}
+                toggleAutoTranslate={toggleAutoTranslate}
+                isAutoTranslating={isAutoTranslating}
+              /> */}
+            </div>
+            
             {/* <button 
                 onClick={handleExportScript}
                 disabled={isSaving || saveInProgressRef.current}
@@ -1460,13 +1505,15 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
             
             <button 
               onClick={handleSaveClick}
-              disabled={isSaving || saveInProgressRef.current}
+              disabled={isSaving || saveInProgressRef.current || isAutoTranslating}
               className={`flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 
-                ${(isSaving || saveInProgressRef.current) ? 'opacity-70 cursor-not-allowed' : ''}`}
-              title="Guardar"
+                ${(isSaving || saveInProgressRef.current || isAutoTranslating) ? 'opacity-70 cursor-not-allowed' : ''}`}
+              title={isAutoTranslating ? "Traduciendo..." : "Guardar"}
             >
-              <Save size={16} />
-              <span className="text-sm">{isSaving ? 'Guardando...' : 'Guardar'}</span>
+              {isAutoTranslating ? <Globe size={16} className="animate-spin" /> : <Save size={16} />}
+              <span className="text-sm">
+                {isAutoTranslating ? 'Traduciendo...' : (isSaving ? 'Guardando...' : 'Guardar')}
+              </span>
             </button>
           </div>
         </div>

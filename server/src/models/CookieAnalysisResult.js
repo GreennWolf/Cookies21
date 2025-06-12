@@ -142,8 +142,8 @@ const cookieAnalysisResultSchema = new mongoose.Schema({
     // Clasificación
     category: {
       type: String,
-      enum: ['necessary', 'functional', 'analytics', 'advertising', 'social', 'performance', 'unknown'],
-      default: 'unknown'
+      enum: ['necessary', 'functional', 'analytics', 'advertising', 'social', 'performance', 'other'],
+      default: 'other'
     },
     isFirstParty: Boolean,
     
@@ -197,7 +197,7 @@ const cookieAnalysisResultSchema = new mongoose.Schema({
     },
     category: {
       type: String,
-      enum: ['analytics', 'advertising', 'social', 'functionality', 'security', 'unknown']
+      enum: ['analytics', 'advertising', 'social', 'functionality', 'security', 'other']
     },
     provider: {
       name: String,

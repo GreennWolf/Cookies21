@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 
-const CreateCookieModal = ({ onClose, onCreated }) => {
+const CreateCookieModal = ({ onClose, onCreated, domainId }) => {
   // Estado para cada campo que deseamos capturar
   const [name, setName] = useState('');
   const [provider, setProvider] = useState('');
@@ -30,10 +30,19 @@ const CreateCookieModal = ({ onClose, onCreated }) => {
   // Manejar el envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validar que tenemos domainId
+    if (!domainId) {
+      console.error('❌ No se proporcionó domainId al CreateCookieModal');
+      alert('Error: No se ha seleccionado un dominio');
+      return;
+    }
+    
     setLoading(true);
     try {
       // Construir el objeto cookie según lo espera el endpoint
       const cookieData = {
+        domainId, // Incluir el domainId
         name,
         provider,
         category,
@@ -278,6 +287,7 @@ const CreateCookieModal = ({ onClose, onCreated }) => {
 CreateCookieModal.propTypes = {
   onClose: PropTypes.func.isRequired,
   onCreated: PropTypes.func.isRequired,
+  domainId: PropTypes.string.isRequired,
 };
 
 export default CreateCookieModal;

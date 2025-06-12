@@ -16,7 +16,7 @@ const AuditSchema = new Schema({
   action: {
     type: String,
     required: true,
-    enum: ['create', 'update', 'delete', 'generate', 'consent', 'view'],
+    enum: ['create', 'update', 'delete', 'generate', 'consent', 'view', 'cancel_subscription', 'reactivate_subscription'],
     index: true
   },
   resourceType: {

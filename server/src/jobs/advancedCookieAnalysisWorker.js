@@ -1,6 +1,6 @@
 const { Bull, isQueueAvailable } = require('../config/bullConfig');
 const logger = require('../utils/logger');
-const CookieAnalysisResult = require('../models/CookieAnalysisResult');
+const CookieAnalysis = require('../models/CookieAnalysis');
 const advancedCookieAnalyzer = require('../services/advancedCookieAnalyzer.service');
 
 // Función opcional de notificación
@@ -46,7 +46,7 @@ if (Bull && isQueueAvailable()) {
         await job.progress(5);
         
         // Obtener análisis de la base de datos
-        const analysis = await CookieAnalysisResult.findById(analysisId);
+        const analysis = await CookieAnalysis.findOne({ analysisId });
         if (!analysis) {
           throw new Error('Analysis not found in database');
         }
@@ -91,7 +91,7 @@ if (Bull && isQueueAvailable()) {
         
         // Actualizar estado de error en la base de datos
         try {
-          const analysis = await CookieAnalysisResult.findById(analysisId);
+          const analysis = await CookieAnalysis.findOne({ analysisId });
           if (analysis) {
             analysis.status = 'failed';
             analysis.progress.currentStep = `Error: ${error.message}`;

@@ -296,7 +296,7 @@ cookieScanSchema.methods = {
   calculateCategoryStats(cookies) {
     const categories = {};
     cookies.forEach(cookie => {
-      categories[cookie.category || 'unknown'] = (categories[cookie.category || 'unknown'] || 0) + 1;
+      categories[cookie.category || 'other'] = (categories[cookie.category || 'other'] || 0) + 1;
     });
 
     return Object.entries(categories).map(([category, count]) => ({
@@ -309,7 +309,7 @@ cookieScanSchema.methods = {
   calculateProviderStats(cookies) {
     const providers = {};
     cookies.forEach(cookie => {
-      const provider = cookie.provider || 'unknown';
+      const provider = cookie.provider || 'Other';
       if (!providers[provider]) {
         providers[provider] = {
           count: 0,

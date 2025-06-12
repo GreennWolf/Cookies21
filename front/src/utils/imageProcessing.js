@@ -28,7 +28,204 @@ export const ImagePlaceholders = {
 };
 
 /**
- * Función centralizada para obtener URL de imagen con múltiples estrategias de fallback
+ * Verifica si una imagen es temporal (recién subida)
+ * @param {Object} component - Componente de imagen
+ * @param {string} deviceView - Vista del dispositivo
+ * @returns {boolean} true si es temporal, false si es del servidor
+ */
+const isTemporaryImage = (component, deviceView = 'desktop') => {
+  const deviceStyle = component.style?.[deviceView];
+  
+  // Si hay _previewUrl diferente a content, es temporal
+  if (deviceStyle?._previewUrl && deviceStyle._previewUrl !== component.content) {
+    return true;
+  }
+  
+  // Si content es una referencia temporal
+  if (typeof component.content === 'string' && component.content.startsWith('__IMAGE_REF__')) {
+    return true;
+  }
+  
+  return false;
+};
+
+/**
+ * Obtiene URL para imagen temporal
+ * @param {Object} component - Componente de imagen
+ * @param {string} deviceView - Vista del dispositivo
+ * @param {string} context - Contexto de uso
+ * @returns {string|null} URL temporal o null si no se encuentra
+ */
+const getTemporaryImageUrl = (component, deviceView, context) => {
+  const deviceStyle = component.style?.[deviceView];
+  
+  // 1. Usar _previewUrl si existe y es diferente de content
+  if (deviceStyle?._previewUrl && deviceStyle._previewUrl !== component.content) {
+    console.log(`✓ ${context}: Imagen temporal usando _previewUrl: ${deviceStyle._previewUrl}`);
+    return deviceStyle._previewUrl;
+  }
+  
+  // 2. Si content es referencia temporal, buscar archivo
+  if (typeof component.content === 'string' && component.content.startsWith('__IMAGE_REF__')) {
+    // Buscar en gestor optimizado
+    const tempFileData = imageMemoryManager.getTempFile(component.content);
+    console.log(`🔍 getTemporaryImageUrl: Buscando en imageMemoryManager para ${component.content}:`, {
+      tempFileData: !!tempFileData,
+      hasFile: !!(tempFileData && tempFileData.file),
+      componentContent: component.content
+    });
+    
+    if (tempFileData && tempFileData.file) {
+      const objectUrl = imageMemoryManager.createObjectURL(tempFileData.file);
+      if (objectUrl) {
+        console.log(`✓ ${context}: Imagen temporal usando ObjectURL optimizado:`, objectUrl);
+        return objectUrl;
+      }
+    }
+    
+    // Fallback sistema anterior
+    console.log(`🔍 getTemporaryImageUrl: Buscando en window._imageFiles:`, {
+      hasWindow_imageFiles: !!(window._imageFiles),
+      hasReference: !!(window._imageFiles && window._imageFiles[component.content]),
+      availableKeys: window._imageFiles ? Object.keys(window._imageFiles) : [],
+      searchingFor: component.content
+    });
+    
+    if (window._imageFiles && window._imageFiles[component.content]) {
+      const file = window._imageFiles[component.content];
+      const objectUrl = imageMemoryManager.createObjectURL(file);
+      if (objectUrl) {
+        console.log(`✓ ${context}: Imagen temporal usando ObjectURL (compatibilidad):`, objectUrl);
+        return objectUrl;
+      }
+    }
+    
+    console.log(`⚠️ ${context}: Imagen temporal no encontrada, usando placeholder`);
+    return ImagePlaceholders.loading;
+  }
+  
+  return null;
+};
+
+/**
+ * Obtiene URL para imagen del servidor
+ * @param {Object} component - Componente de imagen
+ * @param {string} context - Contexto de uso
+ * @returns {string} URL del servidor
+ */
+const getServerImageUrl = (component, context) => {
+  const cacheBuster = `?t=${Date.now()}`;
+  
+  // Debug específico para componentes hijos
+  if (component.parentId && component.type === 'image') {
+    console.log(`🌐 getServerImageUrl (HIJO ${component.id}):`, {
+      content: component.content,
+      contentType: typeof component.content,
+      context,
+      hasContent: !!component.content
+    });
+  }
+  
+  if (typeof component.content === 'string') {
+    // Data URI
+    if (component.content.startsWith('data:')) {
+      console.log(`✓ ${context}: Imagen servidor usando data URI`);
+      return component.content;
+    }
+    
+    // Blob URL
+    if (component.content.startsWith('blob:')) {
+      console.log(`✓ ${context}: Imagen servidor usando blob URL`);
+      return component.content;
+    }
+    
+    // URLs http/https
+    if (component.content.startsWith('http://') || component.content.startsWith('https://')) {
+      console.log(`✓ ${context}: Imagen servidor usando HTTP URL`);
+      return component.content;
+    }
+    
+    // Rutas /templates/images/
+    if (component.content.includes('/templates/images/')) {
+      const parts = component.content.split('/templates/images/');
+      if (parts.length === 2) {
+        const relativePath = parts[1].split('?')[0];
+        const baseUrl = window.location.origin;
+        const fullUrl = `${baseUrl}/templates/images/${relativePath}${cacheBuster}`;
+        console.log(`✓ ${context}: Imagen servidor usando template: ${fullUrl}`);
+        return fullUrl;
+      }
+    }
+    
+    // Rutas /direct-image/
+    if (component.content.includes('/direct-image/')) {
+      const parts = component.content.split('/direct-image/');
+      if (parts.length === 2) {
+        const relativePath = parts[1].split('?')[0];
+        const baseUrl = window.location.origin;
+        const fullUrl = `${baseUrl}/direct-image/${relativePath}${cacheBuster}`;
+        console.log(`✓ ${context}: Imagen servidor usando direct-image: ${fullUrl}`);
+        return fullUrl;
+      }
+    }
+    
+    // Otras rutas relativas
+    if (component.content.startsWith('/')) {
+      const fullUrl = `${window.location.origin}${component.content}${component.content.includes('?') ? '&cb=' + Date.now() : cacheBuster}`;
+      console.log(`✓ ${context}: Imagen servidor usando ruta relativa: ${fullUrl}`);
+      return fullUrl;
+    }
+  }
+  
+  // Objeto con URL
+  if (component.content && typeof component.content === 'object') {
+    if (component.content.url) {
+      if (component.content.url.startsWith('/')) {
+        const serverUrl = window.location.origin;
+        return `${serverUrl}${component.content.url}${cacheBuster}`;
+      }
+      return component.content.url;
+    }
+    
+    // Textos multilingual
+    if (component.content.texts && typeof component.content.texts === 'object') {
+      // Intentar inglés primero
+      if (component.content.texts.en) {
+        const enText = component.content.texts.en;
+        if (typeof enText === 'string') {
+          if (enText.startsWith('/')) {
+            const serverUrl = window.location.origin;
+            return `${serverUrl}${enText}${cacheBuster}`;
+          }
+          if (enText.startsWith('http') || enText.startsWith('data:') || enText.startsWith('blob:')) {
+            return enText;
+          }
+        }
+      }
+      
+      // Usar primer idioma disponible
+      for (const lang in component.content.texts) {
+        if (lang === 'en') continue;
+        const text = component.content.texts[lang];
+        if (typeof text === 'string') {
+          if (text.startsWith('/')) {
+            const serverUrl = window.location.origin;
+            return `${serverUrl}${text}${cacheBuster}`;
+          }
+          if (text.startsWith('http') || text.startsWith('data:') || text.startsWith('blob:')) {
+            return text;
+          }
+        }
+      }
+    }
+  }
+  
+  console.log(`⚠️ ${context}: No se pudo procesar imagen del servidor, usando placeholder`);
+  return ImagePlaceholders.default;
+};
+
+/**
+ * Función centralizada para obtener URL de imagen con separación clara temporal vs servidor
  * @param {Object} component - Componente que contiene la imagen
  * @param {string} deviceView - Vista actual (desktop, tablet, mobile)
  * @param {string} context - Contexto de uso (preview, thumbnail, config)
@@ -36,171 +233,44 @@ export const ImagePlaceholders = {
  */
 export const getImageUrl = (component, deviceView = 'desktop', context = 'preview') => {
   try {
-    // CASO 0: Añadir cache-busting para evitar problemas de caché
-    const cacheBuster = `?t=${Date.now()}`;
+    // Debug específico para componentes hijos O cuando hay problemas
+    const shouldDebug = (component.parentId && component.type === 'image') || 
+                       (component.content && component.content.startsWith('__IMAGE_REF__'));
     
-    // CASO 1: Si hay una URL de previsualización en el estilo, usar esa directamente
-    const deviceStyle = component.style?.[deviceView];
-    if (deviceStyle?._previewUrl) {
-      // Para blob URLs no añadir parámetros
-      if (deviceStyle._previewUrl.startsWith('blob:')) {
-        console.log(`✓ ${context}: Usando URL de preview (blob): ${deviceStyle._previewUrl}`);
-        return deviceStyle._previewUrl;
-      }
-      // Para otras URLs añadir cache busting
-      const url = deviceStyle._previewUrl + (deviceStyle._previewUrl.includes('?') ? '&cb=' + Date.now() : cacheBuster);
-      console.log(`✓ ${context}: Usando URL de preview: ${url}`);
-      return url;
-    }
-    
-    // CASO 2: Si es una referencia temporal, usar URL temporal u ObjectURL
-    if (typeof component.content === 'string' && component.content.startsWith('__IMAGE_REF__')) {
-      // Verificar si hay una imagen temporal en memoria global
-      const tempFileData = imageMemoryManager.getTempFile(component.content);
-      if (tempFileData && tempFileData.file) {
-        const objectUrl = imageMemoryManager.createObjectURL(tempFileData.file);
-        if (objectUrl) {
-          console.log(`✓ ${context}: ObjectURL creado con gestión optimizada de memoria`);
-          return objectUrl;
-        }
-      }
-      
-      // Fallback al sistema anterior por compatibilidad
-      if (window._imageFiles && window._imageFiles[component.content]) {
-        const file = window._imageFiles[component.content];
-        const objectUrl = imageMemoryManager.createObjectURL(file);
-        if (objectUrl) {
-          console.log(`✓ ${context}: ObjectURL creado (compatibilidad) para imagen temporal`);
-          return objectUrl;
-        }
-      }
-      // Imagen de carga mientras se procesa
-      return ImagePlaceholders.loading;
-    }
-    
-    // CASO 3: Imágenes Data URI
-    if (typeof component.content === 'string' && component.content.startsWith('data:')) {
-      return component.content;
-    }
-    
-    // CASO 4: Imágenes Blob URL
-    if (typeof component.content === 'string' && component.content.startsWith('blob:')) {
-      return component.content;
-    }
-    
-    // CASO 5: Rutas /direct-image/
-    if (typeof component.content === 'string' && component.content.includes('/direct-image/')) {
-      // Extraer el path relativo
-      const parts = component.content.split('/direct-image/');
-      if (parts.length === 2) {
-        const relativePath = parts[1].split('?')[0]; // Eliminar parámetros de consulta
-        
-        // Usar URL absoluta con servidor actual
-        const baseUrl = window.location.origin;
-        const fullUrl = `${baseUrl}/direct-image/${relativePath}${cacheBuster}`;
-        return fullUrl;
-      }
-    }
-    
-    // CASO 6: Rutas /templates/images/
-    if (typeof component.content === 'string' && component.content.includes('/templates/images/')) {
-      // Extraer el path relativo
-      const parts = component.content.split('/templates/images/');
-      if (parts.length === 2) {
-        const relativePath = parts[1].split('?')[0]; // Eliminar parámetros de consulta
-        
-        // Usar URL absoluta con servidor actual
-        const baseUrl = window.location.origin;
-        const fullUrl = `${baseUrl}/templates/images/${relativePath}${cacheBuster}`;
-        console.log(`✓ ${context}: URL de template construida: ${fullUrl}`);
-        return fullUrl;
-      }
-    }
-    
-    // CASO 6.5: Rutas que ya incluyen el dominio completo con /templates/images/
-    if (typeof component.content === 'string' && component.content.startsWith('http') && component.content.includes('/templates/images/')) {
-      // Si ya es una URL completa, solo añadir cache busting si no lo tiene
-      if (!component.content.includes('?t=')) {
-        return component.content + cacheBuster;
-      }
-      return component.content;
-    }
-    
-    // CASO 7: Otras rutas relativas
-    if (typeof component.content === 'string' && component.content.startsWith('/')) {
-      const fullUrl = `${window.location.origin}${component.content}${component.content.includes('?') ? '&cb=' + Date.now() : cacheBuster}`;
-      return fullUrl;
-    }
-    
-    // CASO 8: URLs http/https
-    if (typeof component.content === 'string' && 
-        (component.content.startsWith('http://') || component.content.startsWith('https://'))) {
-      return component.content;
-    }
-    
-    // CASO 9: Objeto con URL o texto
-    if (component.content && typeof component.content === 'object') {
-      // Objeto con propiedad URL
-      if (component.content.url) {
-        if (component.content.url.startsWith('/')) {
-          const serverUrl = window.location.origin;
-          return `${serverUrl}${component.content.url}${cacheBuster}`;
-        }
-        return component.content.url;
-      }
-      
-      // Objeto con textos multilingual
-      if (component.content.texts && typeof component.content.texts === 'object') {
-        // Intentar primero inglés
-        if (component.content.texts.en) {
-          const enText = component.content.texts.en;
-          if (typeof enText === 'string') {
-            // Si es una URL relativa, convertirla a absoluta
-            if (enText.startsWith('/')) {
-              const serverUrl = window.location.origin;
-              return `${serverUrl}${enText}${cacheBuster}`;
-            }
-            // Si es URL http/https o data URI, usarla directo
-            if (enText.startsWith('http') || enText.startsWith('data:') || enText.startsWith('blob:')) {
-              return enText;
-            }
-          }
-        }
-        
-        // Si no hay texto en inglés, usar el primer texto disponible
-        for (const lang in component.content.texts) {
-          if (lang === 'en') continue;
-          
-          const text = component.content.texts[lang];
-          if (typeof text === 'string') {
-            // Si es una URL relativa, convertirla a absoluta
-            if (text.startsWith('/')) {
-              const serverUrl = window.location.origin;
-              return `${serverUrl}${text}${cacheBuster}`;
-            }
-            // Si es URL http/https o data URI, usarla directo
-            if (text.startsWith('http') || text.startsWith('data:') || text.startsWith('blob:')) {
-              return text;
-            }
-          }
-        }
-      }
-    }
-    
-    // CASO 10: Debug - mostrar qué estamos recibiendo cuando no podemos procesar
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(`⚠️ ${context}: No se pudo procesar el contenido de imagen:`, {
-        componentId: component.id,
-        contentType: typeof component.content,
+    if (shouldDebug) {
+      console.log(`🔍 getImageUrl: ${component.id}`, {
         content: component.content,
-        hasStyle: !!component.style,
-        deviceView
+        deviceStyle: component.style?.[deviceView],
+        isTemporary: isTemporaryImage(component, deviceView),
+        context,
+        isChild: !!component.parentId
       });
     }
     
-    // CASO 11: Fallback - usar placeholder
-    console.log(`🖼️ ${context}: Usando placeholder por defecto para componente`, component.id);
-    return ImagePlaceholders.default;
+    // SEPARACIÓN CLARA: ¿Es imagen temporal o del servidor?
+    if (isTemporaryImage(component, deviceView)) {
+      const tempUrl = getTemporaryImageUrl(component, deviceView, context);
+      // Para thumbnails, si la imagen temporal falla, usar placeholder en lugar de servidor
+      if (!tempUrl || tempUrl === ImagePlaceholders.loading) {
+        return context === 'thumbnail' ? ImagePlaceholders.editor : ImagePlaceholders.loading;
+      }
+      
+      // Debug log para componentes hijos que obtuvieron URL temporal
+      if (component.parentId && component.type === 'image') {
+        console.log(`✅ getImageUrl (HIJO): URL temporal obtenida: ${tempUrl}`);
+      }
+      
+      return tempUrl;
+    } else {
+      const serverUrl = getServerImageUrl(component, context);
+      
+      // Debug log para componentes hijos usando servidor
+      if (component.parentId && component.type === 'image') {
+        console.log(`🌐 getImageUrl (HIJO): URL servidor: ${serverUrl}`);
+      }
+      
+      return serverUrl;
+    }
   } catch (error) {
     console.error(`❌ ${context}: Error al procesar URL de imagen:`, error);
     return ImagePlaceholders.error;

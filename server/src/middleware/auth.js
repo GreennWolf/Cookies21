@@ -88,12 +88,14 @@ exports.protect = catchAsync(async (req, res, next) => {
   
   // 5) Todo ok, guardar info en req
   req.userId = userId || clientId;
-  req.clientId = clientId;
+  // Para usuarios normales (no owner), usar su clientId asociado
+  const finalClientId = userType === 'user' ? user.clientId : clientId;
+  req.clientId = finalClientId ? String(finalClientId) : finalClientId;
   req.userType = userType;
   req.user = user;
   
   // Debugging info
-  console.log('Auth middleware set clientId:', clientId, 'type:', typeof clientId);
+  console.log('Auth middleware set clientId:', req.clientId, 'type:', typeof req.clientId);
   
   next();
 });

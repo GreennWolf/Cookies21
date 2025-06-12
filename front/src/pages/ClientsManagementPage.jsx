@@ -9,6 +9,7 @@ import {
 } from '../api/client';
 import { createDomain, setDomainDefaultTemplate } from '../api/domain';
 import { createTemplate, getTemplate, cloneTemplate } from '../api/bannerTemplate';
+import { renewalNotificationManager } from '../utils/renewalNotifications';
 import ClientList from '../components/client/ClientList';
 import ClientDetailsModal from '../components/client/ClientDetailsModal';
 import CreateClientModal from '../components/client/CreateClientModal';
@@ -18,24 +19,79 @@ const ClientsManagementPage = () => {
   const [selectedClient, setSelectedClient] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [planFilter, setPlanFilter] = useState('');
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 0 });
+  
+  // Cargar filtros desde localStorage o usar valores por defecto
+  const [searchTerm, setSearchTerm] = useState(() => {
+    return localStorage.getItem('clientsFilters.searchTerm') || '';
+  });
+  const [statusFilter, setStatusFilter] = useState(() => {
+    return localStorage.getItem('clientsFilters.statusFilter') || '';
+  });
+  const [planFilter, setPlanFilter] = useState(() => {
+    return localStorage.getItem('clientsFilters.planFilter') || '';
+  });
+  const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState(() => {
+    return localStorage.getItem('clientsFilters.subscriptionStatusFilter') || '';
+  });
+
+  // Funciones para actualizar filtros y guardar en localStorage
+  const updateSearchTerm = (value) => {
+    setSearchTerm(value);
+    localStorage.setItem('clientsFilters.searchTerm', value);
+  };
+
+  const updateStatusFilter = (value) => {
+    setStatusFilter(value);
+    localStorage.setItem('clientsFilters.statusFilter', value);
+  };
+
+  const updatePlanFilter = (value) => {
+    setPlanFilter(value);
+    localStorage.setItem('clientsFilters.planFilter', value);
+  };
+
+  const updateSubscriptionStatusFilter = (value) => {
+    setSubscriptionStatusFilter(value);
+    localStorage.setItem('clientsFilters.subscriptionStatusFilter', value);
+  };
 
   useEffect(() => {
     fetchClients();
-  }, [statusFilter, planFilter]);
+  }, [statusFilter, planFilter, subscriptionStatusFilter]);
+
+  // Suscribirse a notificaciones de renovación para actualizar la lista
+  useEffect(() => {
+    const unsubscribe = renewalNotificationManager.subscribe(() => {
+      fetchClients();
+    });
+    
+    return () => unsubscribe();
+  }, []);
+
+  // useEffect separado para la búsqueda con debounce
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchClients();
+    }, 500); // Debounce de 500ms para el término de búsqueda
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
 
   const fetchClients = async () => {
     setIsLoading(true);
     try {
-      const params = {};
+      const params = {
+        limit: 100 // Obtener hasta 100 clientes por página
+      };
       if (searchTerm) params.search = searchTerm;
       if (statusFilter) params.status = statusFilter;
       if (planFilter) params.plan = planFilter;
+      if (subscriptionStatusFilter) params.subscriptionStatus = subscriptionStatusFilter;
 
       const response = await getClients(params);
       setClients(response.data.clients);
+      setPagination(response.data.pagination || { total: response.data.clients?.length || 0, totalPages: 1 });
     } catch (error) {
       toast.error(error.message || 'Error al cargar clientes');
     } finally {
@@ -1264,7 +1320,14 @@ const ClientsManagementPage = () => {
       await toggleClientStatus(clientId, newStatus);
       toast.success(`Estado del cliente cambiado a ${newStatus === 'active' ? 'activo' : 'inactivo'}`);
       
-      // Actualizar el cliente en la lista y en el estado de detalles
+      // Refrescar la lista completa para obtener datos actualizados del servidor
+      setTimeout(() => {
+        fetchClients();
+        // Notificar a otros componentes sobre el cambio
+        renewalNotificationManager.onSubscriptionReactivated();
+      }, 1500); // Delay para permitir que el backend procese las solicitudes pendientes
+      
+      // Actualización optimista inmediata
       const updatedClients = clients.map(client => 
         client._id === clientId ? { ...client, status: newStatus } : client
       );
@@ -1279,12 +1342,42 @@ const ClientsManagementPage = () => {
   };
 
   const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
+    updateSearchTerm(e.target.value);
   };
 
   const handleSearch = (e) => {
     e.preventDefault();
     fetchClients();
+  };
+
+  const handleClearFilters = () => {
+    updateSearchTerm('');
+    updateStatusFilter('');
+    updatePlanFilter('');
+    fetchClients();
+  };
+
+  // Verificar si hay filtros activos
+  const hasActiveFilters = searchTerm || statusFilter || planFilter;
+
+  // Funciones utilitarias para etiquetas
+  const getStatusLabel = (status) => {
+    const statusLabels = {
+      active: 'Activos',
+      inactive: 'Inactivos',
+      suspended: 'Suspendidos'
+    };
+    return statusLabels[status] || status;
+  };
+
+  const getPlanLabel = (plan) => {
+    const planLabels = {
+      basic: 'Básico',
+      standard: 'Estándar',
+      premium: 'Premium',
+      enterprise: 'Empresarial'
+    };
+    return planLabels[plan] || plan;
   };
 
   return (
@@ -1300,8 +1393,8 @@ const ClientsManagementPage = () => {
       </div>
 
       <div className="mb-6 bg-white p-4 rounded shadow">
-        <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="col-span-2">
+        <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="col-span-1 md:col-span-2">
             <input
               type="text"
               placeholder="Buscar por nombre o email..."
@@ -1313,10 +1406,10 @@ const ClientsManagementPage = () => {
           <div>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => updateStatusFilter(e.target.value)}
               className="w-full border p-2 rounded"
             >
-              <option value="">Todos los estados</option>
+              <option value="">Estado del cliente</option>
               <option value="active">Activos</option>
               <option value="inactive">Inactivos</option>
               <option value="suspended">Suspendidos</option>
@@ -1325,7 +1418,7 @@ const ClientsManagementPage = () => {
           <div>
             <select
               value={planFilter}
-              onChange={(e) => setPlanFilter(e.target.value)}
+              onChange={(e) => updatePlanFilter(e.target.value)}
               className="w-full border p-2 rounded"
             >
               <option value="">Todos los planes</option>
@@ -1335,16 +1428,48 @@ const ClientsManagementPage = () => {
               <option value="enterprise">Empresarial</option>
             </select>
           </div>
-          <div className="col-span-1 md:col-span-4">
+          <div>
+            <select
+              value={subscriptionStatusFilter}
+              onChange={(e) => updateSubscriptionStatusFilter(e.target.value)}
+              className="w-full border p-2 rounded"
+            >
+              <option value="">Estado suscripción</option>
+              <option value="active">Suscripción activa</option>
+              <option value="inactive">Suscripción inactiva</option>
+              <option value="pending_renewal">Renovación pendiente</option>
+            </select>
+          </div>
+          <div className="col-span-1 md:col-span-5 flex gap-2">
             <button
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
             >
               Buscar
             </button>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition"
+              >
+                Limpiar Filtros
+              </button>
+            )}
           </div>
         </form>
       </div>
+
+      {/* Información de resultados */}
+      {!isLoading && (
+        <div className="mb-4 text-sm text-gray-600">
+          {clients.length === 0 ? (
+            "No se encontraron clientes con los filtros aplicados"
+          ) : (
+            `Mostrando ${clients.length} cliente${clients.length !== 1 ? 's' : ''} ${pagination.total > clients.length ? `de ${pagination.total} totales` : ''}`
+          )}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center items-center h-64">

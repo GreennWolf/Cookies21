@@ -2,11 +2,15 @@
 const cron = require('node-cron');
 const analyticsSyncService = require('../services/analyticsSyncService');
 const imageProcessorService = require('../services/imageProcessor.service');
+const domainAnalysisScheduler = require('./domainAnalysisScheduler');
 const logger = require('../utils/logger');
 
 // Configurar job diario para sincronizar analytics a las 2am
-const setupScheduledJobs = () => {
+const setupScheduledJobs = async () => {
   logger.info('Configurando tareas programadas...');
+  
+  // Inicializar el programador de análisis de dominios
+  await domainAnalysisScheduler.initialize();
   
   // Sincronización diaria de analytics
   cron.schedule('0 2 * * *', async () => {
@@ -37,4 +41,4 @@ const setupScheduledJobs = () => {
   logger.info('Tareas programadas configuradas correctamente');
 };
 
-module.exports = { setupScheduledJobs };
+module.exports = { setupScheduledJobs, domainAnalysisScheduler };

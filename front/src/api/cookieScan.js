@@ -102,6 +102,23 @@ export const getScanHistory = async (domainId, params = {}) => {
 };
 
 /**
+ * Obtiene el historial de análisis avanzados para un dominio.
+ * @param {string} domainId - ID del dominio.
+ * @param {object} [params={}] - Parámetros de consulta (por ejemplo, status, page, limit).
+ * @returns {object} Datos del historial de análisis avanzados.
+ */
+export const getAnalysisHistory = async (domainId, params = {}) => {
+  try {
+    const response = await apiClient.get(`/api/v1/cookie-scan/domain/${domainId}/analysis-history`, { params });
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || 'Error fetching analysis history'
+    );
+  }
+};
+
+/**
  * Cancela un escaneo en curso.
  * @param {string} scanId - ID del escaneo.
  * @returns {object} Respuesta del servidor al cancelar el escaneo.
@@ -145,6 +162,22 @@ export const getScanResults = async (scanId) => {
   } catch (error) {
     throw new Error(
       error.response?.data?.message || 'Error fetching scan results'
+    );
+  }
+};
+
+/**
+ * Obtiene los resultados del análisis avanzado.
+ * @param {string} analysisId - ID del análisis.
+ * @returns {object} Datos de los resultados del análisis.
+ */
+export const getAnalysisResults = async (analysisId) => {
+  try {
+    const response = await apiClient.get(`/api/v1/cookie-scan/analysis/${analysisId}/results`);
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || 'Error fetching analysis results'
     );
   }
 };

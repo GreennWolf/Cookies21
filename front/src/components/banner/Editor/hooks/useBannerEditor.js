@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import apiClient from '../../../../utils/apiClient';
 import {createTemplate, updateTemplate} from '../../../../api/bannerTemplate';
 import {getClients} from '../../../../api/client';
+import { translateText } from '../../../../api/translation';
 import { validateChildSize, validateChildPosition, validateContainerChildren } from '../../../../utils/containerBoundsValidator';
 import { BannerConfigHelper } from '../../../../utils/bannerConfigHelper';
 import imageMemoryManager from '../../../../utils/imageMemoryManager';
@@ -310,6 +311,18 @@ export function useBannerEditor() {
   const [showPreview, setShowPreview] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState(null);
+  const [isAutoTranslating, setIsAutoTranslating] = useState(false);
+  
+  // Configuración de traducción
+  const [translationConfig, setTranslationConfig] = useState(() => {
+    const initialConfig = {
+      sourceLanguage: 'en', // Idioma origen seleccionable
+      targetLanguages: ['es', 'fr', 'de', 'it', 'pt'], // Idiomas destino
+      autoTranslateOnSave: true // Si auto-traducir al guardar
+    };
+    console.log('🌐 Estado inicial de translationConfig:', initialConfig);
+    return initialConfig;
+  });
 
   // Función para generar posición del botón de preferencias según configuración del banner
   const getPreferencesButtonPosition = useCallback((layout, device = 'desktop') => {
@@ -2400,6 +2413,7 @@ export function useBannerEditor() {
   // NUEVO: Actualizar contenido de componente hijo
   const updateChildContent = useCallback((componentId, content) => {
     console.log(`📝 CHILD: updateChildContent llamado para ${componentId}:`, content);
+    console.log(`📝 CHILD: Tipo de contenido:`, typeof content);
     
     // DEBUG: Log detallado para rastrear el problema de imágenes
     if (typeof content === 'string' && content.startsWith('__IMAGE_REF__')) {
@@ -3273,6 +3287,231 @@ export function useBannerEditor() {
     }
   };
 
+  // Auto-traducción de componentes con configuración personalizada
+  const autoTranslateComponentsWithConfig = async (components, config) => {
+    const { sourceLanguage, targetLanguages, autoTranslateOnSave } = config;
+    
+    console.log('🔍 autoTranslateComponents - Configuración recibida:', {
+      sourceLanguage,
+      targetLanguages, 
+      autoTranslateOnSave,
+      translationConfig
+    });
+    
+    console.log('🔍 autoTranslateComponents - Componentes a procesar:', components?.length || 0);
+    components?.forEach((comp, index) => {
+      console.log(`  [${index}] ${comp.type} (${comp.id}):`, comp.content);
+    });
+    
+    // Si la auto-traducción está desactivada, devolver componentes sin cambios
+    if (!autoTranslateOnSave) {
+      console.log('⏭️ Auto-traducción desactivada, saltando...');
+      return components;
+    }
+    
+    console.log('🌍 Iniciando auto-traducción de componentes...');
+    
+    const translateComponentsRecursively = async (componentsArray) => {
+      const translatedComponents = [];
+      
+      for (const component of componentsArray) {
+        const translatedComponent = { ...component };
+        
+        // Procesar componentes de texto y botón con contenido traducible
+        const isTextOrButton = component.type === 'text' || component.type === 'button';
+        const hasTranslatableContent = component.content && (
+          (typeof component.content === 'object' && component.content.translatable) ||
+          (typeof component.content === 'object' && component.content.texts) ||
+          (typeof component.content === 'string' && isTextOrButton)
+        );
+        
+        console.log(`🔍 Analizando componente ${component.id}:`, {
+          type: component.type,
+          isTextOrButton,
+          contentType: typeof component.content,
+          content: component.content,
+          hasTranslatableContent
+        });
+        
+        if (hasTranslatableContent && isTextOrButton) {
+          console.log(`🔄 Procesando componente traducible: ${component.id} (tipo: ${component.type})`);
+          
+          // Obtener el texto en el idioma origen configurado
+          let sourceText = '';
+          if (typeof component.content === 'string') {
+            sourceText = component.content;
+          } else if (typeof component.content === 'object') {
+            sourceText = component.content.texts?.[sourceLanguage] || 
+                        component.content.text || 
+                        component.content.texts?.en || // Fallback a inglés
+                        '';
+          }
+          
+          if (sourceText && sourceText.trim()) {
+            // Verificar qué idiomas necesitan traducción
+            const existingTexts = (typeof component.content === 'object' && component.content.texts) 
+              ? component.content.texts 
+              : {};
+            const textsToTranslate = [];
+            
+            for (const targetLang of targetLanguages) {
+              // No traducir al mismo idioma origen
+              if (targetLang === sourceLanguage) {
+                continue;
+              }
+              
+              // Solo traducir si no existe o está vacío
+              if (!existingTexts[targetLang] || existingTexts[targetLang].trim() === '') {
+                textsToTranslate.push(targetLang);
+              } else {
+                console.log(`⏭️ Saltando ${targetLang} para "${sourceText}" - ya existe: "${existingTexts[targetLang]}"`);
+              }
+            }
+            
+            if (textsToTranslate.length > 0) {
+              console.log(`📝 Traduciendo "${sourceText}" desde ${sourceLanguage} a: [${textsToTranslate.join(', ')}]`);
+              
+              // Traducir a cada idioma necesario
+              const translations = {};
+              
+              for (const targetLang of textsToTranslate) {
+                try {
+                  console.log(`🌐 Traduciendo "${sourceText}" de ${sourceLanguage} a ${targetLang}...`);
+                  const translationResponse = await translateText(sourceText, targetLang, sourceLanguage);
+                  
+                  console.log(`🔍 Respuesta de traducción ${sourceLanguage} → ${targetLang}:`, translationResponse);
+                  
+                  if (translationResponse.success && translationResponse.data.translatedText) {
+                    translations[targetLang] = translationResponse.data.translatedText;
+                    console.log(`✅ ${sourceLanguage} → ${targetLang}: "${sourceText}" → "${translations[targetLang]}"`);
+                  } else {
+                    console.warn(`⚠️ Error en traducción ${sourceLanguage} → ${targetLang}:`, translationResponse);
+                    translations[targetLang] = sourceText; // Fallback al texto original
+                  }
+                } catch (error) {
+                  console.error(`❌ Error traduciendo a ${targetLang}:`, error);
+                  console.error(`❌ Error details:`, error.message, error.response?.data);
+                  translations[targetLang] = sourceText; // Fallback al texto original
+                }
+              }
+              
+              // Actualizar el contenido con las nuevas traducciones
+              if (typeof component.content === 'string') {
+                // Convertir string simple a formato de traducción
+                translatedComponent.content = {
+                  texts: {
+                    [sourceLanguage]: sourceText, // Guardar el texto original
+                    ...existingTexts, // Mantener traducciones existentes
+                    ...translations   // Agregar nuevas traducciones
+                  },
+                  translatable: true
+                };
+              } else {
+                // Actualizar objeto existente
+                translatedComponent.content = {
+                  ...component.content,
+                  texts: {
+                    [sourceLanguage]: sourceText, // Asegurar que el idioma origen esté incluido
+                    ...existingTexts, // Mantener traducciones existentes
+                    ...translations   // Agregar nuevas traducciones
+                  }
+                };
+              }
+              
+              console.log(`✅ Componente ${component.id} traducido:`, translatedComponent.content.texts);
+            }
+          } else {
+            console.log(`⏭️ Saltando componente ${component.id} - sin texto en ${sourceLanguage}`);
+          }
+        }
+        
+        // Procesar componentes hijos recursivamente
+        if (component.children && Array.isArray(component.children)) {
+          translatedComponent.children = await translateComponentsRecursively(component.children);
+        }
+        
+        translatedComponents.push(translatedComponent);
+      }
+      
+      return translatedComponents;
+    };
+    
+    const result = await translateComponentsRecursively(components);
+    console.log('🎉 Auto-traducción completada');
+    return result;
+  };
+
+  // Auto-traducción de componentes (versión original que usa el estado actual)
+  const autoTranslateComponents = async (components) => {
+    return await autoTranslateComponentsWithConfig(components, translationConfig);
+  };
+
+  // Funciones para gestionar configuración de traducción
+  const updateTranslationConfig = useCallback((newConfig) => {
+    console.log('🔄 Actualizando translationConfig:', newConfig);
+    setTranslationConfig(prev => {
+      const updated = {
+        ...prev,
+        ...newConfig
+      };
+      console.log('🔄 Nueva translationConfig:', updated);
+      return updated;
+    });
+  }, []);
+
+  const setSourceLanguage = useCallback((language) => {
+    console.log('🔄 setSourceLanguage llamado con:', language);
+    setTranslationConfig(prev => {
+      const newConfig = {
+        ...prev,
+        sourceLanguage: language
+      };
+      console.log('🔄 setSourceLanguage - nueva config:', newConfig);
+      
+      // Guardar también en localStorage para asegurar persistencia
+      localStorage.setItem('pendingTranslationConfig', JSON.stringify(newConfig));
+      console.log('💾 Guardando sourceLanguage en localStorage:', newConfig);
+      
+      return newConfig;
+    });
+  }, []);
+
+  const setTargetLanguages = useCallback((languages) => {
+    console.log('🔄 setTargetLanguages llamado con:', languages);
+    console.log('🔄 Es array?:', Array.isArray(languages));
+    console.log('🔄 Número de idiomas:', languages?.length);
+    
+    setTranslationConfig(prev => {
+      const newConfig = {
+        ...prev,
+        targetLanguages: languages
+      };
+      console.log('🔄 setTargetLanguages - nueva config:', newConfig);
+      
+      // Guardar también en localStorage para asegurar persistencia
+      localStorage.setItem('pendingTranslationConfig', JSON.stringify(newConfig));
+      console.log('💾 Guardando targetLanguages en localStorage:', newConfig);
+      
+      return newConfig;
+    });
+  }, []);
+
+  const toggleAutoTranslate = useCallback(() => {
+    console.log('🔄 toggleAutoTranslate llamado');
+    setTranslationConfig(prev => {
+      const newConfig = {
+        ...prev,
+        autoTranslateOnSave: !prev.autoTranslateOnSave
+      };
+      console.log('🔄 toggleAutoTranslate - nueva config:', newConfig);
+      
+      // IMPORTANTE: Guardar en localStorage para persistir el cambio inmediatamente
+      localStorage.setItem('pendingTranslationConfig', JSON.stringify(newConfig));
+      
+      return newConfig;
+    });
+  }, []);
+
   // Guardar banner
 
   // Función handleSave corregida con sintaxis correcta y soporte para plantillas del sistema
@@ -3301,8 +3540,8 @@ const handleSave = useCallback(async (customConfig = null, isSystemTemplate = fa
       return false;
     };
     
-    // Verificar que exista al menos un language-button en el banner
-    if (!hasLanguageButton(configToSave.components)) {
+    // TEMPORALMENTE DESHABILITADO: Verificar que exista al menos un language-button en el banner
+    if (false && !hasLanguageButton(configToSave.components)) {
       const errorMessage = 'Este banner debe incluir un componente "Selector de Idioma" para cumplir con los requisitos de traducción. Por favor, agregue uno antes de guardar.';
       
       // Mostrar advertencia al usuario
@@ -3379,6 +3618,66 @@ const handleSave = useCallback(async (customConfig = null, isSystemTemplate = fa
     // Crear copia limpia de la configuración
     const cleanConfig = JSON.parse(JSON.stringify(configToSave));
     
+    // IMPORTANTE: Obtener la configuración más actualizada
+    // Primero intentar desde localStorage (si hay cambios pendientes)
+    let currentTranslationConfig = translationConfig;
+    try {
+      const pendingConfig = localStorage.getItem('pendingTranslationConfig');
+      if (pendingConfig) {
+        currentTranslationConfig = JSON.parse(pendingConfig);
+        console.log('🔄 Usando configuración pendiente desde localStorage:', currentTranslationConfig);
+        localStorage.removeItem('pendingTranslationConfig');
+      }
+    } catch (error) {
+      console.warn('Error leyendo configuración pendiente:', error);
+    }
+    
+    // Incluir la configuración de traducción
+    cleanConfig.translationConfig = currentTranslationConfig;
+    console.log('🌐 Configuración de traducción a guardar:', currentTranslationConfig);
+    console.log('🔍 translationConfig detallado:', {
+      sourceLanguage: currentTranslationConfig.sourceLanguage,
+      targetLanguages: currentTranslationConfig.targetLanguages,
+      autoTranslateOnSave: currentTranslationConfig.autoTranslateOnSave,
+      tipo_sourceLanguage: typeof currentTranslationConfig.sourceLanguage,
+      tipo_targetLanguages: typeof currentTranslationConfig.targetLanguages,
+      es_array_targetLanguages: Array.isArray(currentTranslationConfig.targetLanguages)
+    });
+    
+    // NUEVA FUNCIONALIDAD: Auto-traducir componentes antes de guardar
+    try {
+      setIsAutoTranslating(true);
+      console.log('🌍 Iniciando auto-traducción antes de guardar...');
+      // Usar currentTranslationConfig en lugar de translationConfig
+      cleanConfig.components = await autoTranslateComponentsWithConfig(cleanConfig.components, currentTranslationConfig);
+      console.log('✅ Auto-traducción completada antes de guardar');
+    } catch (error) {
+      console.error('❌ Error en auto-traducción (continuando con guardado):', error);
+      // No interrumpir el guardado si hay error en traducción
+    } finally {
+      setIsAutoTranslating(false);
+    }
+    
+    // DEBUG: Verificar si los componentes hijos tienen parentId
+    const verifyParentIds = (components, parentId = null) => {
+      if (!components) return;
+      components.forEach(comp => {
+        if (comp.type === 'image' && parentId) {
+          console.log(`🔍 SAVE DEBUG: Imagen hijo ${comp.id} con parentId: ${comp.parentId || 'NO_PARENT_ID'}, esperado: ${parentId}`);
+          // Asegurar que tiene parentId
+          if (!comp.parentId) {
+            comp.parentId = parentId;
+            console.log(`✅ SAVE DEBUG: Asignado parentId ${parentId} a imagen ${comp.id}`);
+          }
+        }
+        if (comp.children) {
+          verifyParentIds(comp.children, comp.id);
+        }
+      });
+    };
+    
+    verifyParentIds(cleanConfig.components);
+    
     // Crear FormData para el envío
     const formData = new FormData();
     
@@ -3409,6 +3708,11 @@ const handleSave = useCallback(async (customConfig = null, isSystemTemplate = fa
     cleanComponents(cleanConfig.components);
       
       // Añadir configuración JSON al FormData (SIN TRANSFORMACIÓN)
+      console.log('🔍 CREATE DEBUG - cleanConfig antes de enviar:', {
+        hasTranslationConfig: !!cleanConfig.translationConfig,
+        translationConfig: cleanConfig.translationConfig,
+        cleanConfigKeys: Object.keys(cleanConfig)
+      });
       formData.append('template', JSON.stringify(cleanConfig));
       
       // Si es plantilla del sistema, agregar el flag
@@ -3435,8 +3739,8 @@ const handleSave = useCallback(async (customConfig = null, isSystemTemplate = fa
           return; // Saltar este archivo
         }
         
-        const imageId = imageRef.replace('__IMAGE_REF__', '');
-        const fileName = `IMAGE_REF_${imageId}_${file.name || 'image.png'}`;
+        // Usar directamente el nombre original del archivo
+        const fileName = file.name || 'image.png';
         
         console.log(`✅ FORMDATA: Agregando archivo válido al FormData:`, {
           fieldName: 'bannerImages',
@@ -3466,15 +3770,51 @@ const handleSave = useCallback(async (customConfig = null, isSystemTemplate = fa
         
         // IMPORTANTE: Actualizar el estado del banner con la respuesta del servidor
         if (response.data && response.data.template) {
-          setBannerConfig(response.data.template);
+          // Limpiar _previewUrl y _tempFile de todos los componentes antes de actualizar
+          const cleanTemporaryImageData = (components) => {
+            return components.map(comp => {
+              if (comp.type === 'image' && comp.style) {
+                const cleanedStyle = { ...comp.style };
+                ['desktop', 'tablet', 'mobile'].forEach(device => {
+                  if (cleanedStyle[device]) {
+                    const { _previewUrl, _tempFile, ...restStyle } = cleanedStyle[device];
+                    cleanedStyle[device] = restStyle;
+                  }
+                });
+                return { ...comp, style: cleanedStyle };
+              }
+              
+              // Limpiar recursivamente en hijos
+              if (comp.children && Array.isArray(comp.children)) {
+                return { ...comp, children: cleanTemporaryImageData(comp.children) };
+              }
+              
+              return comp;
+            });
+          };
+          
+          const cleanedTemplate = {
+            ...response.data.template,
+            components: cleanTemporaryImageData(response.data.template.components)
+          };
+          
+          setBannerConfig(cleanedTemplate);
           
           // Si hay un componente seleccionado, actualizarlo también
           if (selectedComponent) {
-            const updatedComponent = findComponentById(response.data.template.components, selectedComponent.id);
+            const updatedComponent = findComponentById(cleanedTemplate.components, selectedComponent.id);
             if (updatedComponent) {
               setSelectedComponent(updatedComponent);
             }
           }
+        }
+        
+        // Limpiar archivos temporales después de guardar exitosamente
+        if (window._imageFiles) {
+          window._imageFiles = {};
+        }
+        if (imageMemoryManager && typeof imageMemoryManager.clearTempFiles === 'function') {
+          imageMemoryManager.clearTempFiles();
         }
         
         return response.data.template;
@@ -3561,6 +3901,62 @@ const handleUpdate = useCallback(async (bannerId, customConfig = null) => {
     // Crear copia limpia del config (VERSIÓN ANTERIOR QUE FUNCIONABA)
     const cleanConfig = JSON.parse(JSON.stringify(configToUpdate));
     
+    // IMPORTANTE: Obtener la configuración más actualizada
+    // Primero intentar desde localStorage (si hay cambios pendientes)
+    let currentTranslationConfig = translationConfig;
+    try {
+      const pendingConfig = localStorage.getItem('pendingTranslationConfig');
+      if (pendingConfig) {
+        currentTranslationConfig = JSON.parse(pendingConfig);
+        console.log('🔄 UPDATE: Usando configuración pendiente desde localStorage:', currentTranslationConfig);
+        localStorage.removeItem('pendingTranslationConfig');
+      }
+    } catch (error) {
+      console.warn('Error leyendo configuración pendiente:', error);
+    }
+    
+    // Incluir la configuración de traducción
+    cleanConfig.translationConfig = currentTranslationConfig;
+    console.log('🌐 UPDATE: Configuración de traducción a guardar:', currentTranslationConfig);
+    
+    // Verificar configuración antes de traducir
+    console.log('🔍 UPDATE: Estado actual de translationConfig:', translationConfig);
+    console.log('🔍 UPDATE: autoTranslateOnSave:', translationConfig.autoTranslateOnSave);
+    
+    // NUEVA FUNCIONALIDAD: Auto-traducir componentes antes de actualizar
+    try {
+      setIsAutoTranslating(true);
+      console.log('🌍 UPDATE: Iniciando auto-traducción antes de actualizar...');
+      // Usar currentTranslationConfig en lugar de translationConfig
+      cleanConfig.components = await autoTranslateComponentsWithConfig(cleanConfig.components, currentTranslationConfig);
+      console.log('✅ UPDATE: Auto-traducción completada antes de actualizar');
+    } catch (error) {
+      console.error('❌ UPDATE: Error en auto-traducción (continuando con actualización):', error);
+      // No interrumpir la actualización si hay error en traducción
+    } finally {
+      setIsAutoTranslating(false);
+    }
+    
+    // DEBUG: Verificar si los componentes hijos tienen parentId (también para UPDATE)
+    const verifyParentIdsUpdate = (components, parentId = null) => {
+      if (!components) return;
+      components.forEach(comp => {
+        if (comp.type === 'image' && parentId) {
+          console.log(`🔍 UPDATE DEBUG: Imagen hijo ${comp.id} con parentId: ${comp.parentId || 'NO_PARENT_ID'}, esperado: ${parentId}`);
+          // Asegurar que tiene parentId
+          if (!comp.parentId) {
+            comp.parentId = parentId;
+            console.log(`✅ UPDATE DEBUG: Asignado parentId ${parentId} a imagen ${comp.id}`);
+          }
+        }
+        if (comp.children) {
+          verifyParentIdsUpdate(comp.children, comp.id);
+        }
+      });
+    };
+    
+    verifyParentIdsUpdate(cleanConfig.components);
+    
     // Ya no necesitamos workarounds especiales para plantillas del sistema
     // El backend ahora maneja correctamente ambos tipos de plantillas para usuarios owner
     
@@ -3584,6 +3980,11 @@ const handleUpdate = useCallback(async (bannerId, customConfig = null) => {
     
     
     // ¡IMPORTANTE! Usar strings para claves y valores del FormData (SIN TRANSFORMACIÓN)
+    console.log('🔍 UPDATE DEBUG - cleanConfig antes de enviar:', {
+      hasTranslationConfig: !!cleanConfig.translationConfig,
+      translationConfig: cleanConfig.translationConfig,
+      cleanConfigKeys: Object.keys(cleanConfig)
+    });
     formData.append("template", JSON.stringify(cleanConfig));
     
     // Añadir archivos de imagen del Map recopilado
@@ -3607,8 +4008,8 @@ const handleUpdate = useCallback(async (bannerId, customConfig = null) => {
           return; // Saltar este archivo
         }
         
-        const imageId = imageRef.replace('__IMAGE_REF__', '');
-        const fileName = `IMAGE_REF_${imageId}_${file.name || 'image.png'}`;
+        // Usar directamente el nombre original del archivo
+        const fileName = file.name || 'image.png';
         
         console.log(`✅ UPDATE FORMDATA: Agregando archivo válido al FormData:`, {
           fieldName: 'bannerImages',
@@ -3662,11 +4063,39 @@ const handleUpdate = useCallback(async (bannerId, customConfig = null) => {
     // IMPORTANTE: Actualizar el estado del banner con la respuesta del servidor
     // Esto incluye las URLs de imagen actualizadas
     if (response.data && response.data.template) {
-      setBannerConfig(response.data.template);
+      // Limpiar _previewUrl y _tempFile de todos los componentes antes de actualizar
+      const cleanTemporaryImageData = (components) => {
+        return components.map(comp => {
+          if (comp.type === 'image' && comp.style) {
+            const cleanedStyle = { ...comp.style };
+            ['desktop', 'tablet', 'mobile'].forEach(device => {
+              if (cleanedStyle[device]) {
+                const { _previewUrl, _tempFile, ...restStyle } = cleanedStyle[device];
+                cleanedStyle[device] = restStyle;
+              }
+            });
+            return { ...comp, style: cleanedStyle };
+          }
+          
+          // Limpiar recursivamente en hijos
+          if (comp.children && Array.isArray(comp.children)) {
+            return { ...comp, children: cleanTemporaryImageData(comp.children) };
+          }
+          
+          return comp;
+        });
+      };
+      
+      const cleanedTemplate = {
+        ...response.data.template,
+        components: cleanTemporaryImageData(response.data.template.components)
+      };
+      
+      setBannerConfig(cleanedTemplate);
       
       // Si hay un componente seleccionado, actualizarlo también
       if (selectedComponent) {
-        const updatedComponent = findComponentById(response.data.template.components, selectedComponent.id);
+        const updatedComponent = findComponentById(cleanedTemplate.components, selectedComponent.id);
         if (updatedComponent) {
           setSelectedComponent(updatedComponent);
         }
@@ -3791,6 +4220,16 @@ const setInitialConfig = useCallback((config, autoSelect = false) => {
       mobile: processedConfig.layout?.mobile || {}
     }
   };
+  
+  // Cargar la configuración de traducción del banner si existe
+  if (processedConfig.translationConfig) {
+    console.log('🌐 ANTES de cargar - translationConfig actual:', translationConfig);
+    console.log('🌐 Configuración del banner a cargar:', processedConfig.translationConfig);
+    setTranslationConfig(processedConfig.translationConfig);
+    console.log('🌐 Configuración de traducción cargada del banner:', processedConfig.translationConfig);
+  } else {
+    console.log('🌐 Banner no tiene translationConfig, usando valores por defecto');
+  }
   
   
   // Asegurar valores correctos según tipo de banner para todos los dispositivos
@@ -4220,70 +4659,163 @@ const handleImageUpload = async (componentId, file) => {
       for (const comp of components) {
         console.log(`📋 COLLECT: Revisando componente ${comp.id} de tipo ${comp.type} en nivel ${level}`);
         
-        if (comp.type === 'image' && typeof comp.content === 'string') {
+        if (comp.type === 'image') {
           console.log(`🖼️ COLLECT: Componente imagen encontrado con contenido: ${comp.content}`);
           
-          // Si hay una referencia temporal
-          if (comp.content.startsWith('__IMAGE_REF__')) {
-            console.log(`📂 COLLECT: Encontrado componente imagen con referencia: ${comp.content}`);
+          // MÉTODO MEJORADO: Buscar imágenes temporales de múltiples formas
+          let hasTemporaryImage = false;
+          let imageRef = null;
+          
+          // Opción 1: Content es una referencia temporal
+          if (typeof comp.content === 'string' && comp.content.startsWith('__IMAGE_REF__')) {
+            hasTemporaryImage = true;
+            imageRef = comp.content;
+            console.log(`📂 COLLECT: Imagen temporal detectada por content: ${imageRef}`);
+          }
+          
+          // Opción 2: Componente tiene _previewUrl en algún dispositivo (imagen recién subida)
+          if (!hasTemporaryImage && comp.style) {
+            ['desktop', 'tablet', 'mobile'].forEach(device => {
+              if (!hasTemporaryImage && comp.style[device]?._previewUrl) {
+                // Si _previewUrl es diferente de content Y content no es una ruta del servidor, es temporal
+                const isServerPath = typeof comp.content === 'string' && comp.content.startsWith('/templates/images/');
+                if (comp.style[device]._previewUrl !== comp.content && !isServerPath) {
+                  hasTemporaryImage = true;
+                  // Buscar el imageRef asociado en window._imageFiles
+                  if (window._imageFiles) {
+                    for (const [ref, file] of Object.entries(window._imageFiles)) {
+                      if (ref.includes(comp.id)) {
+                        imageRef = ref;
+                        console.log(`📂 COLLECT: Imagen temporal detectada por _previewUrl en ${device}, ref encontrado: ${imageRef}`);
+                        break;
+                      }
+                    }
+                  }
+                  // Si no encontramos ref pero tenemos el archivo en _tempFile, usarlo
+                  if (!imageRef && comp.style[device]._tempFile) {
+                    // Buscar cualquier clave que contenga el componentId
+                    if (window._imageFiles) {
+                      for (const [ref, file] of Object.entries(window._imageFiles)) {
+                        if (ref.includes(comp.id) && file === comp.style[device]._tempFile) {
+                          imageRef = ref;
+                          console.log(`📂 COLLECT: Ref encontrado por matching de archivo: ${imageRef}`);
+                          break;
+                        }
+                      }
+                    }
+                  }
+                  
+                  // Si aún no encontramos ref, crear uno basado en el componente
+                  if (!imageRef) {
+                    imageRef = `__IMAGE_REF__${comp.id}_${Date.now()}`;
+                    console.log(`📂 COLLECT: Imagen temporal detectada por _previewUrl en ${device}, ref generado: ${imageRef}`);
+                    // Registrar el archivo en window._imageFiles para poder encontrarlo
+                    if (comp.style[device]._tempFile && window._imageFiles) {
+                      window._imageFiles[imageRef] = comp.style[device]._tempFile;
+                      console.log(`📂 COLLECT: Archivo registrado en window._imageFiles: ${imageRef}`);
+                    }
+                  }
+                }
+              }
+            });
+          }
+          
+          if (hasTemporaryImage && imageRef) {
+            console.log(`📂 COLLECT: Procesando imagen temporal con ref: ${imageRef}`);
             console.log(`📂 COLLECT: Estado del componente:`, {
               id: comp.id,
+              content: comp.content,
+              imageRef: imageRef,
               hasImageFile: !!comp._imageFile,
-              hasTempFile: !!comp._tempFile,
-              content: comp.content
+              hasTempFile: !!comp._tempFile
             });
             
-            // MÉTODO 1: Buscar en window._imageFiles (más confiable)
-            if (window._imageFiles && window._imageFiles[comp.content]) {
-              console.log(`✅ COLLECT: Archivo encontrado en window._imageFiles para ${comp.content}`);
-              imageFiles.set(comp.content, window._imageFiles[comp.content]);
+            // MÉTODO 1: Buscar en window._imageFiles usando imageRef
+            console.log(`🔍 COLLECT: Buscando en window._imageFiles con clave: "${imageRef}"`);
+            console.log(`🔍 COLLECT: window._imageFiles disponible:`, window._imageFiles);
+            console.log(`🔍 COLLECT: Claves en window._imageFiles:`, window._imageFiles ? Object.keys(window._imageFiles) : 'no existe');
+            
+            if (window._imageFiles && window._imageFiles[imageRef]) {
+              console.log(`✅ COLLECT: Archivo encontrado en window._imageFiles para ${imageRef}`);
+              imageFiles.set(imageRef, window._imageFiles[imageRef]);
               continue;
             } else {
-              console.log(`❌ COLLECT: No encontrado en window._imageFiles`);
+              console.log(`❌ COLLECT: No encontrado en window._imageFiles con ${imageRef}`);
+              
+              // BÚSQUEDA ALTERNATIVA: Buscar claves que contengan el componentId
+              if (window._imageFiles) {
+                const availableKeys = Object.keys(window._imageFiles);
+                const similarKeys = availableKeys.filter(key => 
+                  key.includes(comp.id) || key.includes(imageRef.replace('__IMAGE_REF__', ''))
+                );
+                console.log(`🔍 COLLECT: Claves similares encontradas:`, similarKeys);
+                
+                // Si encontramos una clave similar, usarla
+                if (similarKeys.length > 0) {
+                  const matchedKey = similarKeys[0];
+                  console.log(`✅ COLLECT: Usando clave similar: ${matchedKey} para imageRef: ${imageRef}`);
+                  imageFiles.set(imageRef, window._imageFiles[matchedKey]);
+                  continue;
+                }
+              }
             }
             
             // MÉTODO 2: Buscar en imageMemoryManager (respaldo)
             try {
-              const fileData = imageMemoryManager.getTempFile(comp.content);
+              const fileData = imageMemoryManager.getTempFile(imageRef);
               if (fileData && fileData.file) {
-                console.log(`✅ COLLECT: Archivo encontrado en imageMemoryManager para ${comp.content}`);
-                imageFiles.set(comp.content, fileData.file);
+                console.log(`✅ COLLECT: Archivo encontrado en imageMemoryManager para ${imageRef}`);
+                imageFiles.set(imageRef, fileData.file);
                 continue;
               } else {
                 console.log(`❌ COLLECT: No encontrado en imageMemoryManager`);
               }
             } catch (error) {
-              console.warn(`⚠️ COLLECT: Error accediendo imageMemoryManager para ${comp.content}:`, error);
+              console.warn(`⚠️ COLLECT: Error accediendo imageMemoryManager para ${imageRef}:`, error);
             }
             
-            // MÉTODO 3: Buscar en el componente mismo (último recurso)
-            if (comp._imageFile) {
-              console.log(`✅ COLLECT: Archivo encontrado en componente para ${comp.content}`);
-              console.log(`🔍 COLLECT: Verificando tipo de archivo del componente:`, {
-                type: typeof comp._imageFile,
-                isFile: comp._imageFile instanceof File,
-                isBlob: comp._imageFile instanceof Blob,
-                constructor: comp._imageFile.constructor.name
+            // MÉTODO 3: Buscar en el componente mismo
+            if (comp._imageFile && (comp._imageFile instanceof File || comp._imageFile instanceof Blob)) {
+              console.log(`✅ COLLECT: Archivo encontrado en comp._imageFile para ${imageRef}`);
+              imageFiles.set(imageRef, comp._imageFile);
+              continue;
+            }
+            
+            // MÉTODO 4: Buscar en estilos del componente (NUEVA LÓGICA)
+            if (comp.style) {
+              let foundInStyle = false;
+              ['desktop', 'tablet', 'mobile'].forEach(device => {
+                if (!foundInStyle && comp.style[device]?._tempFile) {
+                  const styleFile = comp.style[device]._tempFile;
+                  if (styleFile instanceof File || styleFile instanceof Blob) {
+                    console.log(`✅ COLLECT: Archivo encontrado en style.${device}._tempFile para ${imageRef}`);
+                    imageFiles.set(imageRef, styleFile);
+                    foundInStyle = true;
+                  }
+                }
               });
-              
-              // Solo usar si es realmente un File/Blob
-              if (comp._imageFile instanceof File || comp._imageFile instanceof Blob) {
-                imageFiles.set(comp.content, comp._imageFile);
-                continue;
-              } else {
-                console.warn(`⚠️ COLLECT: El archivo del componente no es un File/Blob válido`);
-              }
-            } else {
-              console.log(`❌ COLLECT: No hay _imageFile en el componente`);
+              if (foundInStyle) continue;
             }
             
-            console.warn(`❌ COLLECT: No se encontró archivo para ${comp.content}`);
+            console.warn(`❌ COLLECT: No se encontró archivo para ${imageRef}`);
           }
         }
         
         // Revisar hijos recursivamente
         if (comp.children && Array.isArray(comp.children)) {
           console.log(`📁 COLLECT: Componente ${comp.id} tiene ${comp.children.length} hijos`);
+          // DEBUG ESPECÍFICO: Log detallado para imágenes en contenedores
+          const imageChildren = comp.children.filter(child => child.type === 'image');
+          if (imageChildren.length > 0) {
+            console.log(`🔍 COLLECT: Encontradas ${imageChildren.length} imágenes dentro del contenedor ${comp.id}:`, 
+              imageChildren.map(child => ({
+                id: child.id,
+                content: child.content,
+                hasParentId: !!child.parentId,
+                parentId: child.parentId || 'NO_PARENT_ID'
+              }))
+            );
+          }
           collectImageRefs(comp.children, level + 1);
         }
       }
@@ -4678,6 +5210,13 @@ const handleImageUpload = async (componentId, file) => {
     previewData,
     previewLoading,
     previewError,
+    isAutoTranslating,
+    // Configuración de traducción
+    translationConfig,
+    updateTranslationConfig,
+    setSourceLanguage,
+    setTargetLanguages,
+    toggleAutoTranslate,
     handlePreview,
     handleSave,
     handleUpdate,

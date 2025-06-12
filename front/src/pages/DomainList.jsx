@@ -6,17 +6,26 @@ import { getClients } from '../api/client';
 import DomainCard from '../components/domain/DomainCard';
 import DomainModal from '../components/domain/DomainModal'; // Modal para crear/editar dominio
 import DomainDetailsModal from '../components/domain/DomainDetailsModal'; // Modal para ver detalles
+import ConfirmModal from '../components/common/ConfirmModal'; // Modal de confirmación
+import SubscriptionAlert from '../components/common/SubscriptionAlert';
 import { useAuth } from '../contexts/AuthContext';
 
 const DomainList = () => {
   const [domains, setDomains] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [subscriptionInfo, setSubscriptionInfo] = useState({});
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState(null);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [deleteModalState, setDeleteModalState] = useState({
+    isOpen: false,
+    domainId: null,
+    domainName: '',
+    loading: false
+  });
   const { hasRole } = useAuth();
   
   // Verificar si el usuario es owner
@@ -33,6 +42,13 @@ const DomainList = () => {
 
       const data = await getDomains(params);
       setDomains(data.data.domains);
+      
+      // Capturar información de suscripción
+      setSubscriptionInfo({
+        subscriptionInactive: data.subscriptionInactive,
+        subscriptionMessage: data.subscriptionMessage,
+        subscriptionStatus: data.subscriptionStatus
+      });
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -64,15 +80,46 @@ const DomainList = () => {
     fetchDomains();
   }, [selectedClientId, statusFilter, searchTerm]);
 
-  const handleDelete = async (domainId) => {
-    if (!window.confirm('¿Estás seguro de eliminar este dominio?')) return;
+  // Abrir modal de confirmación para eliminar
+  const handleDeleteClick = (domainId) => {
+    // Encontrar el dominio para mostrar su nombre en el modal
+    const domain = domains.find(d => d._id === domainId);
+    setDeleteModalState({
+      isOpen: true,
+      domainId: domainId,
+      domainName: domain?.domain || '',
+      loading: false
+    });
+  };
+
+  // Confirmar eliminación
+  const handleDeleteConfirm = async () => {
+    setDeleteModalState(prev => ({ ...prev, loading: true }));
+    
     try {
-      await deleteDomain(domainId);
-      toast.success('Dominio eliminado');
+      await deleteDomain(deleteModalState.domainId);
+      toast.success('Dominio eliminado exitosamente');
+      setDeleteModalState({
+        isOpen: false,
+        domainId: null,
+        domainName: '',
+        loading: false
+      });
       fetchDomains();
     } catch (error) {
       toast.error(error.message);
+      setDeleteModalState(prev => ({ ...prev, loading: false }));
     }
+  };
+
+  // Cerrar modal de eliminación
+  const handleDeleteCancel = () => {
+    setDeleteModalState({
+      isOpen: false,
+      domainId: null,
+      domainName: '',
+      loading: false
+    });
   };
 
   // Para abrir el modal de detalles al hacer clic en "Ver Detalles" en la tarjeta
@@ -113,6 +160,13 @@ const DomainList = () => {
       <h1 className="text-2xl font-bold text-[#181818] mb-4">
         {isOwner ? 'Gestión de Dominios' : 'Mis Dominios'}
       </h1>
+
+      {/* Alerta de suscripción */}
+      <SubscriptionAlert 
+        subscriptionInactive={subscriptionInfo.subscriptionInactive}
+        subscriptionMessage={subscriptionInfo.subscriptionMessage}
+        subscriptionStatus={subscriptionInfo.subscriptionStatus}
+      />
 
       {/* Filtros y búsqueda */}
       <div className="mb-6 bg-white p-4 rounded shadow">
@@ -189,17 +243,28 @@ const DomainList = () => {
             <DomainCard
               key={domain._id}
               domain={domain}
-              onDelete={handleDelete}
+              onDelete={handleDeleteClick}
               onViewDetails={handleViewDetails}
+              subscriptionInactive={subscriptionInfo.subscriptionInactive}
             />
           ))}
           <div className="flex items-center justify-center">
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="px-4 py-2 bg-[#235C88] text-white rounded hover:bg-[#1e4a6b] transition"
-            >
-              Agregar Dominio
-            </button>
+            {!subscriptionInfo.subscriptionInactive ? (
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="px-4 py-2 bg-[#235C88] text-white rounded hover:bg-[#1e4a6b] transition"
+              >
+                Agregar Dominio
+              </button>
+            ) : (
+              <button
+                disabled
+                className="px-4 py-2 bg-gray-400 text-white rounded cursor-not-allowed opacity-50"
+                title="Suscripción requerida para agregar dominios"
+              >
+                Agregar Dominio
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -218,6 +283,19 @@ const DomainList = () => {
       {selectedDomain && (
         <DomainDetailsModal domain={selectedDomain} onClose={handleDetailsModalClose} />
       )}
+
+      {/* Modal de confirmación para eliminar */}
+      <ConfirmModal
+        isOpen={deleteModalState.isOpen}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title="Eliminar Dominio"
+        message={`¿Estás seguro de que deseas eliminar el dominio "${deleteModalState.domainName}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        type="danger"
+        loading={deleteModalState.loading}
+      />
     </div>
   );
 };

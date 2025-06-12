@@ -58,4 +58,18 @@ router.get(
   ClientController.getClientMetrics
 );
 
+// Cancelar suscripción de un cliente (solo owners)
+router.post(
+  '/:clientId/cancel-subscription',
+  validateRequest(clientValidation.cancelSubscription),
+  ClientController.cancelSubscription
+);
+
+// Reactivar suscripción de un cliente (solo owners)
+router.post(
+  '/:clientId/reactivate-subscription',
+  validateRequest(clientValidation.reactivateSubscription),
+  ClientController.reactivateSubscription
+);
+
 module.exports = router;

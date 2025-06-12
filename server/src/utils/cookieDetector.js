@@ -1,6 +1,34 @@
 const logger = require('./logger');
 
 class CookieDetector {
+  /**
+   * Función unificada para comparar cookies
+   * Solo compara por nombre ya que dentro del mismo dominio, 
+   * el nombre es suficiente para identificar unicidad
+   */
+  static areCookiesEqual(cookie1, cookie2) {
+    // Para el mismo dominio, solo comparamos por nombre
+    return cookie1.name === cookie2.name;
+  }
+
+  /**
+   * Genera clave única para una cookie dentro de un dominio
+   */
+  static getCookieKey(cookie, domainId = null) {
+    // Para un dominio específico, solo el nombre es la clave
+    return domainId ? `${domainId}_${cookie.name}` : cookie.name;
+  }
+
+  /**
+   * Verifica si una cookie ha cambiado significativamente
+   */
+  static hasCookieChanged(existingCookie, newCookie) {
+    return existingCookie.value !== newCookie.value ||
+           existingCookie.expires !== newCookie.expires ||
+           existingCookie.secure !== newCookie.secure ||
+           existingCookie.httpOnly !== newCookie.httpOnly ||
+           existingCookie.sameSite !== newCookie.sameSite;
+  }
   constructor() {
     // Patrones para detectar cookies según su propósito
     this.cookiePatterns = {
@@ -124,7 +152,7 @@ class CookieDetector {
     if (this._isPreferencesCookie(cookie)) return 'preferences';
 
     // Si no se puede determinar, retornar unknown
-    return 'unknown';
+    return 'other';
   }
 
   /**

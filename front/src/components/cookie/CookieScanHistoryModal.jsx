@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { getScanHistory, cancelScanInProgress } from '../../api/cookieScan';
+import { getScanHistory, getAnalysisHistory, cancelScanInProgress } from '../../api/cookieScan';
 import CancelScanConfirmModal from './CancelScanConfirmModal';
 import ScanResultsModal from './ScanResultsModal';
 
@@ -28,7 +28,10 @@ const CookieScanHistoryModal = ({ isOpen, onClose, domainId, domainName }) => {
       results: scan.results || {},
       cookieCount: typeof scan.cookieCount === 'number' ? scan.cookieCount : 0,
       urlsScanned: typeof scan.urlsScanned === 'number' ? scan.urlsScanned : 0,
-      currentUrl: typeof scan.currentUrl === 'string' ? scan.currentUrl : ''
+      currentUrl: typeof scan.currentUrl === 'string' ? scan.currentUrl : '',
+      // Identificar si es un análisis avanzado
+      isAdvancedAnalysis: scan.isAdvancedAnalysis || scan.scanType === 'advanced' || false,
+      config: scan.config || scan.scanConfig || null
     };
   };
 
@@ -66,19 +69,63 @@ const CookieScanHistoryModal = ({ isOpen, onClose, domainId, domainName }) => {
   const fetchScanHistory = async () => {
     setLoading(true);
     try {
-      const response = await getScanHistory(domainId, {
-        page: pagination.page,
-        limit: pagination.limit
-      });
+      // Obtener tanto escaneos normales como análisis avanzados
+      const [scanResponse, analysisResponse] = await Promise.allSettled([
+        getScanHistory(domainId, {
+          page: pagination.page,
+          limit: Math.ceil(pagination.limit / 2) // Dividir el límite entre ambos tipos
+        }),
+        getAnalysisHistory(domainId, {
+          page: pagination.page,
+          limit: Math.ceil(pagination.limit / 2)
+        })
+      ]);
       
-      const sanitizedScans = Array.isArray(response.data.scans) 
-        ? response.data.scans.map(sanitizeScanData).filter(Boolean)
-        : [];
+      let allScans = [];
+      let totalCount = 0;
       
-      setScans(sanitizedScans);
+      // Procesar escaneos normales
+      if (scanResponse.status === 'fulfilled' && scanResponse.value?.data?.scans) {
+        const normalScans = Array.isArray(scanResponse.value.data.scans) 
+          ? scanResponse.value.data.scans.map(scan => ({
+              ...sanitizeScanData(scan),
+              type: 'scan'
+            })).filter(Boolean)
+          : [];
+        allScans = [...allScans, ...normalScans];
+        totalCount += scanResponse.value.data.total || 0;
+      }
+      
+      // Procesar análisis avanzados
+      if (analysisResponse.status === 'fulfilled' && analysisResponse.value?.data?.analyses) {
+        const advancedAnalyses = Array.isArray(analysisResponse.value.data.analyses) 
+          ? analysisResponse.value.data.analyses.map(analysis => ({
+              _id: analysis._id || analysis.analysisId,
+              status: analysis.status || 'unknown',
+              scanType: 'Análisis Avanzado',
+              startTime: analysis.startTime,
+              endTime: analysis.endTime,
+              progress: analysis.progress || 0,
+              error: analysis.error?.message || null,
+              results: analysis.results || {},
+              cookieCount: analysis.results?.totalCookies || 0,
+              urlsScanned: analysis.results?.urlsScanned || 0,
+              isAdvancedAnalysis: true, // Marcar explícitamente como análisis avanzado
+              config: analysis.config || analysis.scanConfig || null,
+              type: 'analysis'
+            })).filter(Boolean)
+          : [];
+        allScans = [...allScans, ...advancedAnalyses];
+        totalCount += analysisResponse.value.data.total || 0;
+      }
+      
+      // Ordenar por fecha de inicio (más reciente primero)
+      allScans.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+      
+      setScans(allScans);
       setPagination(prev => ({
         ...prev,
-        total: typeof response.data.total === 'number' ? response.data.total : 0
+        total: totalCount
       }));
     } catch (error) {
       console.error('Error fetching scan history:', error);

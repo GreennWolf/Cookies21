@@ -2,11 +2,13 @@
 const Client = require('../models/Client');
 const UserAccount = require('../models/UserAccount');
 const SubscriptionPlan = require('../models/SubscriptionPlan');
+const SubscriptionRenewalRequest = require('../models/SubscriptionRenewalRequest');
 const AppError = require('../utils/appError');
 const { catchAsync } = require('../utils/catchAsync');
 const nodemailer = require('nodemailer');
 const emailService = require('../services/email.service');
 const consentScriptGenerator = require('../services/consentScriptGenerator.service');
+const auditService = require('../services/audit.service');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 
@@ -561,6 +563,15 @@ class ClientController {
       return next(new AppError('No tiene permisos para modificar suscripciones', 403));
     }
     
+    // Validación personalizada de fechas
+    if (!isUnlimited && startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (end < start) {
+        return next(new AppError('La fecha de finalización no puede ser anterior a la fecha de inicio', 400));
+      }
+    }
+    
     // Buscar el cliente
     const client = await Client.findById(clientId);
     if (!client) {
@@ -618,12 +629,80 @@ class ClientController {
         });
       }
       
+      // Marcar los campos modificados para asegurar que se guarden
+      client.markModified('subscription');
+      
       await client.save();
       logger.info(`Suscripción del cliente ${client.name} (${client._id}) actualizada manualmente`);
     }
     
     const updatedClient = await Client.findById(clientId)
-      .populate('subscription.planId', 'name description');
+      .populate('subscription.planId', 'name description features limits pricing');
+
+    // Verificar si la suscripción está ahora activa y completar solicitudes pendientes
+    const subscriptionStatus = updatedClient.isSubscriptionActive();
+    if (subscriptionStatus.isActive) {
+      try {
+        const pendingRenewalRequest = await SubscriptionRenewalRequest.findOne({
+          clientId: updatedClient._id,
+          status: { $in: ['pending', 'in_progress'] }
+        }).populate('requestedBy', 'name email');
+
+        if (pendingRenewalRequest) {
+          console.log(`🔄 Completando solicitud de renovación pendiente tras actualización: ${pendingRenewalRequest._id}`);
+          
+          // Actualizar la solicitud como completada
+          const now = new Date();
+          pendingRenewalRequest.status = 'completed';
+          pendingRenewalRequest.resolvedAt = now;
+          pendingRenewalRequest.resolvedBy = req.user._id;
+          pendingRenewalRequest.adminNotes = `Suscripción actualizada por ${req.user.name}. Plan actualizado: ${
+            typeof updatedClient.subscription.plan === 'object' 
+              ? updatedClient.subscription.plan.name 
+              : (updatedClient.subscription.plan || 'Básico')
+          }`;
+          
+          await pendingRenewalRequest.save();
+          
+          // Enviar email de confirmación al cliente
+          try {
+            const planName = typeof updatedClient.subscription.plan === 'object' 
+              ? updatedClient.subscription.plan.name 
+              : (updatedClient.subscription.plan || 'Básico');
+            
+            const features = [];
+            if (updatedClient.subscription.planId && updatedClient.subscription.planId.features) {
+              const planFeatures = updatedClient.subscription.planId.features;
+              if (planFeatures.autoTranslate) features.push('Traducción automática de banners');
+              if (planFeatures.cookieScanning) features.push('Escaneo automático de cookies');
+              if (planFeatures.customization) features.push('Personalización avanzada de banners');
+            }
+            
+            const clientEmail = updatedClient.contactEmail || updatedClient.email;
+            const requestedByEmail = pendingRenewalRequest.requestedBy?.email;
+            
+            if (clientEmail || requestedByEmail) {
+              console.log(`📧 Enviando email de confirmación de renovación a: ${requestedByEmail || clientEmail}`);
+              
+              await emailService.sendRenewalSuccessNotification({
+                to: requestedByEmail || clientEmail,
+                clientName: updatedClient.name,
+                planName: planName,
+                endDate: updatedClient.subscription.endDate,
+                features: features,
+                requestType: pendingRenewalRequest.requestType
+              });
+              
+              console.log(`✅ Email de confirmación enviado exitosamente tras actualización`);
+            }
+          } catch (emailError) {
+            console.error('❌ Error enviando email de confirmación tras actualización:', emailError);
+          }
+        }
+      } catch (renewalError) {
+        console.error('❌ Error procesando solicitud de renovación tras actualización:', renewalError);
+      }
+    }
     
     res.status(200).json({
       status: 'success',
@@ -641,7 +720,7 @@ class ClientController {
   
   // Obtener todos los clientes (con filtros opcionales)
   getClients = catchAsync(async (req, res, next) => {
-    const { status, plan, search, page = 1, limit = 10 } = req.query;
+    const { status, plan, search, page = 1, limit = 50, subscriptionStatus } = req.query;
     
     // Construir filtros
     const filters = {};
@@ -663,21 +742,64 @@ class ClientController {
     // Calcular paginación
     const skip = (page - 1) * limit;
     
-    // Obtener clientes
-    const clients = await Client.find(filters)
+    // Obtener todos los clientes primero
+    let allClients = await Client.find(filters)
       .select('-apiKeys')
-      .populate('subscription.planId', 'name description')
-      .skip(skip)
-      .limit(Number(limit))
+      .populate('subscription.planId', 'name description features limits pricing')
       .sort({ createdAt: -1 });
     
-    // Contar total para paginación
-    const total = await Client.countDocuments(filters);
+    // Agregar información de solicitudes de renovación pendientes
+    const clientsWithRenewalInfo = await Promise.all(
+      allClients.map(async (client) => {
+        const clientObj = client.toObject();
+        
+        // Verificar estado de suscripción
+        const subscriptionInfo = client.isSubscriptionActive();
+        clientObj.subscriptionActive = subscriptionInfo.isActive;
+        clientObj.subscriptionReason = subscriptionInfo.reason;
+        
+        // Verificar si tiene solicitud de renovación pendiente
+        const pendingRenewal = await SubscriptionRenewalRequest.findOne({
+          clientId: client._id,
+          status: { $in: ['pending', 'in_progress'] }
+        }).select('requestType urgency createdAt status');
+        
+        clientObj.hasPendingRenewal = !!pendingRenewal;
+        clientObj.pendingRenewalInfo = pendingRenewal ? {
+          requestType: pendingRenewal.requestType,
+          urgency: pendingRenewal.urgency,
+          createdAt: pendingRenewal.createdAt,
+          status: pendingRenewal.status
+        } : null;
+        
+        return clientObj;
+      })
+    );
+    
+    // Filtrar por estado de suscripción si se especifica
+    let filteredClients = clientsWithRenewalInfo;
+    if (subscriptionStatus) {
+      switch (subscriptionStatus) {
+        case 'active':
+          filteredClients = clientsWithRenewalInfo.filter(c => c.subscriptionActive);
+          break;
+        case 'inactive':
+          filteredClients = clientsWithRenewalInfo.filter(c => !c.subscriptionActive);
+          break;
+        case 'pending_renewal':
+          filteredClients = clientsWithRenewalInfo.filter(c => c.hasPendingRenewal);
+          break;
+      }
+    }
+    
+    // Aplicar paginación después del filtro
+    const total = filteredClients.length;
+    const paginatedClients = filteredClients.slice(skip, skip + Number(limit));
     
     return res.status(200).json({
       status: 'success',
       data: {
-        clients,
+        clients: paginatedClients,
         pagination: {
           total,
           page: Number(page),
@@ -694,16 +816,35 @@ class ClientController {
     
     const client = await Client.findById(clientId)
       .select('-apiKeys')
-      .populate('subscription.planId', 'name description features');
+      .populate('subscription.planId', 'name description features limits pricing');
     
     if (!client) {
       return next(new AppError('Cliente no encontrado', 404));
     }
     
+    // Obtener información adicional
+    const clientObj = client.toObject();
+    
+    // Verificar estado de suscripción
+    const subscriptionInfo = client.isSubscriptionActive();
+    clientObj.subscriptionActive = subscriptionInfo.isActive;
+    clientObj.subscriptionReason = subscriptionInfo.reason;
+    
+    // Verificar si tiene solicitud de renovación pendiente
+    const pendingRenewal = await SubscriptionRenewalRequest.findOne({
+      clientId: client._id,
+      status: { $in: ['pending', 'in_progress'] }
+    })
+    .select('requestType urgency createdAt status message contactPreference')
+    .populate('requestedBy', 'name email');
+    
+    clientObj.hasPendingRenewal = !!pendingRenewal;
+    clientObj.pendingRenewalInfo = pendingRenewal;
+    
     return res.status(200).json({
       status: 'success',
       data: {
-        client
+        client: clientObj
       }
     });
   });
@@ -865,6 +1006,252 @@ class ClientController {
       status: 'success',
       data: {
         metrics
+      }
+    });
+  });
+
+  /**
+   * Cancelar suscripción de un cliente (solo para owners)
+   */
+  cancelSubscription = catchAsync(async (req, res) => {
+    const { clientId } = req.params;
+    const { reason, cancelImmediately = false } = req.body;
+
+    // Verificar que solo owners puedan cancelar suscripciones
+    if (req.user.role !== 'owner') {
+      throw new AppError('Solo los owners pueden cancelar suscripciones', 403);
+    }
+
+    // Buscar el cliente
+    const client = await Client.findById(clientId);
+    if (!client) {
+      throw new AppError('Cliente no encontrado', 404);
+    }
+
+    // Verificar que la suscripción esté activa
+    const subscriptionStatus = client.isSubscriptionActive();
+    if (!subscriptionStatus.isActive && subscriptionStatus.reason !== 'NOT_STARTED') {
+      throw new AppError('La suscripción ya está inactiva', 400);
+    }
+
+    // Guardar información de la cancelación
+    const cancellationInfo = {
+      cancelledAt: new Date(),
+      cancelledBy: req.user._id,
+      reason: reason || 'Cancelación manual por owner',
+      originalEndDate: client.subscription.endDate,
+      cancelImmediately
+    };
+
+    if (cancelImmediately) {
+      // Cancelación inmediata
+      client.subscription.endDate = new Date();
+      client.subscription.status = 'cancelled';
+      client.status = 'inactive';
+    } else {
+      // Cancelar al final del período actual
+      client.subscription.status = 'cancelled';
+      // Mantener endDate original para que termine naturalmente
+    }
+
+    // Agregar información de cancelación
+    client.subscription.cancellation = cancellationInfo;
+
+    await client.save();
+
+    // Registrar en auditoría (no-blocking)
+    try {
+      await auditService.logAction({
+        clientId,
+        userId: req.user._id,
+        action: 'cancel_subscription',
+        resourceType: 'client',
+        resourceId: clientId,
+        metadata: {
+          cancellationType: cancelImmediately ? 'immediate' : 'end_of_period',
+          reason,
+          originalEndDate: cancellationInfo.originalEndDate
+        }
+      });
+    } catch (auditError) {
+      logger.error('Error logging audit action for subscription cancellation:', auditError);
+      // No fallar la operación principal por errores de auditoría
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: cancelImmediately 
+        ? 'Suscripción cancelada inmediatamente' 
+        : 'Suscripción programada para cancelar al final del período',
+      data: {
+        client: {
+          id: client._id,
+          companyName: client.companyName,
+          subscription: client.subscription
+        }
+      }
+    });
+  });
+
+  /**
+   * Reactivar suscripción de un cliente (solo para owners)
+   */
+  reactivateSubscription = catchAsync(async (req, res) => {
+    const { clientId } = req.params;
+    const { extendDays = 30 } = req.body;
+
+    // Verificar que solo owners puedan reactivar suscripciones
+    if (req.user.role !== 'owner') {
+      throw new AppError('Solo los owners pueden reactivar suscripciones', 403);
+    }
+
+    // Buscar el cliente
+    const client = await Client.findById(clientId);
+    if (!client) {
+      throw new AppError('Cliente no encontrado', 404);
+    }
+
+    // Verificar que la suscripción esté inactiva
+    const subscriptionStatus = client.isSubscriptionActive();
+    if (subscriptionStatus.isActive) {
+      throw new AppError('La suscripción ya está activa', 400);
+    }
+
+    const now = new Date();
+    let newEndDate;
+
+    // Determinar nueva fecha de fin según el estado actual
+    if (subscriptionStatus.reason === 'CANCELLED' || subscriptionStatus.reason === 'EXPIRED') {
+      // Si estaba cancelada o expirada, extender desde ahora
+      newEndDate = new Date(now.getTime() + (extendDays * 24 * 60 * 60 * 1000));
+    } else if (subscriptionStatus.reason === 'NOT_STARTED') {
+      // Si no había empezado, mantener la duración original pero empezar ahora
+      const originalDuration = client.subscription.endDate 
+        ? new Date(client.subscription.endDate) - new Date(client.subscription.startDate)
+        : extendDays * 24 * 60 * 60 * 1000;
+      newEndDate = new Date(now.getTime() + originalDuration);
+    } else {
+      // Para otros casos, extender desde ahora
+      newEndDate = new Date(now.getTime() + (extendDays * 24 * 60 * 60 * 1000));
+    }
+
+    // Guardar información de la reactivación
+    const reactivationInfo = {
+      reactivatedAt: now,
+      reactivatedBy: req.user._id,
+      previousStatus: client.subscription.status,
+      previousEndDate: client.subscription.endDate,
+      newEndDate,
+      extendedDays: extendDays
+    };
+
+    // Reactivar la suscripción
+    client.subscription.status = 'active';
+    client.subscription.startDate = now;
+    client.subscription.endDate = newEndDate;
+    client.status = 'active';
+
+    // Agregar información de reactivación
+    client.subscription.reactivation = reactivationInfo;
+
+    // Limpiar información de cancelación si existe
+    if (client.subscription.cancellation) {
+      client.subscription.previousCancellation = client.subscription.cancellation;
+      delete client.subscription.cancellation;
+    }
+
+    await client.save();
+
+    // Buscar y completar solicitudes de renovación pendientes
+    try {
+      const pendingRenewalRequest = await SubscriptionRenewalRequest.findOne({
+        clientId: client._id,
+        status: { $in: ['pending', 'in_progress'] }
+      }).populate('requestedBy', 'name email');
+
+      if (pendingRenewalRequest) {
+        console.log(`🔄 Completando solicitud de renovación pendiente: ${pendingRenewalRequest._id}`);
+        
+        // Actualizar la solicitud como completada
+        pendingRenewalRequest.status = 'completed';
+        pendingRenewalRequest.resolvedAt = now;
+        pendingRenewalRequest.resolvedBy = req.user._id;
+        pendingRenewalRequest.adminNotes = `Suscripción reactivada automáticamente por ${req.user.name}. Extendida por ${extendDays} días hasta ${newEndDate.toLocaleDateString('es-ES')}.`;
+        
+        await pendingRenewalRequest.save();
+        
+        // Enviar email de confirmación al cliente
+        try {
+          const planName = typeof client.subscription.plan === 'object' 
+            ? client.subscription.plan.name 
+            : (client.subscription.plan || 'Básico');
+          
+          const features = [];
+          if (client.subscription.planId && client.subscription.planId.features) {
+            const planFeatures = client.subscription.planId.features;
+            if (planFeatures.autoTranslate) features.push('Traducción automática de banners');
+            if (planFeatures.cookieScanning) features.push('Escaneo automático de cookies');
+            if (planFeatures.customization) features.push('Personalización avanzada de banners');
+          }
+          
+          const clientEmail = client.contactEmail || client.email;
+          const requestedByEmail = pendingRenewalRequest.requestedBy?.email;
+          
+          if (clientEmail || requestedByEmail) {
+            console.log(`📧 Enviando email de confirmación de renovación a: ${requestedByEmail || clientEmail}`);
+            
+            await emailService.sendRenewalSuccessNotification({
+              to: requestedByEmail || clientEmail,
+              clientName: client.name,
+              planName: planName,
+              endDate: newEndDate,
+              features: features,
+              requestType: pendingRenewalRequest.requestType
+            });
+            
+            console.log(`✅ Email de confirmación enviado exitosamente`);
+          } else {
+            console.warn('⚠️ No se encontró email para enviar confirmación');
+          }
+        } catch (emailError) {
+          console.error('❌ Error enviando email de confirmación:', emailError);
+          // No fallar la operación principal por errores de email
+        }
+      }
+    } catch (renewalError) {
+      console.error('❌ Error procesando solicitud de renovación:', renewalError);
+      // No fallar la operación principal por errores en el procesamiento de renovación
+    }
+
+    // Registrar en auditoría (no-blocking)
+    try {
+      await auditService.logAction({
+        clientId,
+        userId: req.user._id,
+        action: 'reactivate_subscription',
+        resourceType: 'client',
+        resourceId: clientId,
+        metadata: {
+          previousStatus: reactivationInfo.previousStatus,
+          newEndDate: newEndDate.toISOString(),
+          extendedDays: extendDays,
+          previousEndDate: reactivationInfo.previousEndDate
+        }
+      });
+    } catch (auditError) {
+      logger.error('Error logging audit action for subscription reactivation:', auditError);
+      // No fallar la operación principal por errores de auditoría
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: `Suscripción reactivada exitosamente hasta ${newEndDate.toLocaleDateString('es-ES')}`,
+      data: {
+        client: {
+          id: client._id,
+          companyName: client.companyName,
+          subscription: client.subscription
+        }
       }
     });
   });

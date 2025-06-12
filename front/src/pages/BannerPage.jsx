@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { AlertCircle, Search, Edit, Archive, Clock, Monitor, Tablet, Smartphone, Code, Users, Maximize2, RefreshCw, Trash2, Globe } from 'lucide-react';
 import BannerThumbnail from '../components/banner/BannerThumbnail';
 import DeleteTemplateConfirmModal from '../components/banner/DeleteTemplateConfirmModal';
+import SubscriptionAlert from '../components/common/SubscriptionAlert';
 
 function BannerPage() {
   const { user, hasRole } = useAuth();
@@ -16,6 +17,7 @@ function BannerPage() {
   const [domains, setDomains] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [subscriptionInfo, setSubscriptionInfo] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -33,6 +35,13 @@ function BannerPage() {
       // console.log("🔍 Solicitando plantillas con parámetros:", params);
       const response = await getClientTemplates(params);
       // console.log(`✅ Plantillas recibidas: ${response.data.templates.length}`);
+      
+      // Capturar información de suscripción
+      setSubscriptionInfo({
+        subscriptionInactive: response.subscriptionInactive,
+        subscriptionMessage: response.subscriptionMessage,
+        subscriptionStatus: response.subscriptionStatus
+      });
       
       // Actualizar estado de las plantillas basado en dominios asociados
       const processedTemplates = response.data.templates.map(template => {
@@ -224,13 +233,30 @@ function BannerPage() {
         <h1 className="text-2xl font-bold">
           {isOwner ? 'Gestión de Plantillas de Banner' : 'Mis Plantillas de Banner'}
         </h1>
-        <Link 
-          to="/dashboard/banner-editor-fullscreen/new"
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          Crear Banner
-        </Link>
+        {!subscriptionInfo.subscriptionInactive ? (
+          <Link 
+            to="/dashboard/banner-editor-fullscreen/new"
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Crear Banner
+          </Link>
+        ) : (
+          <button 
+            disabled
+            className="bg-gray-400 text-white px-4 py-2 rounded cursor-not-allowed opacity-50"
+            title="Suscripción requerida para crear banners"
+          >
+            Crear Banner
+          </button>
+        )}
       </div>
+
+      {/* Alerta de suscripción */}
+      <SubscriptionAlert 
+        subscriptionInactive={subscriptionInfo.subscriptionInactive}
+        subscriptionMessage={subscriptionInfo.subscriptionMessage}
+        subscriptionStatus={subscriptionInfo.subscriptionStatus}
+      />
 
       {error && (
         <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-md">
@@ -412,50 +438,100 @@ function BannerPage() {
                 <div className="flex flex-wrap gap-2">
                   {/* Mostrar botón Editar solo para owners o para plantillas de tipo custom */}
                   {(isOwner || template.type !== 'system') && (
-                    <Link 
-                      to={`/dashboard/banner-editor-fullscreen/${template._id}`}
-                      className="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center"
-                    >
-                      <Edit size={16} className="mr-1" /> Editar
-                    </Link>
+                    !subscriptionInfo.subscriptionInactive ? (
+                      <Link 
+                        to={`/dashboard/banner-editor-fullscreen/${template._id}`}
+                        className="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center"
+                      >
+                        <Edit size={16} className="mr-1" /> Editar
+                      </Link>
+                    ) : (
+                      <button 
+                        disabled
+                        className="text-gray-400 font-medium inline-flex items-center cursor-not-allowed"
+                        title="Suscripción requerida para editar"
+                      >
+                        <Edit size={16} className="mr-1" /> Editar
+                      </button>
+                    )
                   )}
                   
                   {/* Botón para generar script siempre visible */}
-                  <Link 
-                    to={`/dashboard/generate-script/${template._id}`}
-                    className="text-green-600 hover:text-green-800 font-medium inline-flex items-center"
-                  >
-                    <Code size={16} className="mr-1" /> Generar Script
-                  </Link>
+                  {!subscriptionInfo.subscriptionInactive ? (
+                    <Link 
+                      to={`/dashboard/generate-script/${template._id}`}
+                      className="text-green-600 hover:text-green-800 font-medium inline-flex items-center"
+                    >
+                      <Code size={16} className="mr-1" /> Generar Script
+                    </Link>
+                  ) : (
+                    <button 
+                      disabled
+                      className="text-gray-400 font-medium inline-flex items-center cursor-not-allowed"
+                      title="Suscripción requerida para generar scripts"
+                    >
+                      <Code size={16} className="mr-1" /> Generar Script
+                    </button>
+                  )}
                   
                   {/* Mostrar botón Archivar solo para owners o para plantillas de tipo custom que no estén archivadas */}
                   {template.status !== 'archived' && (isOwner || template.type !== 'system') && (
-                    <button
-                      onClick={() => handleArchive(template._id)}
-                      className="text-red-600 hover:text-red-800 font-medium inline-flex items-center"
-                    >
-                      <Archive size={16} className="mr-1" /> Archivar
-                    </button>
+                    !subscriptionInfo.subscriptionInactive ? (
+                      <button
+                        onClick={() => handleArchive(template._id)}
+                        className="text-red-600 hover:text-red-800 font-medium inline-flex items-center"
+                      >
+                        <Archive size={16} className="mr-1" /> Archivar
+                      </button>
+                    ) : (
+                      <button
+                        disabled
+                        className="text-gray-400 font-medium inline-flex items-center cursor-not-allowed"
+                        title="Suscripción requerida para archivar"
+                      >
+                        <Archive size={16} className="mr-1" /> Archivar
+                      </button>
+                    )
                   )}
                   
                   {/* Mostrar botón Desarchivar solo para plantillas archivadas */}
                   {template.status === 'archived' && (isOwner || template.type !== 'system') && (
-                    <button
-                      onClick={() => handleUnarchive(template._id)}
-                      className="text-green-600 hover:text-green-800 font-medium inline-flex items-center"
-                    >
-                      <RefreshCw size={16} className="mr-1" /> Desarchivar
-                    </button>
+                    !subscriptionInfo.subscriptionInactive ? (
+                      <button
+                        onClick={() => handleUnarchive(template._id)}
+                        className="text-green-600 hover:text-green-800 font-medium inline-flex items-center"
+                      >
+                        <RefreshCw size={16} className="mr-1" /> Desarchivar
+                      </button>
+                    ) : (
+                      <button
+                        disabled
+                        className="text-gray-400 font-medium inline-flex items-center cursor-not-allowed"
+                        title="Suscripción requerida para desarchivar"
+                      >
+                        <RefreshCw size={16} className="mr-1" /> Desarchivar
+                      </button>
+                    )
                   )}
                   
                   {/* Mostrar botón Eliminar solo para owners o para plantillas de tipo custom */}
                   {(isOwner || template.type !== 'system') && (
-                    <button
-                      onClick={() => openDeleteModal(template)}
-                      className="text-red-600 hover:text-red-800 font-medium inline-flex items-center"
-                    >
-                      <Trash2 size={16} className="mr-1" /> Eliminar
-                    </button>
+                    !subscriptionInfo.subscriptionInactive ? (
+                      <button
+                        onClick={() => openDeleteModal(template)}
+                        className="text-red-600 hover:text-red-800 font-medium inline-flex items-center"
+                      >
+                        <Trash2 size={16} className="mr-1" /> Eliminar
+                      </button>
+                    ) : (
+                      <button
+                        disabled
+                        className="text-gray-400 font-medium inline-flex items-center cursor-not-allowed"
+                        title="Suscripción requerida para eliminar"
+                      >
+                        <Trash2 size={16} className="mr-1" /> Eliminar
+                      </button>
+                    )
                   )}
                 </div>
               </div>

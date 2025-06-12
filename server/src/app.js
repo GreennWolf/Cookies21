@@ -33,8 +33,10 @@ const userRoutes = require('./routes/v1/users.routes');
 const clientRoutes = require('./routes/v1/client.routes');
 const invitationRoutes = require('./routes/v1/invitation.routes');
 const subscriptionRoutes  = require('./routes/v1/subscription.routes');
+const subscriptionRenewalRoutes = require('./routes/v1/subscription-renewal.routes');
 const documentationRoutes = require('./routes/v1/documentation.routes');
 const advancedCookieAnalysisRoutes = require('./routes/v1/advanced-cookie-analysis.routes');
+const validatorRoutes = require('./routes/v1/validator.routes');
 const { setupScheduledJobs } = require('./jobs/scheduledTasks');
 const errorHandler = require('./utils/errorHandler');
 
@@ -347,6 +349,21 @@ app.use('/public', express.static(publicFolderPath, {
 
 app.use('/assets', express.static(path.join(publicFolderPath, 'assets')));
 
+// Configuración para servir archivos estáticos directamente desde la raíz (como icon.svg)
+app.use(express.static(publicFolderPath, {
+  setHeaders: (res, path, stat) => {
+    // Solo aplicar a archivos específicos que queremos servir desde la raíz
+    if (path.endsWith('icon.svg')) {
+      console.log(`🎨 ICON: Sirviendo icono: ${path}`);
+      res.set('Cache-Control', 'public, max-age=3600'); // Caché de 1 hora para el icono
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Access-Control-Allow-Methods', 'GET');
+      res.set('Access-Control-Allow-Headers', 'Content-Type');
+      res.set('Content-Type', 'image/svg+xml');
+    }
+  }
+}));
+
 
 // Middleware para prevenir bloqueos por JSON mal formado
 app.use((err, req, res, next) => {
@@ -422,8 +439,10 @@ app.use(`${apiV1}/clients`, clientRoutes);
 app.use(`${apiV1}/consent-script`, consentScriptRoute);
 app.use(`${apiV1}/invitation`, invitationRoutes);
 app.use(`${apiV1}/subscriptions`, subscriptionRoutes);
+app.use(`${apiV1}/subscription-renewals`, subscriptionRenewalRoutes);
 app.use(`${apiV1}/documentation`, documentationRoutes);
 app.use(`${apiV1}/advanced-analysis`, advancedCookieAnalysisRoutes);
+app.use(`${apiV1}/validator`, validatorRoutes);
 
 // También añadimos la ruta de documentación pública fuera del apiV1
 app.use('/documentation', documentationRoutes);

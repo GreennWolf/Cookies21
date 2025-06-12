@@ -135,6 +135,40 @@ export const validateCompliance = async (cookieId) => {
 };
 
 /**
+ * Elimina una cookie específica.
+ * @param {string} cookieId - ID de la cookie a eliminar.
+ * @returns {object} Confirmación de eliminación.
+ */
+export const deleteCookie = async (cookieId) => {
+  try {
+    const response = await apiClient.delete(`/api/v1/cookies/${cookieId}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || 'Error deleting cookie'
+    );
+  }
+};
+
+/**
+ * Elimina múltiples cookies.
+ * @param {Array} cookieIds - Array de IDs de cookies a eliminar.
+ * @returns {object} Confirmación de eliminación múltiple.
+ */
+export const deleteCookies = async (cookieIds) => {
+  try {
+    const response = await apiClient.delete('/api/v1/cookies/bulk', {
+      data: { cookieIds }
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || 'Error deleting cookies'
+    );
+  }
+};
+
+/**
  * Obtiene estadísticas de cookies para un dominio.
  * @param {string} domainId - ID del dominio.
  * @returns {object} Estadísticas de las cookies.

@@ -180,3 +180,57 @@ export const assignTemplateToDomain = async (domainName, templateId) => {
     );
   }
 };
+
+/**
+ * Cancela la suscripción de un cliente
+ * Solo disponible para usuarios owner
+ * @param {string} clientId - ID del cliente
+ * @param {object} options - Opciones de cancelación
+ * @param {string} options.reason - Razón de la cancelación (opcional)
+ * @param {boolean} options.cancelImmediately - Si cancelar inmediatamente o al final del período
+ * @returns {object} Resultado de la cancelación
+ */
+export const cancelClientSubscription = async (clientId, options = {}) => {
+  try {
+    const response = await apiClient.post(
+      `/api/v1/clients/${clientId}/cancel-subscription`,
+      {
+        reason: options.reason,
+        cancelImmediately: options.cancelImmediately || false
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error cancelando suscripción:', error);
+    console.error('Error response:', error.response?.data);
+    throw new Error(
+      error.response?.data?.message || 'Error al cancelar la suscripción'
+    );
+  }
+};
+
+/**
+ * Reactiva la suscripción de un cliente
+ * Solo disponible para usuarios owner
+ * @param {string} clientId - ID del cliente
+ * @param {object} options - Opciones de reactivación
+ * @param {number} options.extendDays - Días a extender la suscripción (por defecto 30)
+ * @returns {object} Resultado de la reactivación
+ */
+export const reactivateClientSubscription = async (clientId, options = {}) => {
+  try {
+    const response = await apiClient.post(
+      `/api/v1/clients/${clientId}/reactivate-subscription`,
+      {
+        extendDays: options.extendDays || 30
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error reactivando suscripción:', error);
+    console.error('Error response:', error.response?.data);
+    throw new Error(
+      error.response?.data?.message || 'Error al reactivar la suscripción'
+    );
+  }
+};

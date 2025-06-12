@@ -2,13 +2,15 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 
-const DomainCard = ({ domain, onViewDetails, onDelete }) => {
+const DomainCard = ({ domain, onViewDetails, onDelete, subscriptionInactive = false }) => {
   // Verificar si tenemos información del cliente (solo para usuarios owner)
   const hasClientInfo = domain.clientId && typeof domain.clientId === 'object';
 
   return (
     <div className="bg-white p-4 rounded shadow">
-      <h2 className="text-xl font-semibold text-[#235C88] mb-2">{domain.domain}</h2>
+      <h2 className="text-xl font-semibold text-[#235C88] mb-2 truncate" title={domain.domain}>
+        {domain.domain}
+      </h2>
       <p className="text-gray-600 mb-2">Estado: {domain.status}</p>
       
       {/* Mostrar información del cliente si está disponible (para usuarios owner) */}
@@ -28,12 +30,22 @@ const DomainCard = ({ domain, onViewDetails, onDelete }) => {
         >
           Ver Detalles
         </button>
-        <button
-          onClick={() => onDelete(domain._id)}
-          className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
-        >
-          Eliminar
-        </button>
+        {!subscriptionInactive ? (
+          <button
+            onClick={() => onDelete(domain._id)}
+            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
+          >
+            Eliminar
+          </button>
+        ) : (
+          <button
+            disabled
+            className="px-3 py-1 bg-gray-400 text-white rounded cursor-not-allowed opacity-50"
+            title="Suscripción requerida para eliminar dominios"
+          >
+            Eliminar
+          </button>
+        )}
       </div>
     </div>
   );
@@ -43,6 +55,7 @@ DomainCard.propTypes = {
   domain: PropTypes.object.isRequired,
   onViewDetails: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
+  subscriptionInactive: PropTypes.bool,
 };
 
 export default DomainCard;

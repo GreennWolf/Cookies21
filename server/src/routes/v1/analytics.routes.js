@@ -4,6 +4,7 @@ const AnalyticsController = require('../../controllers/AnalyticsController');
 const { validateRequest } = require('../../middleware/validateRequest');
 const { analyticsValidation } = require('../../validations/analytic.validation');
 const { protect, restrictTo } = require('../../middleware/auth');
+const { checkSubscriptionWithReadOnlyMode } = require('../../middleware/subscriptionCheck');
 const { cacheControl } = require('../../middleware/cache');
 const { analyticsAccessHandler } = require('../../middleware/domainAccess');
 
@@ -22,6 +23,7 @@ router.param('domainId', (req, res, next) => {
 // Rutas del dashboard
 router.get(
   '/dashboard',
+  checkSubscriptionWithReadOnlyMode,
   cacheControl('5 minutes'),
   validateRequest(analyticsValidation.getDashboardStats),
   AnalyticsController.getDashboardStats
@@ -30,6 +32,7 @@ router.get(
 // Rutas por dominio - Analytics generales
 router.get(
   '/domain/:domainId',
+  checkSubscriptionWithReadOnlyMode,
   cacheControl('15 minutes'),
   analyticsAccessHandler,  // Middleware especial para analytics
   validateRequest(analyticsValidation.getDomainAnalytics),
@@ -38,6 +41,7 @@ router.get(
 
 router.get(
   '/domain/:domainId/trends',
+  checkSubscriptionWithReadOnlyMode,
   analyticsAccessHandler,  // Middleware especial para analytics
   validateRequest(analyticsValidation.getTrends),
   AnalyticsController.getTrends
@@ -45,6 +49,7 @@ router.get(
 
 router.get(
   '/domain/:domainId/consent-stats',
+  checkSubscriptionWithReadOnlyMode,
   analyticsAccessHandler,  // Middleware especial para analytics
   validateRequest(analyticsValidation.getConsentStats),
   AnalyticsController.getConsentStats
@@ -53,6 +58,7 @@ router.get(
 // Ruta nueva optimizada para obtener datos directamente de ConsentLog
 router.get(
   '/domain/:domainId/direct-consent-stats',
+  checkSubscriptionWithReadOnlyMode,
   analyticsAccessHandler,  // Middleware especial para analytics
   validateRequest(analyticsValidation.getConsentStats),
   AnalyticsController.getDirectConsentStats
@@ -61,6 +67,7 @@ router.get(
 // Rutas de cookies y datos demográficos
 router.get(
   '/domain/:domainId/cookies',
+  checkSubscriptionWithReadOnlyMode,
   cacheControl('30 minutes'),
   analyticsAccessHandler,  // Middleware especial para analytics
   validateRequest(analyticsValidation.getCookieAnalytics),
@@ -69,6 +76,7 @@ router.get(
 
 router.get(
   '/domain/:domainId/demographics',
+  checkSubscriptionWithReadOnlyMode,
   cacheControl('1 hour'),
   analyticsAccessHandler,  // Middleware especial para analytics
   validateRequest(analyticsValidation.getDemographics),

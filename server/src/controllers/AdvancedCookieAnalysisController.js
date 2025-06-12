@@ -37,7 +37,7 @@ class AdvancedCookieAnalysisController {
     }
 
     // Verificar permisos
-    if (!req.isOwner && domain.clientId.toString() !== req.clientId) {
+    if (!req.isOwner && domain.clientId && domain.clientId.toString() !== req.clientId) {
       throw new AppError('Access denied to this domain', 403);
     }
 
@@ -349,7 +349,7 @@ class AdvancedCookieAnalysisController {
       throw new AppError('Domain not found', 404);
     }
 
-    if (!req.isOwner && domain.clientId.toString() !== req.clientId) {
+    if (!req.isOwner && domain.clientId && domain.clientId.toString() !== req.clientId) {
       throw new AppError('Access denied to this domain', 403);
     }
 
@@ -453,7 +453,7 @@ class AdvancedCookieAnalysisController {
       throw new AppError('Domain not found', 404);
     }
 
-    if (!req.isOwner && domain.clientId.toString() !== req.clientId) {
+    if (!req.isOwner && domain.clientId && domain.clientId.toString() !== req.clientId) {
       throw new AppError('Access denied to this domain', 403);
     }
 
@@ -486,7 +486,7 @@ class AdvancedCookieAnalysisController {
       throw new AppError('Domain not found', 404);
     }
 
-    if (!req.isOwner && domain.clientId.toString() !== req.clientId) {
+    if (!req.isOwner && domain.clientId && domain.clientId.toString() !== req.clientId) {
       throw new AppError('Access denied to this domain', 403);
     }
 
@@ -562,7 +562,7 @@ class AdvancedCookieAnalysisController {
   groupByCategory(cookies) {
     const categories = {};
     cookies.forEach(cookie => {
-      const category = cookie.category || 'unknown';
+      const category = cookie.category || 'other';
       categories[category] = (categories[category] || 0) + 1;
     });
     return categories;
@@ -571,7 +571,7 @@ class AdvancedCookieAnalysisController {
   groupByProvider(cookies) {
     const providers = {};
     cookies.forEach(cookie => {
-      const provider = cookie.provider?.name || 'Unknown';
+      const provider = cookie.provider?.name || 'Propios';
       providers[provider] = (providers[provider] || 0) + 1;
     });
     return providers;
@@ -745,7 +745,7 @@ class AdvancedCookieAnalysisController {
       cookie.name,
       cookie.domain,
       cookie.category,
-      cookie.provider?.name || 'Unknown',
+      cookie.provider?.name || 'Propios',
       cookie.secure ? 'Yes' : 'No',
       cookie.httpOnly ? 'Yes' : 'No',
       cookie.sameSite || 'None',

@@ -10,6 +10,7 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [previewMode, setPreviewMode] = useState('simulator'); // 'simulator' o 'editor'
+  const [currentDevice, setCurrentDevice] = useState('desktop'); // 'desktop', 'tablet', 'mobile'
   const [bannerComponents, setBannerComponents] = useState({
     acceptButton: null,
     rejectButton: null,
@@ -271,19 +272,41 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
           // Aplicar estilos del botón PRESERVANDO los cambios de resize
           if (buttonCustomization) {
             // Solo actualizar propiedades de color, NO dimensiones ni posición
+            // APLICAR A LOS 3 DISPOSITIVOS
             if (!newComponent.style) newComponent.style = {};
-            if (!newComponent.style.desktop) newComponent.style.desktop = {};
             
+            // Desktop
+            if (!newComponent.style.desktop) newComponent.style.desktop = {};
             newComponent.style.desktop.backgroundColor = buttonCustomization.backgroundColor;
             newComponent.style.desktop.color = buttonCustomization.textColor;
+            
+            // Tablet
+            if (!newComponent.style.tablet) newComponent.style.tablet = {};
+            newComponent.style.tablet.backgroundColor = buttonCustomization.backgroundColor;
+            newComponent.style.tablet.color = buttonCustomization.textColor;
+            
+            // Mobile
+            if (!newComponent.style.mobile) newComponent.style.mobile = {};
+            newComponent.style.mobile.backgroundColor = buttonCustomization.backgroundColor;
+            newComponent.style.mobile.color = buttonCustomization.textColor;
           }
         } else if (component.type === 'text') {
           // Aplicar color de texto general PRESERVANDO los cambios de resize
           // Solo actualizar color, NO dimensiones ni posición
+          // APLICAR A LOS 3 DISPOSITIVOS
           if (!newComponent.style) newComponent.style = {};
-          if (!newComponent.style.desktop) newComponent.style.desktop = {};
           
+          // Desktop
+          if (!newComponent.style.desktop) newComponent.style.desktop = {};
           newComponent.style.desktop.color = customizations.textColor;
+          
+          // Tablet
+          if (!newComponent.style.tablet) newComponent.style.tablet = {};
+          newComponent.style.tablet.color = customizations.textColor;
+          
+          // Mobile
+          if (!newComponent.style.mobile) newComponent.style.mobile = {};
+          newComponent.style.mobile.color = customizations.textColor;
         } else if (component.type === 'image') {
           // Aplicar customizations de imagen PRESERVANDO la imagen original
           const imageCustomization = customizations.images[component.id];
@@ -939,7 +962,7 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     
     const handleColorChange = (newColor) => {
       setLocalColor(newColor);
-      onChange(newColor);
+      // onChange(newColor);
     };
     
     return (
@@ -963,6 +986,7 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
                 type="color"
                 value={localColor}
                 onChange={(e) => handleColorChange(e.target.value)}
+                onBlur={(e) => onChange(e.target.value)} 
                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
               />
             </div>
@@ -1068,34 +1092,84 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-medium text-gray-700">Vista Previa del Banner</h4>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPreviewMode('simulator')}
-                  className={`px-3 py-1 text-xs rounded ${
-                    previewMode === 'simulator' 
-                      ? 'bg-blue-500 text-white' 
-                      : 'bg-gray-200 text-gray-700'
-                  }`}
-                >
-                  Vista Real
-                </button>
-                <button
-                  onClick={() => setPreviewMode('editor')}
-                  className={`px-3 py-1 text-xs rounded ${
-                    previewMode === 'editor' 
-                      ? 'bg-blue-500 text-white' 
-                      : 'bg-gray-200 text-gray-700'
-                  }`}
-                >
-                  Modo Edición
-                </button>
+              <div className="flex items-center gap-4">
+                {/* Selector de dispositivo */}
+                <div className="flex items-center gap-1 bg-gray-100 rounded-md p-1">
+                  <button
+                    onClick={() => setCurrentDevice('desktop')}
+                    className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
+                      currentDevice === 'desktop' 
+                        ? 'bg-white text-blue-600 shadow-sm' 
+                        : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                    title="Escritorio"
+                  >
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm2 1v6h10V5H5z" clipRule="evenodd" />
+                      <path d="M8 17a1 1 0 100-2 1 1 0 000 2zm4 0a1 1 0 100-2 1 1 0 000 2z" />
+                    </svg>
+                    <span>PC</span>
+                  </button>
+                  <button
+                    onClick={() => setCurrentDevice('tablet')}
+                    className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
+                      currentDevice === 'tablet' 
+                        ? 'bg-white text-blue-600 shadow-sm' 
+                        : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                    title="Tablet"
+                  >
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M5 2a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V4a2 2 0 00-2-2H5zm0 2h10v12H5V4z" clipRule="evenodd" />
+                    </svg>
+                    <span>Tablet</span>
+                  </button>
+                  <button
+                    onClick={() => setCurrentDevice('mobile')}
+                    className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
+                      currentDevice === 'mobile' 
+                        ? 'bg-white text-blue-600 shadow-sm' 
+                        : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                    title="Móvil"
+                  >
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M7 2a2 2 0 00-2 2v12a2 2 0 002 2h6a2 2 0 002-2V4a2 2 0 00-2-2H7zm0 2h6v12H7V4z" clipRule="evenodd" />
+                    </svg>
+                    <span>Móvil</span>
+                  </button>
+                </div>
+                
+                {/* Selector de modo */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPreviewMode('simulator')}
+                    className={`px-3 py-1 text-xs rounded ${
+                      previewMode === 'simulator' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-200 text-gray-700'
+                    }`}
+                  >
+                    Vista Real
+                  </button>
+                  <button
+                    onClick={() => setPreviewMode('editor')}
+                    className={`px-3 py-1 text-xs rounded ${
+                      previewMode === 'editor' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-200 text-gray-700'
+                    }`}
+                  >
+                    Modo Edición
+                  </button>
+                </div>
               </div>
             </div>
             <div className="border border-gray-200 rounded-lg bg-gray-100 overflow-hidden">
               {previewMode === 'simulator' ? (
                 <BrowserSimulatorPreview 
                   bannerConfig={customizedTemplate} 
-                  deviceView="desktop"
+                  deviceView={currentDevice}
                   height="500px"
                 />
               ) : (
@@ -1103,7 +1177,7 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-4" style={{ minHeight: '360px' }}>
                     <InteractiveBannerPreview 
                       bannerConfig={customizedTemplate} 
-                      deviceView="desktop"
+                      deviceView={currentDevice}
                       height="350px"
                       onUpdateComponent={handleComponentUpdate}
                     />

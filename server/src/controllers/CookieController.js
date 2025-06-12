@@ -144,21 +144,45 @@ class CookieController {
       script
     } = req.body;
 
+    console.log('🍪 === CREATE COOKIE REQUEST ===');
+    console.log('🍪 domainId:', domainId);
+    console.log('🍪 req.clientId:', req.clientId);
+    console.log('🍪 req.isOwner:', req.isOwner);
+    console.log('🍪 req.user:', req.user);
+    console.log('🍪 Body completo:', req.body);
+
     // Verificar acceso al dominio
     let domain;
     
     // Si es owner, puede acceder a cualquier dominio
     if (req.isOwner) {
+      console.log('🔍 Buscando dominio como owner con ID:', domainId);
       domain = await Domain.findById(domainId).populate('clientId', 'name email');
+      console.log('🔍 Dominio encontrado (owner):', domain ? domain.domain : 'NO ENCONTRADO');
     } else {
       // Si no es owner, solo puede acceder a dominios de su propio cliente
+      console.log('🔍 Buscando dominio como usuario normal con ID:', domainId, 'y clientId:', req.clientId);
       domain = await Domain.findOne({
         _id: domainId,
         clientId: req.clientId
       });
+      console.log('🔍 Dominio encontrado (user):', domain ? domain.domain : 'NO ENCONTRADO');
     }
 
     if (!domain) {
+      console.error('❌ Dominio no encontrado con ID:', domainId);
+      console.error('❌ req.clientId:', req.clientId);
+      console.error('❌ req.isOwner:', req.isOwner);
+      
+      // Verificar si el dominio existe pero no es accesible
+      const domainExists = await Domain.findById(domainId);
+      if (domainExists) {
+        console.error('❌ El dominio existe pero no es accesible para este usuario');
+        console.error('❌ Dominio clientId:', domainExists.clientId);
+      } else {
+        console.error('❌ El dominio no existe en la base de datos');
+      }
+      
       throw new AppError('Domain not found', 404);
     }
 
@@ -406,6 +430,68 @@ class CookieController {
             path: 'domainId',
             populate: { path: 'clientId', select: 'name email' }
           }) : cookie
+      }
+    });
+  });
+
+  // Eliminar cookie
+  deleteCookie = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const { clientId } = req;
+
+    const cookie = await Cookie.findById(id).populate('domainId');
+
+    if (!cookie) {
+      throw new AppError('Cookie not found', 404);
+    }
+
+    // Verificar acceso (solo para no-owners)
+    if (!req.isOwner && cookie.domainId.clientId && cookie.domainId.clientId.toString() !== clientId) {
+      throw new AppError('Not authorized to delete this cookie', 403);
+    }
+
+    await Cookie.findByIdAndDelete(id);
+
+    res.status(204).json({
+      status: 'success',
+      data: null
+    });
+  });
+
+  deleteCookies = catchAsync(async (req, res) => {
+    const { cookieIds } = req.body;
+    const { clientId, isOwner } = req;
+
+    if (!cookieIds || !Array.isArray(cookieIds) || cookieIds.length === 0) {
+      throw new AppError('cookieIds array is required', 400);
+    }
+
+    // Encontrar todas las cookies a eliminar
+    const cookies = await Cookie.find({ _id: { $in: cookieIds } }).populate('domainId');
+
+    if (cookies.length === 0) {
+      throw new AppError('No cookies found', 404);
+    }
+
+    // Verificar permisos para cada cookie (solo para no-owners)
+    if (!isOwner) {
+      const unauthorizedCookies = cookies.filter(cookie => 
+        cookie.domainId.clientId && cookie.domainId.clientId.toString() !== clientId
+      );
+      
+      if (unauthorizedCookies.length > 0) {
+        throw new AppError('Not authorized to delete some of the selected cookies', 403);
+      }
+    }
+
+    // Eliminar todas las cookies
+    const result = await Cookie.deleteMany({ _id: { $in: cookieIds } });
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        deletedCount: result.deletedCount,
+        message: `${result.deletedCount} cookies deleted successfully`
       }
     });
   });

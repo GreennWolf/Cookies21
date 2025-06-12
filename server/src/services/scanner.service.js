@@ -11,7 +11,7 @@ class ScannerService {
   constructor() {
     this.browserPool = null;
     this.maxConcurrentScans = 5;
-    this.scanTimeout = 30000; // 30 segundos por página
+    this.scanTimeout = 20000; // 20 segundos por página (reducido)
     this.maxPagesPerScan = 100;
     this.maxRetries = 3;
 
@@ -36,34 +36,109 @@ class ScannerService {
       ]
     };
 
-    // Patrones de categorías de cookies
+    // Patrones de categorías de cookies - EXPANDIDO
     this.cookiePatterns = {
       necessary: [
         /^(csrf|session|auth|secure|__Secure-|__Host-)/i,
         /_csrf$/i,
-        /^XSRF-TOKEN$/i
+        /^XSRF-TOKEN$/i,
+        /^ARRAffinity/i,
+        /^ASP\.NET/i,
+        /^AWSALB/i,
+        /^connect\.sid$/i,
+        /^express\.sess/i
       ],
       functionality: [
         /^(prefs|settings|language|timezone|display)/i,
         /_preferences$/i,
-        /^ui-/i
+        /^ui-/i,
+        /^player/i,
+        /^volume/i,
+        /^fontSize/i,
+        /^colorScheme/i
       ],
       analytics: [
         /^(_ga|_gid|_gat|__utm)/i,
         /^_pk_/i,
         /^amplitude/i,
-        /^mp_/i
+        /^mp_/i,
+        /^_hjid/i,
+        /^_hjsession/i,
+        /^_clck/i,
+        /^_clsk/i,
+        /^ki_/i,
+        /^km_/i,
+        /^optimizely/i,
+        /^segment/i,
+        /^ajs_/i,
+        /^_vwo_/i,
+        /^_vis_opt_/i,
+        /^_gclxxxx/i,
+        /^_gaexp/i,
+        /^_opt_/i,
+        /^zarget/i,
+        /^_ce\.s$/i,
+        /^_BEAMER_/i
       ],
       marketing: [
-        /^(_fbp|_fbc|fr)/i,
+        /^(_fbp|_fbc|fr|xs|c_user|datr|sb|spin|wd|presence)/i,
         /^(_gcl|_gac)/i,
         /^pinterest_/i,
-        /^_ttp/i
+        /^_ttp/i,
+        /^_uetvid$/i,
+        /^_uetsid$/i,
+        /^mautic/i,
+        /^mtc_/i,
+        /^_mkto_trk$/i,
+        /^visitor_id/i,
+        /^pardot/i,
+        /^BIGipServer/i,
+        /^mc_/i,
+        /^_mcid$/i,
+        /^aa_/i,
+        /^_pinterest_/i,
+        /^_pin_unauth$/i,
+        /^_routing_id$/i,
+        /^_shopify_/i,
+        /^_landing_page$/i,
+        /^_orig_referrer$/i,
+        /^cart_/i,
+        /^checkout_/i
       ],
       advertising: [
-        /^(ide|test_cookie|_drt_|id)/i,
+        /^(ide|test_cookie|_drt_|id|RUL|DSID|uid|uuid|guid)/i,
         /^doubleclick/i,
-        /^adroll/i
+        /^adroll/i,
+        /^__ar_v4$/i,
+        /^_te_$/i,
+        /^tuuid/i,
+        /^c$/i,
+        /^cto_/i,
+        /^criteo/i,
+        /^tluid$/i,
+        /^taboola/i,
+        /^t_gid$/i,
+        /^TDCPM$/i,
+        /^TDID$/i,
+        /^anj$/i,
+        /^uuid2$/i,
+        /^sessid$/i,
+        /^ssid$/i,
+        /^_kuid_$/i,
+        /^bito$/i,
+        /^bitoIsSecure$/i,
+        /^checkForPermission$/i,
+        /^_cc_/i,
+        /^_pubcid$/i,
+        /^panoramaId/i,
+        /^ad-id$/i,
+        /^ad-privacy$/i
+      ],
+      personalizacion: [
+        // Cookies de personalización del sitio
+        /^(custom|personal|user_|my_)/i,
+        /^(bookmark|favorite|wishlist)/i,
+        /^(layout|view_mode|display_)/i
       ]
     };
 
@@ -99,6 +174,16 @@ class ScannerService {
     this._updateScan = this._updateScan.bind(this);
   }
 
+  // Función helper para extraer el dominio base (sin subdominios)
+  _extractBaseDomain(hostname) {
+    if (!hostname) return '';
+    const parts = hostname.split('.');
+    if (parts.length >= 2) {
+      return parts.slice(-2).join('.');
+    }
+    return hostname;
+  }
+
   async initBrowserPool() {
     if (!this.browserPool) {
       try {
@@ -110,10 +195,33 @@ class ScannerService {
             '--disable-dev-shm-usage',
             '--disable-gpu',
             '--disable-web-security',
-            '--disable-features=IsolateOrigins,site-per-process'
+            '--disable-features=IsolateOrigins,site-per-process',
+            // Deshabilitar todas las protecciones de privacidad
+            '--disable-blink-features=AutomationControlled',
+            '--disable-features=CrossSiteDocumentBlockingAlways,CrossSiteDocumentBlockingIfIsolating',
+            '--disable-site-isolation-trials',
+            '--disable-features=BlockThirdPartyCookies',
+            '--disable-features=SameSiteByDefaultCookies',
+            '--disable-features=CookiesWithoutSameSiteMustBeSecure',
+            '--disable-features=PartitionedCookies',
+            // Permitir todas las cookies
+            '--enable-features=AllowAllCookies',
+            '--disable-features=ImprovedCookieControls',
+            '--disable-features=LegacySameSiteCookieBehaviorEnabledForDomainList',
+            // Deshabilitar protecciones adicionales
+            '--disable-features=PrivacySandboxSettings4',
+            '--disable-features=PrivacySandboxAdsAPIsOverride',
+            '--disable-features=FledgeConsiderKAnonymity',
+            '--disable-features=FledgeEnforceKAnonymity',
+            // Aceptar todas las cookies de terceros
+            '--disable-features=ThirdPartyCookiePhaseout',
+            '--test-third-party-cookie-phaseout',
+            // User agent más permisivo
+            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
           ],
           ignoreHTTPSErrors: true,
-          defaultViewport: { width: 1920, height: 1080 }
+          defaultViewport: { width: 1920, height: 1080 },
+          protocolTimeout: 60000  // Aumentar timeout a 60 segundos
         });
       } catch (error) {
         logger.error("Error initializing browser pool:", error);
@@ -143,12 +251,16 @@ class ScannerService {
     const visited = new Set();
     const queue = [startUrl];
     const maxUrls = config.maxUrls || this.maxPagesPerScan;
-    const includeSubdomains = config.includeSubdomains || false;
-    const maxDepth = config.depth || 5; // Usar depth 5 como predeterminado
+    const includeSubdomains = config.includeSubdomains !== false; // Por defecto true
+    const maxDepth = config.depth || 5;
     
     try {
       const baseUrl = new URL(startUrl);
+      const baseDomain = this._extractBaseDomain(baseUrl.hostname);
       const page = await this.browserPool.newPage();
+      
+      console.log(`🔍 Iniciando descubrimiento de URLs para dominio: ${baseDomain}`);
+      console.log(`🔍 Incluir subdominios: ${includeSubdomains}`);
       
       while (queue.length > 0 && urls.size < maxUrls) {
         const currentUrl = queue.shift();
@@ -166,23 +278,52 @@ class ScannerService {
             const foundLinks = new Set();
             const baseUrl = window.location.origin;
             
+            // Función helper para verificar si un dominio pertenece al dominio base
+            function isValidDomain(hostname) {
+              if (!hostname) return false;
+              
+              // Extraer dominio base (eliminar subdominios)
+              const extractBaseDomain = (domain) => {
+                const parts = domain.split('.');
+                if (parts.length >= 2) {
+                  return parts.slice(-2).join('.');
+                }
+                return domain;
+              };
+              
+              const targetBaseDomain = extractBaseDomain(hostname);
+              
+              if (includeSubdomains) {
+                // Permitir dominio exacto y subdominios
+                return targetBaseDomain === baseDomain || hostname === baseDomain;
+              } else {
+                // Solo dominio exacto
+                return hostname === baseDomain;
+              }
+            }
+            
             // Enlaces de navegación
             document.querySelectorAll('a[href]').forEach(anchor => {
               try {
                 const href = anchor.getAttribute('href');
                 if (!href) return;
                 
-                const absoluteUrl = new URL(href, baseUrl);
-                
-                // Verificar si es válido según configuración de subdominios
-                let isValid = false;
-                if (includeSubdomains && absoluteUrl.hostname) {
-                  isValid = absoluteUrl.hostname.endsWith(baseDomain) || absoluteUrl.hostname === baseDomain;
-                } else if (absoluteUrl.hostname) {
-                  isValid = absoluteUrl.hostname === baseDomain;
+                // Ignorar enlaces externos obvios
+                if (href.includes('facebook.com') || href.includes('instagram.com') || 
+                    href.includes('twitter.com') || href.includes('linkedin.com') ||
+                    href.includes('youtube.com') || href.includes('tiktok.com') ||
+                    href.includes('pinterest.com') || href.includes('whatsapp.com') ||
+                    href.includes('telegram.org') || href.includes('snapchat.com') ||
+                    href.startsWith('mailto:') || href.startsWith('tel:') ||
+                    href.startsWith('sms:') || href.startsWith('viber:') ||
+                    href.startsWith('skype:')) {
+                  return;
                 }
                 
-                if (isValid && ['http:', 'https:'].includes(absoluteUrl.protocol)) {
+                const absoluteUrl = new URL(href, baseUrl);
+                
+                // Verificar si el dominio es válido
+                if (isValidDomain(absoluteUrl.hostname) && ['http:', 'https:'].includes(absoluteUrl.protocol)) {
                   // Verificar profundidad
                   const pathDepth = absoluteUrl.pathname.split('/').filter(p => p).length;
                   if (pathDepth <= maxDepth) {
@@ -200,8 +341,7 @@ class ScannerService {
                 const action = form.getAttribute('action');
                 if (action && !action.startsWith('#')) {
                   const absoluteUrl = new URL(action, baseUrl);
-                  if ((includeSubdomains && absoluteUrl.hostname && absoluteUrl.hostname.endsWith(baseDomain)) ||
-                      (!includeSubdomains && absoluteUrl.hostname === baseDomain)) {
+                  if (isValidDomain(absoluteUrl.hostname)) {
                     foundLinks.add(absoluteUrl.href);
                   }
                 }
@@ -215,8 +355,7 @@ class ScannerService {
               if (match) {
                 try {
                   const absoluteUrl = new URL(match[1], baseUrl);
-                  if ((includeSubdomains && absoluteUrl.hostname && absoluteUrl.hostname.endsWith(baseDomain)) ||
-                      (!includeSubdomains && absoluteUrl.hostname === baseDomain)) {
+                  if (isValidDomain(absoluteUrl.hostname)) {
                     foundLinks.add(absoluteUrl.href);
                   }
                 } catch (e) {}
@@ -224,7 +363,7 @@ class ScannerService {
             });
             
             return Array.from(foundLinks);
-          }, baseUrl.hostname, includeSubdomains, maxDepth);
+          }, baseDomain, includeSubdomains, maxDepth);
           
           for (const link of links) {
             if (urls.size >= maxUrls) break;
@@ -280,6 +419,33 @@ class ScannerService {
         return;
       }
       
+      // Función para verificar si el escaneo ha sido cancelado
+      const checkCancellation = async () => {
+        try {
+          let currentScan = null;
+          
+          // Intentar buscar por _id si es ObjectId
+          if (scan._id && scan._id.toString().match(/^[0-9a-fA-F]{24}$/)) {
+            currentScan = await require('../models/CookieScan').findById(scan._id);
+          }
+          
+          // Si no se encuentra o scan._id no es ObjectId, buscar por scanId
+          if (!currentScan && scan.scanId) {
+            currentScan = await require('../models/CookieScan').findOne({ scanId: scan.scanId });
+          }
+          
+          // Si aún no se encuentra, buscar por cualquier campo UUID
+          if (!currentScan && scan._id && !scan._id.toString().match(/^[0-9a-fA-F]{24}$/)) {
+            currentScan = await require('../models/CookieScan').findOne({ scanId: scan._id });
+          }
+          
+          return currentScan && currentScan.status === 'cancelled';
+        } catch (error) {
+          console.log('Error verificando cancelación:', error.message);
+          return false;
+        }
+      };
+      
       scanLog.scanStart({
         domain: domain.domain,
         scanType: 'traditional',
@@ -318,7 +484,17 @@ class ScannerService {
       scanLog.info(`Starting scan with ${chunks.length} chunks of ${this.maxConcurrentScans} concurrent scans`);
       
       for (const chunk of chunks) {
-        const promises = chunk.map(url => this._scanUrl(url, findings, scan, scanLog));
+        // Verificar cancelación antes de cada chunk
+        if (await checkCancellation()) {
+          scanLog.info('Escaneo cancelado por el usuario');
+          scan.status = 'cancelled';
+          scan.progress.endTime = new Date();
+          scan.progress.duration = (scan.progress.endTime - scan.progress.startTime) / 1000;
+          await this._updateScan(scan);
+          return { findings: null, stats: null, cancelled: true };
+        }
+        
+        const promises = chunk.map(url => this._scanUrl(url, findings, scan, scanLog, checkCancellation));
         await Promise.all(promises);
       }
       
@@ -356,14 +532,37 @@ class ScannerService {
       
       return { findings: null, stats: null, error: error.message };
     } finally {
-      if (this.browserPool) {
-        await this.browserPool.close();
+      try {
+        if (this.browserPool) {
+          // Cerrar todas las páginas abiertas antes de cerrar el browser
+          const pages = await this.browserPool.pages();
+          for (const page of pages) {
+            try {
+              if (!page.isClosed()) {
+                await page.close();
+              }
+            } catch (e) {
+              // Ignorar errores de cierre de página
+            }
+          }
+          
+          await this.browserPool.close();
+          this.browserPool = null;
+        }
+      } catch (error) {
+        console.log('Error cerrando browser pool:', error.message);
         this.browserPool = null;
       }
     }
   }
 
-  async _scanUrl(url, findings, scan, scanLog = null) {
+  async _scanUrl(url, findings, scan, scanLog = null, checkCancellation = null) {
+    // Verificar cancelación antes de empezar
+    if (checkCancellation && await checkCancellation()) {
+      console.log(`🛑 Scan cancelado, saltando URL: ${url}`);
+      return;
+    }
+    
     const page = await this.browserPool.newPage();
     try {
       if (scanLog) {
@@ -374,11 +573,57 @@ class ScannerService {
       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
       await page.setViewport({ width: 1920, height: 1080 });
       
+      // Habilitar CDP para acceso completo
+      let cdpEnabled = false;
+      try {
+        const client = await page.target().createCDPSession();
+        await client.send('Network.enable');
+        await client.send('Runtime.enable');
+        await client.send('ServiceWorker.enable');
+        cdpEnabled = true;
+        console.log('🔧 CDP habilitado correctamente');
+        // No cerramos el cliente aquí porque lo usaremos después
+      } catch (error) {
+        console.log('🔧 Error habilitando CDP:', error.message);
+        cdpEnabled = false;
+      }
+      
+      // Configurar permisos para aceptar todas las cookies
+      const context = page.browserContext();
+      await context.overridePermissions(url, ['geolocation', 'notifications', 'camera', 'microphone', 'clipboard-read', 'clipboard-write', 'payment-handler', 'background-sync']);
+      
+      // Configurar cookies para aceptar todas (incluidas terceros)
+      await page.setCookie({
+        name: 'cookie_consent',
+        value: 'all',
+        domain: new URL(url).hostname,
+        path: '/'
+      });
+      
       // Evitar detección de automatización
       await page.evaluateOnNewDocument(() => {
         Object.defineProperty(navigator, 'webdriver', { get: () => false });
         Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
         window.chrome = { runtime: {} };
+        
+        // Sobrescribir funciones de privacidad
+        if (navigator.permissions) {
+          const originalQuery = navigator.permissions.query;
+          navigator.permissions.query = (parameters) => {
+            if (parameters.name === 'notifications' || parameters.name === 'camera' || parameters.name === 'microphone') {
+              return Promise.resolve({ state: 'granted' });
+            }
+            return originalQuery(parameters);
+          };
+        }
+        
+        // Habilitar todas las APIs de cookies
+        if (document.hasStorageAccess) {
+          document.hasStorageAccess = () => Promise.resolve(true);
+        }
+        if (document.requestStorageAccess) {
+          document.requestStorageAccess = () => Promise.resolve();
+        }
       });
       
       await this._setupInterceptors(page, findings);
@@ -388,10 +633,38 @@ class ScannerService {
       await page.setDefaultNavigationTimeout(this.scanTimeout);
       await page.setDefaultTimeout(this.scanTimeout);
       
-      await this._retryOperation(
-        () => page.goto(url, { waitUntil: ['load', 'networkidle0'], timeout: this.scanTimeout }),
-        this.maxRetries
-      );
+      // Navegar con manejo robusto de errores
+      try {
+        await this._retryOperation(
+          () => page.goto(url, { waitUntil: ['load', 'networkidle0'], timeout: this.scanTimeout }),
+          this.maxRetries
+        );
+      } catch (navigationError) {
+        if (navigationError.message.includes('Target closed') || 
+            navigationError.message.includes('Execution context was destroyed')) {
+          console.log(`🔄 Página cerrada durante navegación, recreando página: ${url}`);
+          
+          // Cerrar página actual y crear una nueva
+          try {
+            await page.close();
+          } catch (e) {
+            // Página ya cerrada
+          }
+          
+          // Crear nueva página
+          page = await this.browserPool.newPage();
+          
+          // Reconfigurar página
+          await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+          await page.setViewport({ width: 1920, height: 1080 });
+          await this._setupInterceptors(page, findings);
+          
+          // Intentar navegar de nuevo
+          await page.goto(url, { waitUntil: ['load'], timeout: this.scanTimeout });
+        } else {
+          throw navigationError;
+        }
+      }
       
       // Esperar un momento para que se carguen los scripts
       await page.waitForTimeout(3000);
@@ -405,41 +678,720 @@ class ScannerService {
         }
       }
       
-      // Simular interacciones para activar scripts de tracking
-      await page.evaluate(() => {
-        // Scroll para activar lazy loading y eventos
-        window.scrollTo(0, document.body.scrollHeight / 2);
-        window.scrollTo(0, document.body.scrollHeight);
-        window.scrollTo(0, 0);
+      // Simular comportamiento humano más realista
+      console.log('🤖 Simulando comportamiento humano avanzado...');
+      
+      // Verificar si la página sigue activa antes de simular
+      if (page.isClosed()) {
+        console.log('⚠️ Página cerrada, saltando simulación humana');
+        return;
+      }
+      
+      try {
+        // Simular movimiento de mouse más natural
+        await page.mouse.move(100, 100);
+        await page.waitForTimeout(300);
+        await page.mouse.move(300, 200, { steps: 10 });
+        await page.waitForTimeout(300);
+        await page.mouse.move(500, 400, { steps: 15 });
+        await page.waitForTimeout(500);
         
-        // Disparar eventos comunes
-        ['load', 'scroll', 'mousemove', 'click'].forEach(event => {
-          window.dispatchEvent(new Event(event));
+        // Simular eventos de teclado
+        await page.keyboard.press('Tab');
+        await page.waitForTimeout(200);
+        await page.keyboard.press('Tab');
+        await page.waitForTimeout(200);
+      } catch (error) {
+        if (error.message.includes('Target closed') || 
+            error.message.includes('Execution context was destroyed')) {
+          console.log('⚠️ Contexto destruido durante simulación de mouse/teclado, continuando...');
+        } else {
+          console.log('⚠️ Error en simulación de mouse/teclado:', error.message);
+        }
+      }
+      
+      // Simular scroll gradual con pausas y más eventos
+      try {
+        await page.evaluate(() => {
+          return new Promise((resolve) => {
+            let scrollY = 0;
+            const maxScroll = document.body.scrollHeight;
+            const scrollStep = maxScroll / 10;
+            
+            function scrollNext() {
+              try {
+                scrollY += scrollStep;
+                window.scrollTo(0, scrollY);
+                
+                // Disparar múltiples eventos en cada scroll
+                window.dispatchEvent(new Event('scroll'));
+                window.dispatchEvent(new Event('mousemove'));
+                window.dispatchEvent(new Event('resize'));
+                document.dispatchEvent(new Event('visibilitychange'));
+                
+                // Simular hover en elementos aleatorios
+                const elements = document.querySelectorAll('a, button, input, div[onclick]');
+                if (elements.length > 0) {
+                  const randomEl = elements[Math.floor(Math.random() * elements.length)];
+                  if (randomEl) {
+                    randomEl.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+                    setTimeout(() => {
+                      try {
+                        randomEl.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+                      } catch (e) {
+                        // Elemento puede haber sido removido
+                      }
+                    }, 100);
+                  }
+                }
+                
+                if (scrollY < maxScroll) {
+                  setTimeout(scrollNext, 300); // Pausa entre scrolls
+                } else {
+                  // Volver arriba
+                  window.scrollTo(0, 0);
+                  resolve();
+                }
+              } catch (e) {
+                console.log('Error durante scroll:', e);
+                resolve(); // Resolver de todos modos
+              }
+            }
+            
+            scrollNext();
+          });
+        });
+      } catch (error) {
+        if (error.message.includes('Target closed') || 
+            error.message.includes('Execution context was destroyed')) {
+          console.log('⚠️ Contexto destruido durante scroll, continuando...');
+        } else {
+          console.log('⚠️ Error en simulación de scroll:', error.message);
+        }
+      }
+      
+      // Simular clics en elementos comunes
+      try {
+        await page.evaluate(() => {
+          // NO hacer click real que cause navegación
+          const links = Array.from(document.querySelectorAll('a[href]')).filter(link => {
+            const href = link.getAttribute('href');
+            return href && (href.startsWith('/') || href.includes(window.location.hostname));
+          });
+          
+          if (links.length > 0) {
+            const randomLink = links[Math.floor(Math.random() * Math.min(links.length, 3))];
+            if (randomLink) {
+              console.log('🔗 Simulating hover on link:', randomLink.href);
+              // Solo simular hover, NO hacer click real
+              randomLink.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+              randomLink.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+            }
+          }
+          
+          // Activar eventos de tracking conocidos
+          ['load', 'DOMContentLoaded', 'scroll', 'mousemove', 'click', 'focus', 'blur'].forEach(event => {
+            window.dispatchEvent(new Event(event, { bubbles: true }));
+          });
+          
+          // Simular eventos de mouse más realistas
+          document.dispatchEvent(new MouseEvent('mousemove', {
+            bubbles: true,
+            clientX: Math.random() * window.innerWidth,
+            clientY: Math.random() * window.innerHeight
+          }));
+          
+          // Activar analytics manualmente - EXPANDIDO
+          try {
+            // Google Analytics
+            if (window.gtag) window.gtag('event', 'page_view', { page_title: document.title });
+            if (window.ga) window.ga('send', 'pageview');
+            if (window._gaq) window._gaq.push(['_trackPageview']);
+            
+            // Facebook Pixel
+            if (window.fbq) {
+              window.fbq('track', 'PageView');
+              window.fbq('track', 'ViewContent');
+              window.fbq('track', 'Search');
+            }
+            
+            // Google Tag Manager
+            if (window.dataLayer) {
+              window.dataLayer.push({ event: 'pageview' });
+              window.dataLayer.push({ event: 'gtm.load' });
+              window.dataLayer.push({ event: 'gtm.dom' });
+            }
+            
+            // Adobe Analytics
+            if (window.s && window.s.t) window.s.t();
+            if (window._satellite) window._satellite.pageBottom();
+            
+            // Segment
+            if (window.analytics) {
+              window.analytics.page();
+              window.analytics.track('Page Viewed');
+            }
+            
+            // Mixpanel
+            if (window.mixpanel) {
+              window.mixpanel.track('Page View');
+              window.mixpanel.track_pageview();
+            }
+            
+            // Heap Analytics
+            if (window.heap) {
+              window.heap.track('Page View');
+            }
+            
+            // Matomo/Piwik
+            if (window._paq) {
+              window._paq.push(['trackPageView']);
+              window._paq.push(['enableLinkTracking']);
+            }
+            
+            // Hotjar
+            if (window.hj) {
+              window.hj('event', 'page_view');
+            }
+            
+            // Amplitude
+            if (window.amplitude) {
+              window.amplitude.getInstance().logEvent('Page View');
+            }
+            
+            // LinkedIn Insight
+            if (window._linkedin_data_partner_ids) {
+              window._linkedin_data_partner_ids.forEach(id => {
+                if (window._already_called_linkedin_ids && !window._already_called_linkedin_ids[id]) {
+                  window._already_called_linkedin_ids[id] = true;
+                }
+              });
+            }
+            
+            // Twitter Pixel
+            if (window.twq) {
+              window.twq('track', 'PageView');
+            }
+            
+            // Pinterest Tag
+            if (window.pintrk) {
+              window.pintrk('track', 'pagevisit');
+            }
+          } catch (e) {
+            console.log('Error triggering analytics:', e);
+          }
+        });
+      } catch (error) {
+        if (error.message.includes('Target closed') || 
+            error.message.includes('Execution context was destroyed')) {
+          console.log('⚠️ Contexto destruido durante simulación de clics, continuando...');
+        } else {
+          console.log('⚠️ Error en simulación de clics:', error.message);
+        }
+      }
+      
+      // Verificar cancelación antes de navegación interna
+      if (checkCancellation && await checkCancellation()) {
+        console.log(`🛑 Scan cancelado durante navegación interna`);
+        return;
+      }
+      
+      // NAVEGACIÓN INTERNA SIMPLIFICADA - Solo simular clics sin navegación real
+      console.log('🔗 Simulando navegación interna...');
+      try {
+        if (!page.isClosed()) {
+          await page.evaluate(() => {
+            try {
+              // Simular clics en enlaces internos principales sin navegar
+              const links = Array.from(document.querySelectorAll('a[href]')).filter(link => {
+                const href = link.getAttribute('href');
+                return href && (href.startsWith('/') || href.includes(window.location.hostname));
+              }).slice(0, 3);
+              
+              links.forEach((link, index) => {
+                setTimeout(() => {
+                  try {
+                    // Simular hover y eventos sin hacer clic real
+                    link.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+                    link.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+                    link.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                    link.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+                    
+                    // Activar analytics sin navegar
+                    if (window.gtag) window.gtag('event', 'link_click', { link_url: link.href });
+                    if (window.fbq) window.fbq('track', 'ViewContent', { content_name: link.textContent });
+                  } catch (e) {
+                    console.log('Error simulando clic:', e);
+                  }
+                }, index * 200);
+              });
+              
+              // Simular formularios
+              const forms = document.querySelectorAll('form');
+              forms.forEach(form => {
+                form.dispatchEvent(new Event('focus'));
+                const inputs = form.querySelectorAll('input[type="email"], input[type="text"]');
+                inputs.forEach(input => {
+                  input.dispatchEvent(new Event('focus'));
+                  input.dispatchEvent(new Event('blur'));
+                });
+              });
+              
+            } catch (e) {
+              console.log('Error en simulación de navegación:', e);
+            }
+          });
+          
+          await page.waitForTimeout(2000); // Esperar a que se activen tracking
+        }
+      } catch (e) {
+        if (!e.message.includes('Execution context was destroyed') && 
+            !e.message.includes('Target closed')) {
+          console.log('Error en navegación simulada:', e.message);
+        }
+        // Ignorar errores de contexto destruido ya que son esperados
+      }
+      
+      // Verificar cancelación antes de detección final
+      if (checkCancellation && await checkCancellation()) {
+        console.log(`🛑 Scan cancelado antes de detección final`);
+        return;
+      }
+      
+      await page.waitForTimeout(2000); // Tiempo reducido para que se establezcan cookies
+      
+      // Detectar Service Workers y sus cookies
+      console.log('🔍 Detectando Service Workers...');
+      try {
+        const serviceWorkerData = await page.evaluate(() => {
+          return navigator.serviceWorker ? navigator.serviceWorker.getRegistrations() : [];
         });
         
-        // Activar analytics si están disponibles
-        if (window.gtag) window.gtag('event', 'page_view');
-        if (window.ga) window.ga('send', 'pageview');
-        if (window.fbq) window.fbq('track', 'PageView');
+        if (serviceWorkerData.length > 0) {
+          console.log(`🔍 Encontrados ${serviceWorkerData.length} Service Workers`);
+          
+          // Interceptar mensajes de Service Workers
+          await page.evaluateOnNewDocument(() => {
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.addEventListener('message', (event) => {
+                console.log('📨 Service Worker message:', event.data);
+              });
+            }
+          });
+        }
+      } catch (error) {
+        console.log('🔍 Error detectando Service Workers:', error.message);
+      }
+      
+      // Detectar Web Workers
+      await page.evaluateOnNewDocument(() => {
+        const originalWorker = window.Worker;
+        if (originalWorker) {
+          window.Worker = new Proxy(originalWorker, {
+            construct(target, args) {
+              console.log('🔍 Web Worker creado:', args[0]);
+              const worker = new target(...args);
+              
+              // Interceptar mensajes del worker
+              const originalPostMessage = worker.postMessage;
+              worker.postMessage = function(...args) {
+                console.log('📨 Mensaje a Web Worker:', args);
+                return originalPostMessage.apply(this, args);
+              };
+              
+              return worker;
+            }
+          });
+        }
       });
       
+      // Obtener TODAS las cookies del navegador usando múltiples métodos
+      console.log('🔍 === INICIO DETECCIÓN DE COOKIES ===');
+      
+      // Método 1: Network.getAllCookies (más completo)
+      let networkCookies = [];
+      try {
+        const client = await page.target().createCDPSession();
+        await client.send('Network.enable');
+        const allCookies = await client.send('Network.getAllCookies');
+        networkCookies = allCookies.cookies || [];
+        console.log(`🔍 Network.getAllCookies encontró: ${networkCookies.length} cookies`);
+        await client.detach();
+      } catch (error) {
+        console.log('🔍 Error usando CDP, usando método alternativo:', error.message);
+        networkCookies = [];
+      }
+      
+      // Método 2: page.cookies() (contexto actual) - MÁS ROBUSTO
+      let contextCookies = [];
+      try {
+        contextCookies = await page.cookies();
+        console.log(`🔍 page.cookies() encontró: ${contextCookies.length} cookies`);
+      } catch (error) {
+        console.log('🔍 Error obteniendo cookies del contexto:', error.message);
+        
+        // Método alternativo usando evaluateHandle
+        try {
+          const cookiesHandle = await page.evaluateHandle(() => {
+            const cookies = [];
+            if (document.cookie) {
+              const cookieString = document.cookie;
+              const cookiePairs = cookieString.split(';');
+              for (const pair of cookiePairs) {
+                const [name, value] = pair.trim().split('=');
+                if (name && value) {
+                  cookies.push({
+                    name: name.trim(),
+                    value: value.trim(),
+                    domain: window.location.hostname,
+                    path: '/',
+                    source: 'evaluateHandle'
+                  });
+                }
+              }
+            }
+            return cookies;
+          });
+          
+          contextCookies = await cookiesHandle.jsonValue();
+          console.log(`🔍 evaluateHandle encontró: ${contextCookies.length} cookies`);
+          await cookiesHandle.dispose();
+        } catch (fallbackError) {
+          console.log('🔍 Error en método alternativo:', fallbackError.message);
+          contextCookies = [];
+        }
+      }
+      
+      // Método 3: Extraer desde Runtime (JavaScript)
+      let documentCookies = [];
+      try {
+        // Verificar si la página sigue activa antes de evaluar
+        if (!page.isClosed()) {
+          documentCookies = await page.evaluate(() => {
+            const cookies = [];
+            if (document.cookie) {
+              const cookieString = document.cookie;
+              console.log('🔍 document.cookie:', cookieString);
+              const cookiePairs = cookieString.split(';');
+              for (const pair of cookiePairs) {
+                const [name, value] = pair.trim().split('=');
+                if (name && value) {
+                  cookies.push({
+                    name: name.trim(),
+                    value: value.trim(),
+                    domain: window.location.hostname,
+                    path: '/',
+                    source: 'document'
+                  });
+                }
+              }
+            }
+            return cookies;
+          });
+          console.log(`🔍 document.cookie encontró: ${documentCookies.length} cookies`);
+        } else {
+          console.log('🔍 Página cerrada, saltando document.cookie');
+        }
+      } catch (error) {
+        if (error.message.includes('Target closed') || 
+            error.message.includes('Execution context was destroyed')) {
+          console.log('🔍 Contexto destruido durante document.cookie, continuando...');
+        } else {
+          console.log('🔍 Error obteniendo document.cookie:', error.message);
+        }
+        documentCookies = [];
+      }
+      
+      // Método 4: Storage APIs
+      let storageCookies = [];
+      try {
+        if (!page.isClosed()) {
+          storageCookies = await page.evaluate(() => {
+            const cookies = [];
+            try {
+              // localStorage
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                cookies.push({
+                  name: key,
+                  value: localStorage.getItem(key),
+                  domain: window.location.hostname,
+                  type: 'localStorage',
+                  source: 'storage'
+                });
+              }
+              // sessionStorage
+              for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                cookies.push({
+                  name: key,
+                  value: sessionStorage.getItem(key),
+                  domain: window.location.hostname,
+                  type: 'sessionStorage',
+                  source: 'storage'
+                });
+              }
+            } catch (e) {
+              console.log('Storage access error:', e);
+            }
+            return cookies;
+          });
+          console.log(`🔍 Storage APIs encontró: ${storageCookies.length} items`);
+        } else {
+          console.log('🔍 Página cerrada, saltando Storage APIs');
+        }
+      } catch (error) {
+        if (error.message.includes('Target closed') || 
+            error.message.includes('Execution context was destroyed')) {
+          console.log('🔍 Contexto destruido durante Storage APIs, continuando...');
+        } else {
+          console.log('🔍 Error obteniendo Storage APIs:', error.message);
+        }
+        storageCookies = [];
+      }
+      
+      // Método 5: Extraer cookies de todos los iframes
+      const iframeCookies = await page.evaluate(() => {
+        const cookies = [];
+        const frames = Array.from(document.querySelectorAll('iframe'));
+        console.log(`🔍 Encontrados ${frames.length} iframes`);
+        
+        frames.forEach((iframe, index) => {
+          try {
+            if (iframe.contentDocument && iframe.contentDocument.cookie) {
+              const iframeCookieString = iframe.contentDocument.cookie;
+              console.log(`🔍 iframe ${index} cookies:`, iframeCookieString);
+              const cookiePairs = iframeCookieString.split(';');
+              for (const pair of cookiePairs) {
+                const [name, value] = pair.trim().split('=');
+                if (name && value) {
+                  cookies.push({
+                    name: name.trim(),
+                    value: value.trim(),
+                    domain: iframe.src ? new URL(iframe.src).hostname : window.location.hostname,
+                    path: '/',
+                    source: 'iframe'
+                  });
+                }
+              }
+            }
+          } catch (e) {
+            // Cross-origin iframe, no podemos acceder
+            console.log(`🔍 iframe ${index} es cross-origin:`, iframe.src);
+          }
+        });
+        
+        return cookies;
+      });
+      console.log(`🔍 iframes encontraron: ${iframeCookies.length} cookies`);
+      
+      // Método 6: Detectar cookies en Shadow DOM
+      const shadowDOMCookies = await page.evaluate(() => {
+        const cookies = [];
+        const elementsWithShadow = [];
+        
+        // Buscar todos los elementos que podrían tener Shadow DOM
+        document.querySelectorAll('*').forEach(element => {
+          if (element.shadowRoot) {
+            elementsWithShadow.push(element);
+          }
+        });
+        
+        console.log(`🔍 Encontrados ${elementsWithShadow.length} elementos con Shadow DOM`);
+        
+        elementsWithShadow.forEach((element, index) => {
+          try {
+            // Buscar scripts en Shadow DOM
+            const shadowScripts = element.shadowRoot.querySelectorAll('script');
+            shadowScripts.forEach(script => {
+              if (script.textContent.includes('cookie')) {
+                console.log(`🔍 Script con cookies en Shadow DOM ${index}`);
+              }
+            });
+            
+            // Buscar iframes en Shadow DOM
+            const shadowIframes = element.shadowRoot.querySelectorAll('iframe');
+            shadowIframes.forEach(iframe => {
+              console.log(`🔍 iframe en Shadow DOM: ${iframe.src}`);
+            });
+          } catch (e) {
+            console.log(`Error analizando Shadow DOM ${index}:`, e);
+          }
+        });
+        
+        return cookies;
+      });
+      console.log(`🔍 Shadow DOM análisis completado`);
+      
+      // Método 7: Detectar IndexedDB y Cache Storage
+      const advancedStorage = await page.evaluate(async () => {
+        const storage = { indexedDB: [], cacheStorage: [] };
+        
+        try {
+          // IndexedDB
+          if ('indexedDB' in window) {
+            const databases = await indexedDB.databases();
+            console.log(`🔍 Encontradas ${databases.length} bases de datos IndexedDB`);
+            storage.indexedDB = databases.map(db => ({ name: db.name, version: db.version }));
+          }
+          
+          // Cache Storage
+          if ('caches' in window) {
+            const cacheNames = await caches.keys();
+            console.log(`🔍 Encontrados ${cacheNames.length} caches`);
+            storage.cacheStorage = cacheNames;
+          }
+        } catch (e) {
+          console.log('Error accediendo a storage avanzado:', e);
+        }
+        
+        return storage;
+      });
+      
+      // Método 8: Forzar ejecución de scripts conocidos de tracking
+      await page.evaluate(() => {
+        try {
+          // Forzar Google Analytics
+          if (window.gtag) {
+            window.gtag('config', 'GA_MEASUREMENT_ID', { cookie_flags: 'SameSite=None;Secure' });
+            window.gtag('event', 'page_view');
+          }
+          
+          // Forzar Facebook Pixel
+          if (window.fbq) {
+            window.fbq('init', 'PIXEL_ID');
+            window.fbq('track', 'PageView');
+          }
+          
+          // Forzar Google Tag Manager
+          if (window.dataLayer) {
+            window.dataLayer.push({
+              'event': 'gtm.js',
+              'gtm.start': new Date().getTime(),
+              'gtm.uniqueEventId': Math.random()
+            });
+          }
+          
+          // Simular interacciones que activan cookies - EXPANDIDO
+          const events = [
+            'mouseenter', 'mouseleave', 'focus', 'blur', 'resize',
+            'orientationchange', 'devicemotion', 'deviceorientation',
+            'online', 'offline', 'storage', 'popstate',
+            'hashchange', 'pageshow', 'pagehide', 'unload',
+            'beforeunload', 'visibilitychange', 'fullscreenchange'
+          ];
+          
+          events.forEach(eventType => {
+            window.dispatchEvent(new Event(eventType));
+            document.dispatchEvent(new Event(eventType));
+          });
+          
+          // Simular interacción con formularios
+          const forms = document.querySelectorAll('form');
+          forms.forEach(form => {
+            form.dispatchEvent(new Event('submit', { cancelable: true }));
+            const inputs = form.querySelectorAll('input, textarea, select');
+            inputs.forEach(input => {
+              input.dispatchEvent(new Event('focus'));
+              input.dispatchEvent(new Event('input'));
+              input.dispatchEvent(new Event('change'));
+              input.dispatchEvent(new Event('blur'));
+            });
+          });
+          
+          // Simular video/audio eventos
+          const mediaElements = document.querySelectorAll('video, audio');
+          mediaElements.forEach(media => {
+            ['loadstart', 'progress', 'suspend', 'abort', 'error', 'emptied',
+             'stalled', 'loadedmetadata', 'loadeddata', 'canplay', 'canplaythrough',
+             'playing', 'waiting', 'seeking', 'seeked', 'ended', 'durationchange',
+             'timeupdate', 'play', 'pause', 'ratechange', 'volumechange'].forEach(event => {
+              media.dispatchEvent(new Event(event));
+            });
+          });
+          
+          // Activar eventos de performance
+          if (window.performance && window.performance.mark) {
+            window.performance.mark('user_interaction');
+            window.performance.measure('page_interaction', 'navigationStart', 'user_interaction');
+          }
+          
+          // Simular navegación con History API
+          if (window.history && window.history.pushState) {
+            window.history.pushState({}, '', window.location.href + '#simulated');
+            window.history.back();
+          }
+          
+        } catch (e) {
+          console.log('Error forzando scripts:', e);
+        }
+      });
+      
+      // Esperar a que los scripts procesen
       await page.waitForTimeout(2000);
       
-      // Obtener cookies del navegador
-      const cookies = await page.cookies();
-      for (const cookie of cookies) {
+      // Obtener cookies finales después de forzar scripts
+      let additionalCookies = [];
+      try {
+        const client = await page.target().createCDPSession();
+        await client.send('Network.enable');
+        const finalNetworkCookies = await client.send('Network.getAllCookies');
+        additionalCookies = finalNetworkCookies.cookies || [];
+        console.log(`🔍 Cookies adicionales después de forzar scripts: ${additionalCookies.length}`);
+        await client.detach();
+      } catch (error) {
+        console.log('🔍 Error obteniendo cookies finales:', error.message);
+        additionalCookies = [];
+      }
+      
+      // Combinar todas las cookies encontradas
+      const combinedCookies = [
+        ...networkCookies, 
+        ...contextCookies, 
+        ...documentCookies, 
+        ...storageCookies, 
+        ...iframeCookies, 
+        ...additionalCookies
+      ];
+      const uniqueCookies = new Map();
+      
+      // Eliminar duplicados usando solo el nombre de la cookie
+      combinedCookies.forEach((cookie, index) => {
+        const key = cookie.name; // Solo usar el nombre como clave única
+        if (!uniqueCookies.has(key)) {
+          uniqueCookies.set(key, cookie);
+          console.log(`🍪 Cookie ${index + 1}: ${cookie.name} | Domain: ${cookie.domain || 'N/A'} | Source: ${cookie.source || 'network'}`);
+        }
+      });
+      
+      console.log(`🔍 Total cookies únicas encontradas: ${uniqueCookies.size}`);
+      console.log('🔍 === FIN DETECCIÓN DE COOKIES ===');
+      
+      // Procesar todas las cookies únicas con deduplicación mejorada
+      const processedCookieNames = new Set();
+      
+      for (const cookie of uniqueCookies.values()) {
         const cookieInfo = await this._analyzeCookie(cookie);
         if (cookieInfo) {
-          // Verificar si la cookie ya existe en findings para evitar duplicados
-          const existingCookie = findings.cookies.find(existing => 
-            existing.name === cookieInfo.name && 
-            existing.domain === cookieInfo.domain
-          );
+          // Crear clave única basada en nombre y dominio principal
+          const domainKey = this._extractMainDomain(cookieInfo.domain);
+          const cookieKey = `${cookieInfo.name}-${domainKey}`;
           
-          if (!existingCookie) {
-            findings.cookies.push(cookieInfo);
-            if (scanLog) {
-              scanLog.cookieFound(cookieInfo.name, cookieInfo.domain, cookieInfo.category);
+          // Solo agregar si no hemos procesado esta cookie antes
+          if (!processedCookieNames.has(cookieKey)) {
+            processedCookieNames.add(cookieKey);
+            
+            // Verificar si la cookie ya existe en findings
+            const existingCookie = findings.cookies.find(existing => 
+              existing.name === cookieInfo.name && 
+              this._extractMainDomain(existing.domain) === domainKey
+            );
+            
+            if (!existingCookie) {
+              findings.cookies.push(cookieInfo);
+              if (scanLog) {
+                scanLog.cookieFound(cookieInfo.name, cookieInfo.domain, cookieInfo.category);
+              }
             }
           }
         }
@@ -487,7 +1439,14 @@ class ScannerService {
       scan.metadata.errors.push({ url, error: error.message, timestamp: new Date() });
       await this._updateScan(scan);
     } finally {
-      await page.close();
+      try {
+        if (page && !page.isClosed()) {
+          await page.close();
+        }
+      } catch (error) {
+        // Página ya cerrada o error cerrando, continuar
+        console.log('🔍 Error cerrando página (probablemente ya cerrada):', error.message);
+      }
     }
   }
 
@@ -508,6 +1467,32 @@ class ScannerService {
   async _setupInterceptors(page, findings) {
     try {
       await page.setRequestInterception(true);
+      
+      // Interceptar WebSockets (solo si CDP está disponible)
+      try {
+        const client = await page.target().createCDPSession();
+        await client.send('Network.enable');
+        
+        // Escuchar eventos de WebSocket
+        client.on('Network.webSocketCreated', ({ requestId, url }) => {
+          console.log(`🔌 WebSocket creado: ${url}`);
+          findings.webSockets = findings.webSockets || [];
+          findings.webSockets.push({ url, requestId, timestamp: new Date() });
+        });
+        
+        client.on('Network.webSocketFrameSent', ({ requestId, response }) => {
+          console.log(`📤 WebSocket mensaje enviado:`, response.payloadData);
+        });
+        
+        client.on('Network.webSocketFrameReceived', ({ requestId, response }) => {
+          console.log(`📥 WebSocket mensaje recibido:`, response.payloadData);
+        });
+        
+        console.log('🔧 WebSocket interceptors configurados');
+      } catch (error) {
+        console.log('🔧 Error configurando WebSocket interceptors:', error.message);
+      }
+      
       page.on('request', request => {
         const url = request.url();
         const headers = request.headers();
@@ -516,38 +1501,98 @@ class ScannerService {
         if (analysis.isTracker) findings.trackers.push(analysis);
         request.continue();
       });
+      
       page.on('response', async response => {
         try {
           const headers = response.headers();
           const url = response.url();
-          if (headers['set-cookie']) {
-            const cookies = this._parseSetCookieHeader(headers['set-cookie']);
-            for (const cookie of cookies) {
-              const info = await this._analyzeCookie(cookie);
-              if (info) {
-                // Verificar si la cookie ya existe en findings para evitar duplicados
-                const existingCookie = findings.cookies.find(existing => 
-                  existing.name === info.name && 
-                  existing.domain === info.domain
-                );
-                
-                if (!existingCookie) {
-                  findings.cookies.push(info);
+          
+          // Detectar más headers relacionados con cookies
+          const cookieHeaders = ['set-cookie', 'set-cookie2'];
+          for (const header of cookieHeaders) {
+            if (headers[header]) {
+              const cookies = this._parseSetCookieHeader(headers[header]);
+              for (const cookie of cookies) {
+                const info = await this._analyzeCookie(cookie);
+                if (info) {
+                  // Verificar si la cookie ya existe en findings para evitar duplicados (mejorado)
+                  const domainKey = this._extractMainDomain(info.domain);
+                  const existingCookie = findings.cookies.find(existing => 
+                    existing.name === info.name && 
+                    this._extractMainDomain(existing.domain) === domainKey
+                  );
+                  
+                  if (!existingCookie) {
+                    findings.cookies.push(info);
+                    console.log(`🍪 Nueva cookie desde ${header}: ${info.name} (${info.expiration?.durationText || 'Sesión'})`);
+                  }
                 }
               }
             }
           }
+          
+          // Analizar respuestas JSON que podrían contener cookies
+          if (headers['content-type'] && headers['content-type'].includes('application/json')) {
+            try {
+              const jsonContent = await response.text();
+              const data = JSON.parse(jsonContent);
+              
+              // Buscar patrones de cookies en JSON
+              const searchForCookies = (obj, path = '') => {
+                for (const key in obj) {
+                  if (typeof obj[key] === 'object' && obj[key] !== null) {
+                    searchForCookies(obj[key], `${path}.${key}`);
+                  } else if (typeof obj[key] === 'string' && 
+                           (key.toLowerCase().includes('cookie') || 
+                            key.toLowerCase().includes('token') ||
+                            key.toLowerCase().includes('session'))) {
+                    console.log(`🔍 Posible cookie en JSON ${path}.${key}: ${obj[key].substring(0, 20)}...`);
+                  }
+                }
+              };
+              
+              searchForCookies(data);
+            } catch (e) {
+              // No es JSON válido
+            }
+          }
+          
           if (headers['content-type'] && headers['content-type'].includes('javascript')) {
             let content;
             try {
-              content = await response.text();
+              // Verificar si la respuesta sigue siendo válida antes de obtener el texto
+              if (!response.ok() || response.status() >= 400) {
+                console.log(`Skipping script due to HTTP status ${response.status()}: ${url}`);
+                return;
+              }
+              
+              // Timeout para evitar bloqueos - REDUCIDO
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout getting script content')), 2000)
+              );
+              
+              content = await Promise.race([
+                response.text(),
+                timeoutPromise
+              ]);
+              
             } catch (err) {
-              console.error(`Error retrieving script content from ${url}:`, err);
+              // Solo log el error si no es por navegación/contexto destruido
+              if (!err.message.includes('Target closed') && 
+                  !err.message.includes('Execution context was destroyed') &&
+                  !err.message.includes('Protocol error')) {
+                console.error(`Error retrieving script content from ${url}:`, err.message);
+              }
               // Salta este recurso si no se puede obtener el contenido
               return;
             }
-            const scriptInfo = await this._analyzeScript({ src: url, content, type: headers['content-type'] });
-            if (scriptInfo) findings.scripts.push(scriptInfo);
+            
+            try {
+              const scriptInfo = await this._analyzeScript({ src: url, content, type: headers['content-type'] });
+              if (scriptInfo) findings.scripts.push(scriptInfo);
+            } catch (err) {
+              console.log(`Error analyzing script ${url}:`, err.message);
+            }
           }
         } catch (error) {
           console.error(`Error analyzing response from ${response.url()}:`, error);
@@ -771,7 +1816,7 @@ class ScannerService {
       if (content.includes('fbq') || content.includes('pixel')) return 'marketing';
       if (content.includes('datalayer')) return 'tag_manager';
     }
-    return 'unknown';
+    return 'personalization';
   }
 
   _identifyChanges(oldCookie, newCookie) {
@@ -881,7 +1926,7 @@ class ScannerService {
       try {
         return new URL(item.url).hostname;
       } catch {
-        return 'unknown';
+        return 'personalization';
       }
     });
   }
@@ -891,7 +1936,7 @@ class ScannerService {
     items.forEach(item => {
       const value = typeof key === 'function'
         ? key(item)
-        : key.split('.').reduce((obj, k) => obj?.[k], item) || 'unknown';
+        : key.split('.').reduce((obj, k) => obj?.[k], item) || 'other';
       count[value] = (count[value] || 0) + 1;
     });
     return count;
@@ -940,7 +1985,7 @@ class ScannerService {
   _countScriptsByProvider(scripts) {
     const count = {};
     scripts.forEach(script => {
-      const providerName = script.provider && script.provider.name ? script.provider.name : 'unknown';
+      const providerName = script.provider && script.provider.name ? script.provider.name : 'Other Provider';
       count[providerName] = (count[providerName] || 0) + 1;
     });
     return count;
@@ -965,6 +2010,14 @@ class ScannerService {
       
       const duration = this._analyzeCookieDuration(cookie);
       const relatedScript = await this._findRelatedScript(cookie);
+      const expirationInfo = this._getDetailedExpirationInfo(cookie);
+      
+      // Asegurar que provider sea String, no objeto
+      const providerName = provider && typeof provider === 'object' ? provider.name : provider;
+      
+      // Asegurar que category nunca sea 'unknown'
+      const finalCategory = category === 'unknown' ? 'personalization' : category;
+      
       return {
         name: cookie.name,
         value: cookie.value,
@@ -974,8 +2027,8 @@ class ScannerService {
         httpOnly: cookie.httpOnly,
         secure: cookie.secure,
         sameSite: cookie.sameSite,
-        category,
-        provider,
+        category: finalCategory,
+        provider: providerName || 'Propios',
         duration,
         script: relatedScript,
         firstParty: this._isFirstPartyCookie(cookie),
@@ -983,6 +2036,12 @@ class ScannerService {
           session: !cookie.expires,
           persistent: !!cookie.expires,
           size: this._calculateCookieSize(cookie)
+        },
+        expiration: {
+          date: expirationInfo.date,
+          durationDays: expirationInfo.durationDays,
+          durationText: expirationInfo.durationText,
+          isSession: expirationInfo.isSession
         }
       };
     } catch (error) {
@@ -997,7 +2056,7 @@ class ScannerService {
       return {
         url: script.src || '',
         type: script.type || 'text/javascript',
-        provider: provider && provider.name ? provider.name : 'Unknown',
+        provider: provider && provider.name ? provider.name : 'Propios',
         loadType: script.async ? 'async' : (script.defer ? 'defer' : 'sync')
       };
     } catch (error) {
@@ -1012,35 +2071,173 @@ class ScannerService {
         return category;
       }
     }
+    
+    // Mejorar detección por atributos y dominio
     if (cookie.httpOnly && cookie.secure) return 'necessary';
     if (cookie.name.includes('consent')) return 'necessary';
-    return 'unknown';
+    
+    // Detectar cookies de terceros por dominio
+    if (cookie.domain) {
+      const domain = cookie.domain.toLowerCase();
+      
+      // Dominios de terceros conocidos -> marketing/advertising
+      const thirdPartyDomains = [
+        'google', 'facebook', 'doubleclick', 'googlesyndication', 'googleadservices',
+        'linkedin', 'twitter', 'instagram', 'youtube', 'pinterest', 'snapchat',
+        'amazon-adsystem', 'adsystem', 'criteo', 'outbrain', 'taboola',
+        'adnxs', 'adsymptotic', 'adform', 'rlcdn', 'rubiconproject'
+      ];
+      
+      if (thirdPartyDomains.some(td => domain.includes(td))) {
+        return 'marketing';
+      }
+      
+      // Analytics de terceros
+      const analyticsDomains = [
+        'analytics', 'hotjar', 'mixpanel', 'amplitude', 'segment',
+        'optimizely', 'crazyegg', 'mouseflow', 'fullstory'
+      ];
+      
+      if (analyticsDomains.some(ad => domain.includes(ad))) {
+        return 'analytics';
+      }
+    }
+    
+    // Detectar por patrones en el nombre
+    const cookieName = cookie.name.toLowerCase();
+    
+    // Patrones de tracking/marketing
+    if (/^(utm_|gclid|fbclid|msclkid|twclid|li_|_ttp|_pin)/.test(cookieName)) {
+      return 'marketing';
+    }
+    
+    // Patrones de analytics
+    if (/^(_{1,2}(ga|gid|gat)|pk_|_hjid|hj|_clck|amp_|heap|mp_)/.test(cookieName)) {
+      return 'analytics';
+    }
+    
+    // IDs únicos largos (probablemente tracking)
+    if (/^[a-f0-9]{8,}$/i.test(cookie.value) || /^[A-Za-z0-9+/=]{20,}$/.test(cookie.value)) {
+      return 'marketing';
+    }
+    
+    // Si el dominio es diferente al dominio principal, probablemente terceros
+    // Nota: En servidor no tenemos window, así que solo verificamos si es dominio externo
+    if (cookie.domain && !cookie.domain.startsWith('.') && this._isThirdPartyDomain(cookie.domain)) {
+      return 'marketing';
+    }
+    
+    return 'personalization';
   }
 
   _simpleProviderDetection(cookie) {
-    // Detección simple de proveedores basada en nombre de cookie
+    // Detección mejorada de proveedores
     const name = cookie.name.toLowerCase();
+    const domain = cookie.domain ? cookie.domain.toLowerCase() : '';
     
-    if (name.includes('_ga') || name.includes('_gid') || name.includes('_gat')) {
+    // Google Services
+    if (name.includes('_ga') || name.includes('_gid') || name.includes('_gat') || name.includes('__utm')) {
       return { name: 'Google Analytics', category: 'analytics' };
     }
-    if (name.includes('_fbp') || name.includes('fr')) {
-      return { name: 'Facebook', category: 'marketing' };
+    if (name.includes('_gcl') || name.includes('_gac') || domain.includes('google')) {
+      return { name: 'Google Ads', category: 'marketing' };
     }
-    if (name.includes('_hjid') || name.includes('_hjsession')) {
+    
+    // Facebook/Meta
+    if (name.includes('_fbp') || name.includes('_fbc') || name.includes('fr') || domain.includes('facebook')) {
+      return { name: 'Facebook Pixel', category: 'marketing' };
+    }
+    
+    // Analytics Platforms
+    if (name.includes('_hjid') || name.includes('_hjsession') || domain.includes('hotjar')) {
       return { name: 'Hotjar', category: 'analytics' };
     }
-    if (name.includes('mailchimp')) {
-      return { name: 'Mailchimp', category: 'marketing' };
+    if (name.includes('mp_') || domain.includes('mixpanel')) {
+      return { name: 'Mixpanel', category: 'analytics' };
     }
-    if (name.includes('woocommerce')) {
+    if (name.includes('amplitude') || domain.includes('amplitude')) {
+      return { name: 'Amplitude', category: 'analytics' };
+    }
+    if (name.includes('_clck') || name.includes('_clsk') || domain.includes('clarity')) {
+      return { name: 'Microsoft Clarity', category: 'analytics' };
+    }
+    
+    // Marketing Platforms
+    if (name.includes('linkedin') || name.includes('li_gc') || domain.includes('linkedin')) {
+      return { name: 'LinkedIn Insight', category: 'marketing' };
+    }
+    if (name.includes('_ttp') || domain.includes('tiktok')) {
+      return { name: 'TikTok Pixel', category: 'marketing' };
+    }
+    if (name.includes('pinterest') || domain.includes('pinterest')) {
+      return { name: 'Pinterest', category: 'marketing' };
+    }
+    
+    // E-commerce
+    if (name.includes('woocommerce') || name.includes('wc_')) {
       return { name: 'WooCommerce', category: 'necessary' };
     }
-    if (name.includes('cookieyes') || name.includes('consent')) {
+    if (name.includes('shopify') || domain.includes('shopify')) {
+      return { name: 'Shopify', category: 'necessary' };
+    }
+    
+    // CMP/Consent
+    if (name.includes('cookieyes') || name.includes('consent') || name.includes('cmp')) {
       return { name: 'Consent Management', category: 'necessary' };
     }
     
-    return { name: 'Unknown', category: 'unknown' };
+    // Advertising Networks
+    if (domain.includes('doubleclick') || domain.includes('googlesyndication')) {
+      return { name: 'Google DoubleClick', category: 'advertising' };
+    }
+    if (domain.includes('criteo') || name.includes('criteo')) {
+      return { name: 'Criteo', category: 'advertising' };
+    }
+    if (domain.includes('outbrain') || name.includes('outbrain')) {
+      return { name: 'Outbrain', category: 'advertising' };
+    }
+    
+    // Si es de un dominio de terceros pero no lo reconocemos, clasificar como Third Party
+    if (domain && this._isThirdPartyDomain(domain)) {
+      return { name: 'Third Party Service', category: 'marketing' };
+    }
+    
+    // Para cookies desconocidas, usar "Propios" y "personalization"
+    return { name: 'Propios', category: 'personalization' };
+  }
+  
+  _isThirdPartyDomain(domain) {
+    if (!domain) return false;
+    
+    const domainLower = domain.toLowerCase();
+    
+    // Conocidos servicios de terceros
+    const knownThirdParties = [
+      'google.com', 'doubleclick.net', 'googlesyndication.com', 'googleadservices.com',
+      'facebook.com', 'linkedin.com', 'twitter.com', 'instagram.com',
+      'criteo.com', 'outbrain.com', 'taboola.com', 'amazon-adsystem.com',
+      'hotjar.com', 'mixpanel.com', 'amplitude.com', 'segment.com',
+      'pinterest.com', 'snapchat.com', 'tiktok.com', 'youtube.com'
+    ];
+    
+    // Verificar si es un dominio de terceros conocido
+    if (knownThirdParties.some(tp => domainLower.includes(tp))) {
+      return true;
+    }
+    
+    // Indicadores de servicios de terceros
+    const thirdPartyIndicators = [
+      'ads', 'analytics', 'tracking', 'pixel', 'tag', 'cdn',
+      'static', 'assets', 'media', 'api'
+    ];
+    
+    // Si contiene indicadores de terceros
+    if (thirdPartyIndicators.some(indicator => domainLower.includes(indicator))) {
+      return true;
+    }
+    
+    // Si no empieza con punto (subdominio) y tiene múltiples partes, puede ser tercero
+    return !domainLower.startsWith('.') && domainLower.split('.').length >= 3;
   }
 
   _analyzeCookieDuration(cookie) {
@@ -1069,29 +2266,145 @@ class ScannerService {
     return cookie.domain.startsWith('.');
   }
 
+  _extractMainDomain(domain) {
+    if (!domain) return 'localhost';
+    
+    // Remover punto inicial si existe
+    const cleanDomain = domain.startsWith('.') ? domain.substring(1) : domain;
+    
+    // Obtener dominio principal (ej: subdomain.example.com -> example.com)
+    const parts = cleanDomain.split('.');
+    if (parts.length >= 2) {
+      return parts.slice(-2).join('.');
+    }
+    
+    return cleanDomain;
+  }
+
+  _getDetailedExpirationInfo(cookie) {
+    const now = new Date();
+    let expirationDate = null;
+    let durationDays = 0;
+    let durationText = 'Sesión';
+
+    if (cookie.expires) {
+      expirationDate = new Date(cookie.expires);
+      durationDays = Math.ceil((expirationDate - now) / (1000 * 60 * 60 * 24));
+      
+      if (durationDays <= 0) {
+        durationText = 'Expirada';
+      } else if (durationDays === 1) {
+        durationText = '1 día';
+      } else if (durationDays < 7) {
+        durationText = `${durationDays} días`;
+      } else if (durationDays < 30) {
+        const weeks = Math.floor(durationDays / 7);
+        durationText = weeks === 1 ? '1 semana' : `${weeks} semanas`;
+      } else if (durationDays < 365) {
+        const months = Math.floor(durationDays / 30);
+        durationText = months === 1 ? '1 mes' : `${months} meses`;
+      } else {
+        const years = Math.floor(durationDays / 365);
+        const months = Math.floor((durationDays % 365) / 30);
+        if (years === 1 && months === 0) {
+          durationText = '1 año';
+        } else if (months === 0) {
+          durationText = `${years} años`;
+        } else {
+          durationText = `${years} año${years > 1 ? 's' : ''} y ${months} mes${months > 1 ? 'es' : ''}`;
+        }
+      }
+    } else if (cookie.maxAge) {
+      durationDays = Math.ceil(cookie.maxAge / (60 * 60 * 24));
+      expirationDate = new Date(now.getTime() + (cookie.maxAge * 1000));
+      durationText = durationDays === 1 ? '1 día' : `${durationDays} días`;
+    }
+
+    return {
+      date: expirationDate,
+      durationDays: Math.max(0, durationDays),
+      durationText,
+      isSession: !expirationDate
+    };
+  }
+
   // Método para intentar aceptar cookies automáticamente (simplificado)
   async _tryAcceptCookies(page) {
     try {
-      logger.info('🍪 Attempting to accept cookie consent...');
+      logger.info('🍪 Attempting to accept ALL cookies...');
       
       await page.waitForTimeout(2000);
       
-      // Selectores más específicos y comunes
+      // Primero intentar aceptar TODO mediante scripts conocidos
+      try {
+        await page.evaluate(() => {
+          // OneTrust - Aceptar todo
+          if (window.OneTrust) {
+            window.OneTrust.AllowAll();
+            return true;
+          }
+          // Cookiebot - Aceptar todo
+          if (window.Cookiebot) {
+            window.Cookiebot.consent.marketing = true;
+            window.Cookiebot.consent.statistics = true;
+            window.Cookiebot.consent.preferences = true;
+            window.Cookiebot.submitConsent();
+            return true;
+          }
+          // Quantcast Choice - Aceptar todo
+          if (window.__tcfapi) {
+            window.__tcfapi('setTCString', 2, (result) => {}, 'IABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
+            return true;
+          }
+          // Didomi - Aceptar todo
+          if (window.Didomi) {
+            window.Didomi.setUserAgreeToAll();
+            return true;
+          }
+          // TrustArc - Aceptar todo
+          if (window.truste) {
+            window.truste.eu.clickListener({target: {className: 'call'}});
+            return true;
+          }
+        });
+      } catch (e) {
+        // Continuar con selectores
+      }
+      
+      // Selectores expandidos para aceptar TODO
       const consentSelectors = [
+        // OneTrust
         '#onetrust-accept-btn-handler',
         '.onetrust-accept-btn-handler',
         '#accept-recommended-btn-handler',
-        '.cookie-consent-accept',
-        '.cc-btn.cc-dismiss',
-        '#cookiebot-accept',
-        '.cookiebot-accept',
-        '#didomi-notice-agree-button',
-        '.qc-cmp-button.qc-cmp-accept-button',
+        '.ot-pc-refuse-all-handler',
+        '#onetrust-pc-btn-handler',
+        // CookieBot
+        '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
+        'a[id="CybotCookiebotDialogBodyLevelButtonAccept"]',
+        '.CybotCookiebotDialogBodyButton[id*="AllowAll"]',
+        // Quantcast
+        '.qc-cmp2-summary-buttons button:last-child',
+        'button[mode="primary"]',
+        // TrustArc
         '.trustarc-agree-button',
-        '.cookieyes-accept',
-        '.iubenda-cs-accept-btn',
-        'button[id*="accept"]:not([id*="reject"])',
-        'button[class*="accept"]:not([class*="reject"])'
+        'a.call',
+        // Didomi
+        '#didomi-notice-agree-button',
+        'button[id="didomi-notice-agree-button"]',
+        // CookieYes
+        '.cky-btn-accept',
+        '.cookie-consent-accept',
+        // General patterns
+        'button:contains("Accept All")',
+        'button:contains("Accept all")',
+        'button:contains("Aceptar todo")',
+        'button:contains("Aceptar todas")',
+        'button[id*="accept-all"]',
+        'button[class*="accept-all"]',
+        '.cc-btn.cc-dismiss',
+        '.cc-allow',
+        'button[data-cookiebanner="accept_all"]'
       ];
       
       // Intentar solo una vez con selectores específicos

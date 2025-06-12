@@ -33,9 +33,23 @@ const ClientCard = ({ client, onViewDetails, onToggleStatus }) => {
   };
 
   return (
-    <div className="bg-white p-4 rounded shadow flex flex-col justify-between">
+    <div className={`bg-white p-4 rounded shadow flex flex-col justify-between relative ${client.hasPendingRenewal ? 'ring-2 ring-yellow-400' : ''}`}>
+      {/* Indicador de renovación pendiente */}
+      {client.hasPendingRenewal && (
+        <div className="absolute top-2 right-2">
+          <div className="bg-yellow-400 text-yellow-900 text-xs px-2 py-1 rounded-full flex items-center">
+            <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            Renovación pendiente
+          </div>
+        </div>
+      )}
+      
       <div>
-        <h3 className="text-lg font-bold text-[#235C88]">{client.name}</h3>
+        <h3 className="text-lg font-bold text-[#235C88] truncate pr-2" title={client.name}>
+          {client.name}
+        </h3>
         <p className="text-sm text-gray-600">{client.contactEmail}</p>
         
         {/* Añadimos información fiscal si está disponible */}
@@ -54,12 +68,41 @@ const ClientCard = ({ client, onViewDetails, onToggleStatus }) => {
           <span className="text-sm mr-2">Plan:</span>
           <span className="text-sm font-medium capitalize">{client.subscription?.plan || 'N/A'}</span>
         </div>
-        <div className="mt-2">
+        
+        {/* Estado del cliente */}
+        <div className="mt-2 flex items-center gap-2">
           <span className={`inline-block px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(client.status)}`}>
             {client.status === 'active' ? 'Activo' : 
              client.status === 'inactive' ? 'Inactivo' : 'Suspendido'}
           </span>
+          
+          {/* Estado de suscripción */}
+          {client.subscriptionActive !== undefined && (
+            <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+              client.subscriptionActive 
+                ? 'bg-green-100 text-green-800' 
+                : 'bg-red-100 text-red-800'
+            }`}>
+              {client.subscriptionActive ? 'Suscripción activa' : 'Suscripción inactiva'}
+            </span>
+          )}
         </div>
+        
+        {/* Información de renovación pendiente */}
+        {client.hasPendingRenewal && client.pendingRenewalInfo && (
+          <div className="mt-2 text-xs bg-yellow-50 p-2 rounded">
+            <p className="font-medium text-yellow-800">
+              Tipo: {client.pendingRenewalInfo.requestType === 'renewal' ? 'Renovación' : 
+                     client.pendingRenewalInfo.requestType === 'reactivation' ? 'Reactivación' : 
+                     client.pendingRenewalInfo.requestType === 'support' ? 'Soporte' : 'Actualización'}
+            </p>
+            <p className="text-yellow-700">
+              Urgencia: {client.pendingRenewalInfo.urgency === 'high' ? 'Alta' : 
+                        client.pendingRenewalInfo.urgency === 'medium' ? 'Media' : 'Baja'}
+            </p>
+          </div>
+        )}
+        
         <div className="mt-2">
           <span className="text-sm">Usuarios: {client.subscription?.currentUsers || 0}/{client.subscription?.maxUsers || 0}</span>
         </div>

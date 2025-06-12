@@ -5,6 +5,7 @@ const AppError = require('../utils/appError');
 const { catchAsync } = require('../utils/catchAsync');
 const { validateDomain } = require('../utils/domainValidator');
 const auditService = require('../services/audit.service');
+const { domainAnalysisScheduler } = require('../jobs/scheduledTasks');
 
 class DomainController {
   // Crear nuevo dominio
@@ -187,6 +188,12 @@ class DomainController {
 
   // Obtener dominios del cliente (o todos los dominios para owner)
   getDomains = catchAsync(async (req, res) => {
+    console.log('🏠 getDomains controller reached with:', {
+      clientId: req.clientId,
+      isOwner: req.isOwner,
+      userRole: req.user?.role
+    });
+    
     const { clientId } = req;
     const { status, search, clientId: queryClientId } = req.query;
 
@@ -233,7 +240,10 @@ class DomainController {
       data: { 
         domains,
         client: clientInfo
-      }
+      },
+      subscriptionStatus: req.subscriptionStatus,
+      subscriptionInactive: req.subscriptionInactive || false,
+      subscriptionMessage: req.subscriptionMessage
     });
   });
 
@@ -381,7 +391,17 @@ class DomainController {
     const { id } = req.params;
     const { clientId } = req;
 
-    const domain = await Domain.findOneAndDelete({ _id: id, clientId });
+    // Construir el filtro de búsqueda
+    let filter = { _id: id };
+    
+    // Solo filtrar por clientId si NO es owner
+    if (!req.isOwner && clientId) {
+      filter.clientId = clientId;
+    }
+
+    console.log(`🗑️ Eliminando dominio ${id} - isOwner: ${req.isOwner}, filtro:`, filter);
+
+    const domain = await Domain.findOneAndDelete(filter);
 
     if (!domain) {
       throw new AppError('Domain not found', 404);
@@ -435,41 +455,80 @@ class DomainController {
     
     console.log(`✅ Dominio encontrado: ${domain.domain} (${domain._id})`);
     
-    // Si el usuario es owner pero el dominio no pertenece al cliente actual,
-    // actualizar clientId temporalmente para la asignación del template
-    if (req.isOwner && domain.clientId && clientId && 
-        domain.clientId.toString() !== clientId.toString()) {
-      console.log(`⚠️ Owner asignando template a dominio de otro cliente. Ajustando contexto.`);
-      req.clientId = domain.clientId;
-    }
+    // Usar el clientId del dominio como referencia principal
+    const domainClientId = domain.clientId;
+    console.log(`🔍 [setDefaultBannerTemplate] Cliente del dominio: ${domainClientId}, Cliente del request: ${clientId}`);
   
-    // Verificar que la plantilla existe
+    // Verificar que la plantilla existe y pertenece al cliente del dominio o es del sistema
     let template = await BannerTemplate.findOne({
       _id: templateId,
       $or: [
-        { clientId },
-        { type: 'system', 'metadata.isPublic': true }
+        { clientId: domainClientId, status: 'active' },
+        { type: 'system', status: 'active' }
       ]
     });
   
-    if (!template) {
-      // Buscar si existe cualquier plantilla para este cliente
-      const anyTemplate = await BannerTemplate.findOne({
-        $or: [
-          { clientId },
-          { type: 'system', 'metadata.isPublic': true }
-        ]
+    console.log(`🔍 [setDefaultBannerTemplate] Buscando template ${templateId} para cliente del dominio ${domainClientId}`);
+    
+    // Debug: verificar si la plantilla existe en la base de datos
+    const templateExists = await BannerTemplate.findById(templateId);
+    if (templateExists) {
+      console.log(`📋 [setDefaultBannerTemplate] Template ${templateId} existe en BD:`, {
+        id: templateExists._id,
+        name: templateExists.name,
+        clientId: templateExists.clientId,
+        type: templateExists.type,
+        status: templateExists.status
       });
-
-      if (anyTemplate) {
-        // Si existe alguna plantilla para este cliente, usarla como alternativa
-        console.log(`⚠️ Plantilla ${templateId} no encontrada. Usando plantilla alternativa: ${anyTemplate._id}`);
-        templateId = anyTemplate._id;
-        template = anyTemplate; // Actualizar también la referencia a la plantilla
-      } else {
-        // Si no hay ninguna plantilla disponible, entonces sí es un error crítico
-        throw new AppError('Banner template not found', 404);
+    } else {
+      console.log(`❌ [setDefaultBannerTemplate] Template ${templateId} NO existe en la base de datos`);
+    }
+    
+    if (!template) {
+      console.log(`❌ [setDefaultBannerTemplate] Template ${templateId} no encontrado para cliente del dominio ${domainClientId}`);
+      
+      // Verificar si es un template de sistema en draft (los templates de sistema pueden usarse por cualquier cliente)
+      if (templateExists && templateExists.type === 'system') {
+        console.log(`✅ [setDefaultBannerTemplate] Template ${templateId} es del sistema, permitiendo uso por cualquier cliente`);
+        template = templateExists;
       }
+      // Si el template original está en draft, verificar si se puede activar
+      else if (templateExists && templateExists.status === 'draft' && templateExists.clientId && templateExists.clientId.toString() === domainClientId.toString()) {
+        console.log(`⚠️ [setDefaultBannerTemplate] Template ${templateId} está en draft pero pertenece al cliente correcto`);
+        console.log(`🔧 [setDefaultBannerTemplate] Usando template en draft: ${templateExists._id}`);
+        templateId = templateExists._id;
+        template = templateExists;
+      } else {
+        // Buscar una plantilla activa del mismo cliente
+        let clientTemplate = await BannerTemplate.findOne({
+          clientId: domainClientId,
+          status: 'active'
+        }).sort({ updatedAt: -1 });
+
+        if (clientTemplate) {
+          console.log(`✅ [setDefaultBannerTemplate] Usando template activo del cliente: ${clientTemplate._id}`);
+          templateId = clientTemplate._id;
+          template = clientTemplate;
+        } else {
+          // Si no hay plantillas del cliente, buscar una del sistema
+          console.log(`🔍 [setDefaultBannerTemplate] No hay templates activos del cliente, buscando template del sistema`);
+          let systemTemplate = await BannerTemplate.findOne({
+            type: 'system',
+            status: 'active'
+          }).sort({ updatedAt: -1 });
+
+          if (systemTemplate) {
+            console.log(`✅ [setDefaultBannerTemplate] Usando template del sistema: ${systemTemplate._id}`);
+            templateId = systemTemplate._id;
+            template = systemTemplate;
+          } else {
+            console.error(`❌ [setDefaultBannerTemplate] No se encontró ningún template disponible`);
+            throw new AppError('No banner templates available', 404);
+          }
+        }
+      }
+    } else {
+      console.log(`✅ [setDefaultBannerTemplate] Template encontrado: ${template._id} (${template.type === 'system' ? 'sistema' : 'cliente'})`);
     }
   
     // Inicializar settings si no existe
@@ -480,13 +539,19 @@ class DomainController {
     // Actualizar el defaultTemplateId
     domain.settings.defaultTemplateId = templateId;
     
+    console.log(`🎨 [setDefaultBannerTemplate] Asignando template ${templateId} al dominio ${domain.domain}`);
+    console.log(`📝 [setDefaultBannerTemplate] Settings antes de guardar:`, domain.settings);
+    
     // Guardar cambios
     await domain.save();
+    
+    console.log(`✅ [setDefaultBannerTemplate] Template asignado correctamente al dominio ${domain.domain}`);
+    console.log(`📝 [setDefaultBannerTemplate] Settings después de guardar:`, domain.settings);
   
     // Registrar auditoría si existe el servicio
     try {
-      // Asegurarse de que tenemos un clientId, usando el del dominio si es necesario
-      const auditClientId = clientId || domain.clientId || 'system';
+      // Usar el clientId del dominio para la auditoría
+      const auditClientId = domainClientId || 'system';
       
       if (auditService && typeof auditService.logAction === 'function') {
         await auditService.logAction({
@@ -561,6 +626,165 @@ class DomainController {
       status: 'success',
       message: `Template ${templateId} assigned to domain ${domainName}`,
       data: { domain }
+    });
+  });
+
+  // Configurar análisis programado para un dominio
+  configureScheduledAnalysis = catchAsync(async (req, res) => {
+    const { domainId } = req.params;
+    const { enabled, frequency, time, daysOfWeek, dayOfMonth, analysisConfig } = req.body;
+
+    const domain = await Domain.findById(domainId);
+    if (!domain) {
+      throw new AppError('Domain not found', 404);
+    }
+
+    // Verificar permisos
+    if (!req.isOwner && domain.clientId.toString() !== req.clientId) {
+      throw new AppError('Access denied', 403);
+    }
+
+    // Actualizar configuración de análisis programado
+    domain.analysisSchedule = {
+      enabled: enabled || false,
+      frequency: frequency || 'weekly',
+      time: time || '02:00',
+      daysOfWeek: daysOfWeek || [0], // Domingo por defecto
+      dayOfMonth: dayOfMonth || 1,
+      analysisConfig: {
+        scanType: analysisConfig?.scanType || 'full',
+        includeSubdomains: analysisConfig?.includeSubdomains || true,
+        maxUrls: analysisConfig?.maxUrls || 100,
+        depth: analysisConfig?.depth || 5
+      }
+    };
+
+    await domain.save();
+
+    // Reprogramar el dominio con la nueva configuración
+    await domainAnalysisScheduler.rescheduleDomain(domainId);
+
+    await auditService.logAction('DOMAIN_SCHEDULE_UPDATED', {
+      domainId,
+      userId: req.user.id,
+      changes: { analysisSchedule: domain.analysisSchedule }
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Scheduled analysis configured successfully',
+      data: {
+        domain: {
+          _id: domain._id,
+          domain: domain.domain,
+          analysisSchedule: domain.analysisSchedule
+        }
+      }
+    });
+  });
+
+  // Obtener configuración de análisis programado
+  getScheduledAnalysisConfig = catchAsync(async (req, res) => {
+    const { domainId } = req.params;
+
+    const domain = await Domain.findById(domainId).select('domain analysisSchedule status');
+    if (!domain) {
+      throw new AppError('Domain not found', 404);
+    }
+
+    // Verificar permisos
+    if (!req.isOwner && domain.clientId.toString() !== req.clientId) {
+      throw new AppError('Access denied', 403);
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        domain: {
+          _id: domain._id,
+          domain: domain.domain,
+          analysisSchedule: domain.analysisSchedule || {
+            enabled: false,
+            frequency: 'weekly',
+            time: '02:00',
+            daysOfWeek: [0],
+            dayOfMonth: 1,
+            analysisConfig: {
+              scanType: 'full',
+              includeSubdomains: true,
+              maxUrls: 100,
+              depth: 5
+            }
+          }
+        }
+      }
+    });
+  });
+
+  // Obtener estado de análisis programados de todos los dominios
+  getScheduledAnalysisStatus = catchAsync(async (req, res) => {
+    // Solo owners pueden ver el estado global
+    if (!req.isOwner) {
+      throw new AppError('Access denied', 403);
+    }
+
+    const scheduledStatus = domainAnalysisScheduler.getScheduledDomainsStatus();
+    
+    // Obtener información adicional de los dominios
+    const domainsInfo = await Domain.find({
+      _id: { $in: scheduledStatus.map(s => s.domainId) }
+    }).select('domain analysisSchedule.lastRun analysisSchedule.nextRun status');
+
+    const statusWithInfo = scheduledStatus.map(status => {
+      const domainInfo = domainsInfo.find(d => d._id.toString() === status.domainId);
+      return {
+        ...status,
+        domain: domainInfo?.domain || 'Unknown',
+        lastRun: domainInfo?.analysisSchedule?.lastRun,
+        nextRun: domainInfo?.analysisSchedule?.nextRun,
+        status: domainInfo?.status || 'unknown'
+      };
+    });
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        scheduledDomains: statusWithInfo,
+        totalScheduled: statusWithInfo.length
+      }
+    });
+  });
+
+  // Ejecutar análisis inmediato para un dominio
+  triggerImmediateAnalysis = catchAsync(async (req, res) => {
+    const { domainId } = req.params;
+
+    const domain = await Domain.findById(domainId);
+    if (!domain) {
+      throw new AppError('Domain not found', 404);
+    }
+
+    // Verificar permisos
+    if (!req.isOwner && domain.clientId.toString() !== req.clientId) {
+      throw new AppError('Access denied', 403);
+    }
+
+    // Ejecutar análisis usando el scheduler
+    await domainAnalysisScheduler.executeDomainAnalysis(domain);
+
+    await auditService.logAction('DOMAIN_ANALYSIS_TRIGGERED', {
+      domainId,
+      userId: req.user.id,
+      domain: domain.domain
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Analysis triggered successfully',
+      data: {
+        domain: domain.domain,
+        triggeredAt: new Date()
+      }
     });
   });
 }

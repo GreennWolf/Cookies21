@@ -19,6 +19,7 @@ import ConsentStats from '../components/analytics/ConsentStats';
 import DemographicsChart from '../components/analytics/DemographicsChart';
 import CookieAnalytics from '../components/analytics/CookieAnalytics';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import SubscriptionAlert from '../components/common/SubscriptionAlert';
 import { 
   FaChartBar, FaChartLine, FaCookieBite, 
   FaGlobeAmericas, FaDownload, FaSyncAlt 
@@ -28,6 +29,7 @@ const AnalyticsPage = () => {
   // Estados principales
   const [domains, setDomains] = useState([]);
   const [selectedDomain, setSelectedDomain] = useState(null);
+  const [subscriptionInfo, setSubscriptionInfo] = useState({});
   const [dateRange, setDateRange] = useState({
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
     endDate: new Date(),
@@ -90,6 +92,13 @@ const AnalyticsPage = () => {
       setLoading(true);
       try {
         const res = await getDomains();
+        
+        // Capturar información de suscripción
+        setSubscriptionInfo({
+          subscriptionInactive: res.subscriptionInactive,
+          subscriptionMessage: res.subscriptionMessage,
+          subscriptionStatus: res.subscriptionStatus
+        });
         
         if (res.data && Array.isArray(res.data.domains) && res.data.domains.length > 0) {
           setDomains(res.data.domains);
@@ -613,6 +622,13 @@ const AnalyticsPage = () => {
             </button>
           </div>
         </div>
+
+        {/* Alerta de suscripción */}
+        <SubscriptionAlert 
+          subscriptionInactive={subscriptionInfo.subscriptionInactive}
+          subscriptionMessage={subscriptionInfo.subscriptionMessage}
+          subscriptionStatus={subscriptionInfo.subscriptionStatus}
+        />
         
         {/* Selector de dominio */}
         <div className="mb-6">

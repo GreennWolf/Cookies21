@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 
-const CookieCard = ({ cookie, onViewDetails, onDelete, showDomainInfo = false }) => {
+const CookieCard = ({ 
+  cookie, 
+  onViewDetails, 
+  onDelete, 
+  showDomainInfo = false,
+  enableSelection = false,
+  isSelected = false,
+  onSelect 
+}) => {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const handleDelete = () => {
@@ -22,9 +30,26 @@ const CookieCard = ({ cookie, onViewDetails, onDelete, showDomainInfo = false })
   const hasClientInfo = hasDomainInfo && cookie.domainId.clientId && typeof cookie.domainId.clientId === 'object';
 
   return (
-    <div className="bg-white p-4 rounded shadow flex flex-col justify-between">
+    <div className={`bg-white p-4 rounded shadow flex flex-col justify-between transition-all duration-200 ${
+      isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+    } ${enableSelection ? 'cursor-pointer hover:shadow-md' : ''}`}
+    onClick={enableSelection ? onSelect : undefined}>
       <div>
-        <h3 className="text-lg font-bold text-[#235C88]">{cookie.name}</h3>
+        <div className="flex items-start justify-between">
+          <h3 className="text-lg font-bold text-[#235C88] flex-1 truncate pr-2"
+              title={cookie.name}>
+            {cookie.name}
+          </h3>
+          {enableSelection && (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={onSelect}
+              onClick={(e) => e.stopPropagation()}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1"
+            />
+          )}
+        </div>
         <p className="text-sm text-gray-600">Categoría: {cookie.category}</p>
         {cookie.provider && (
           <p className="text-sm text-gray-600">Proveedor: {cookie.provider}</p>
@@ -48,17 +73,25 @@ const CookieCard = ({ cookie, onViewDetails, onDelete, showDomainInfo = false })
       </div>
       <div className="mt-4 flex justify-between">
         <button
-          onClick={() => onViewDetails(cookie)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewDetails(cookie);
+          }}
           className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
         >
           Ver Detalles
         </button>
-        <button
-          onClick={handleDelete}
-          className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
-        >
-          Eliminar
-        </button>
+        {!enableSelection && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete();
+            }}
+            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
+          >
+            Eliminar
+          </button>
+        )}
       </div>
       {showConfirm && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
@@ -91,7 +124,10 @@ CookieCard.propTypes = {
   cookie: PropTypes.object.isRequired,
   onViewDetails: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
-  showDomainInfo: PropTypes.bool
+  showDomainInfo: PropTypes.bool,
+  enableSelection: PropTypes.bool,
+  isSelected: PropTypes.bool,
+  onSelect: PropTypes.func
 };
 
 export default CookieCard;

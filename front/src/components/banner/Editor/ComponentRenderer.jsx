@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from '
 import { Trash2, Move, Image as ImageIcon } from 'lucide-react';
 import LanguageButton from '../LanguageButton';
 import DropZoneIndicator from './DropZoneIndicator'; // FASE 4
+import { getImageUrl as getImageUrlFromUtils } from '../../../utils/imageProcessing';
+import { useImageManager } from '../../../hooks/useImageManager';
 import { 
   validateContainerDrop, 
   validateRealtimeDrag,
@@ -70,6 +72,8 @@ const ComponentRenderer = ({
   parentId = null, // NUEVA PROP: ID del contenedor padre (para componentes hijos)
   isPreview = false // NUEVA PROP: Indica si está en modo preview o editor
 }) => {
+  // Hook unificado para gestión de imágenes
+  const imageManager = useImageManager();
   // Log de debug para verificar props - SOLO EN DESARROLLO
   // React.useEffect(() => {
   //   if (['rejectAll', 'acceptAll', 'preferencesBtn'].includes(component.id)) {
@@ -99,48 +103,46 @@ const ComponentRenderer = ({
   // Effect para verificar estado inicial de imágenes
   useEffect(() => {
     if (component.type === 'image') {
+      // IMPORTANTE: Usar el sistema unificado imageManager.getUnifiedImageUrl
+      // Esto asegura que las imágenes dentro de contenedores se manejen correctamente
       const imageInfo = (() => {
         try {
+          // Usar el sistema unificado para obtener la URL
+          const imageSource = imageManager.getUnifiedImageUrl(component, deviceView, 'componentRenderer');
+          
           const info = {
-            isTemporaryRef: false,
-            isValidImageUrl: false,
-            imageSource: null,
+            isTemporaryRef: imageManager.isTemporaryImage(component, deviceView),
+            isValidImageUrl: !!imageSource,
+            imageSource,
             imageType: 'local'
           };
           
-          let contentUrl = '';
-          
-          if (typeof component.content === 'string') {
-            contentUrl = component.content;
-          } else if (component.content?.texts?.en && typeof component.content.texts.en === 'string') {
-            contentUrl = component.content.texts.en;
-          }
-          
-          if (contentUrl) {
-            if (contentUrl.startsWith('__IMAGE_REF__')) {
-              info.isTemporaryRef = true;
+          if (imageSource) {
+            // Verificar tipo de imagen con el nuevo sistema
+            if (info.isTemporaryRef) {
               info.imageType = 'temp';
-            }
-            
-            if (contentUrl.startsWith('data:image') || 
-                contentUrl.startsWith('/') || 
-                contentUrl.match(/^https?:\/\//)) {
-              info.isValidImageUrl = true;
-              info.imageSource = contentUrl;
-              info.imageType = contentUrl.startsWith('http') || 
-                             contentUrl.startsWith('/') ? 'server' : 'local';
+            } else if (imageSource.startsWith('http') || imageSource.startsWith('/templates/images/')) {
+              info.imageType = 'server';
+            } else if (imageSource.startsWith('data:image')) {
+              info.imageType = 'local';
+            } else if (imageSource.startsWith('blob:')) {
+              info.imageType = 'blob';
             }
           }
           
-          const deviceStyle = component.styles?.[deviceView] || {};
-          if (deviceStyle._previewUrl) {
-            info.imageSource = deviceStyle._previewUrl;
-            info.isValidImageUrl = true;
-            info.imageType = 'preview';
-          }
+          console.log('🖼️ ComponentRenderer useEffect: Imagen procesada con sistema unificado:', {
+            componentId: component.id,
+            imageSource,
+            isTemporary: info.isTemporaryRef,
+            imageType: info.imageType,
+            content: component.content,
+            contentType: typeof component.content,
+            hasContent: !!component.content
+          });
           
           return info;
         } catch (error) {
+          console.error('❌ ComponentRenderer: Error al procesar imagen:', error);
           return {
             isTemporaryRef: false,
             isValidImageUrl: false,
@@ -163,6 +165,13 @@ const ComponentRenderer = ({
           // Imagen nueva, resetear estados
           setImageLoaded(false);
           setImageError(false);
+          
+          // WORKAROUND: Para blob URLs y data URIs (placeholders), inicializar como cargada
+          // ya que a veces no disparan onLoad correctamente
+          if (imageInfo.imageSource && (imageInfo.imageSource.startsWith('blob:') || imageInfo.imageSource.startsWith('data:'))) {
+            console.log('🔧 ComponentRenderer: Blob URL o Data URI detectada, inicializando como cargada:', imageInfo.imageSource);
+            setImageLoaded(true);
+          }
         }
         
         console.log('🖼️ ComponentRenderer: Estado inicial imagen:', {
@@ -233,33 +242,9 @@ const ComponentRenderer = ({
     }));
   }, [component.id]);
 
-  // Determinar URL actual de la imagen
+  // Determinar URL actual de la imagen usando el sistema unificado
   const getImageUrl = () => {
-    // Si hay vista previa, usarla primero (usar deviceStyle original para metadatos)
-    if (deviceStyle._previewUrl) {
-      return deviceStyle._previewUrl;
-    }
-    
-    // Si el contenido es string, verificar si es URL
-    if (typeof component.content === 'string') {
-      if (component.content.startsWith('data:image') || 
-          component.content.startsWith('/') || 
-          component.content.match(/^https?:\/\//)) {
-        return component.content;
-      }
-    }
-    
-    // Si el contenido está en texts.en, verificar si es URL
-    if (component.content?.texts?.en && typeof component.content.texts.en === 'string') {
-      const enText = component.content.texts.en;
-      if (enText.startsWith('data:image') || 
-          enText.startsWith('/') || 
-          enText.match(/^https?:\/\//)) {
-        return enText;
-      }
-    }
-    
-    return null;
+    return imageManager.getUnifiedImageUrl(component, deviceView, 'componentRenderer');
   };
 
   // Obtener aspect ratio de una imagen
@@ -1013,37 +998,32 @@ const handleResizeStart = (e, forceKeepAspectRatio = null) => {
   // Get device-specific styles 
   const deviceStyle = component.style?.[deviceView] || {};
   
-  // Debug para componentes de imagen
-  if (component.type === 'image') {
+  
+  // Debug para componentes de imagen (solo primera vez)
+  if (component.type === 'image' && !component._loggedOnce) {
     console.log(`🖼️ ComponentRenderer: Renderizando imagen ${component.id}:`, {
       deviceView,
       deviceStyle,
       componentStyle: component.style,
       _imageSettings: component._imageSettings
     });
+    component._loggedOnce = true;
   }
   
   // Force re-render when style changes for image components
   useEffect(() => {
-    if (component.type === 'image') {
-      console.log(`🔄 IMAGE_EFFECT: Re-render forzado para imagen ${component.id}:`, {
-        width: deviceStyle.width,
-        height: deviceStyle.height,
-        _imageSettings: component._imageSettings
-      });
+    if (component.type === 'image' && process.env.NODE_ENV === 'development') {
+      // Solo log si hay cambios importantes
+      if (deviceStyle._previewUrl || deviceStyle._tempFile) {
+        console.log(`🔄 IMAGE_EFFECT: Re-render para imagen ${component.id}:`, {
+          width: deviceStyle.width,
+          height: deviceStyle.height,
+          hasPreviewUrl: !!deviceStyle._previewUrl,
+          hasTempFile: !!deviceStyle._tempFile
+        });
+      }
     }
   }, [component.id, component.type, component._imageSettings, deviceStyle._previewUrl, deviceStyle._tempFile, deviceStyle.width, deviceStyle.height]);
-
-  // Efecto para detectar cambios en el componente completo
-  useEffect(() => {
-    if (component.type === 'image') {
-      console.log(`📦 COMPONENT_CHANGE: Componente imagen ${component.id} cambió:`, {
-        componentStyle: component.style,
-        deviceStyle: component.style?.[deviceView],
-        _imageSettings: component._imageSettings
-      });
-    }
-  }, [component, deviceView]);
 
   // Efecto para aplicar estilos inmediatamente en la primera carga - SOLO PARA CONTENEDORES
   useEffect(() => {
@@ -1149,11 +1129,11 @@ const handleResizeStart = (e, forceKeepAspectRatio = null) => {
         
         if (parentContainer) {
           const parentRect = parentContainer.getBoundingClientRect();
-          console.log(`📏 Usando contenedor padre para ${component.id}:`, {
-            width: parentRect.width,
-            height: parentRect.height,
-            parentId: parentContainer.getAttribute('data-id')
-          });
+          // Debug solo una vez por componente
+          if (process.env.NODE_ENV === 'development' && !component._debugLogged) {
+            console.log(`📏 Contenedor padre para ${component.id}: ${Math.round(parentRect.width)}x${Math.round(parentRect.height)}`);
+            component._debugLogged = true;
+          }
           return {
             width: parentRect.width,
             height: parentRect.height,
@@ -1228,7 +1208,11 @@ if (deviceStyle.width && typeof deviceStyle.width === 'string' && deviceStyle.wi
     convertedDeviceStyle.width = `${Math.round(validatedPixelValue)}px`;
     
     if (validatedPixelValue !== pixelValue) {
-      console.log(`⚠️ Ancho limitado para ${component.id}: ${Math.round(pixelValue)}px → ${Math.round(validatedPixelValue)}px`);
+      // Debug solo si hay cambio significativo y es primera vez
+      if (process.env.NODE_ENV === 'development' && !component._widthLimitLogged && Math.abs(pixelValue - validatedPixelValue) > 10) {
+        console.log(`⚠️ Ancho limitado para ${component.id}: ${Math.round(pixelValue)}px → ${Math.round(validatedPixelValue)}px`);
+        component._widthLimitLogged = true;
+      }
     }
     
     // REPOSICIONAMIENTO: Verificar si el componente se sale con el nuevo tamaño
@@ -2152,45 +2136,49 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
     });
   };
 
-  // Verificar y determinar información de imagen de forma segura
-  const getImageInfo = () => {
+  // Verificar y determinar información de imagen usando el sistema unificado
+  // IMPORTANTE: Esta función DEBE usar el sistema unificado imageManager para manejar correctamente
+  // las imágenes dentro de contenedores
+  const getImageInfo = useCallback(() => {
     try {
-      const imageSource = getImageUrl(); // Usar la función existente
+      // Usar el sistema unificado para obtener la URL
+      const imageSource = imageManager.getUnifiedImageUrl(component, deviceView, 'componentRenderer');
       
       const info = {
-        isTemporaryRef: false,
+        isTemporaryRef: imageManager.isTemporaryImage(component, deviceView),
         isValidImageUrl: !!imageSource,
         imageSource,
         imageType: 'local'
       };
       
       if (imageSource) {
-        // Verificar tipo de imagen
-        if (imageSource.startsWith('__IMAGE_REF__')) {
-          info.isTemporaryRef = true;
+        // Verificar tipo de imagen con el nuevo sistema
+        if (info.isTemporaryRef) {
           info.imageType = 'temp';
-        } else if (deviceStyle._previewUrl && imageSource === deviceStyle._previewUrl) {
-          info.imageType = 'preview';
-        } else if (imageSource.startsWith('http') || imageSource.startsWith('/')) {
+        } else if (imageSource.startsWith('http') || imageSource.startsWith('/templates/images/')) {
           info.imageType = 'server';
         } else if (imageSource.startsWith('data:image')) {
           info.imageType = 'local';
+        } else if (imageSource.startsWith('blob:')) {
+          info.imageType = 'blob';
         }
       }
       
       // Debug log para imágenes (solo si hay problemas)
-      if (!info.isValidImageUrl) {
+      if (!info.isValidImageUrl && component.type === 'image') {
         console.log('🖼️ ComponentRenderer: Sin imagen válida:', {
           componentId: component.id,
           content: component.content,
-          previewUrl: deviceStyle._previewUrl,
-          finalImageSource: info.imageSource
+          isTemporary: info.isTemporaryRef,
+          isChild: !!component.parentId,
+          finalImageSource: info.imageSource,
+          imageType: info.imageType
         });
       }
       
       return info;
     } catch (error) {
-      console.error('Error al procesar imagen:', error);
+      console.error('❌ ComponentRenderer: Error al procesar imagen:', error);
       return {
         isTemporaryRef: false,
         isValidImageUrl: false,
@@ -2198,7 +2186,7 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
         imageType: 'local'
       };
     }
-  };
+  }, [component, deviceView, imageManager]);
 
   // Handlers genéricos para cualquier componente
   const handleGenericDragOver = (e) => {
@@ -2441,8 +2429,24 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        cursor: 'pointer' // Simular apariencia de botón
+        cursor: 'pointer', // Simular apariencia de botón
+        transition: 'background-color 0.2s ease, color 0.2s ease'
       };
+
+      // Crear clase CSS única para hover si hay estilos de hover definidos
+      const buttonId = `btn-${component.id}`;
+      const hasHoverStyles = convertedDeviceStyle.hoverBackgroundColor || convertedDeviceStyle.hoverColor;
+      
+      // Crear estilos de hover dinámicos
+      let hoverStyles = '';
+      if (hasHoverStyles) {
+        hoverStyles = `
+          .${buttonId}:hover {
+            ${convertedDeviceStyle.hoverBackgroundColor ? `background-color: ${convertedDeviceStyle.hoverBackgroundColor} !important;` : ''}
+            ${convertedDeviceStyle.hoverColor ? `color: ${convertedDeviceStyle.hoverColor} !important;` : ''}
+          }
+        `;
+      }
       
       content = (
         <div 
@@ -2457,7 +2461,13 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
             boxSizing: 'border-box'
           }}
         >
+          {/* Inyectar estilos de hover dinámicos */}
+          {hasHoverStyles && (
+            <style>{hoverStyles}</style>
+          )}
+          
           <button 
+            className={hasHoverStyles ? buttonId : ''}
             style={buttonStyle}
             onDoubleClick={handleDoubleClick}
           >
@@ -2510,6 +2520,13 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
       const imageInfo = getImageInfo();
       
       if (isChild) {
+        // Debug info para imágenes dentro de contenedores
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🖼️ ComponentRenderer (HIJO): Imagen en contenedor ${component.id}`, {
+            imageSource: imageInfo.imageSource,
+            isTemporary: imageInfo.isTemporaryRef
+          });
+        }
       }
       
       content = (
@@ -2543,7 +2560,8 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
                 width: '100%',
                 height: '100%',
                 objectFit: convertedDeviceStyle.objectFit || 'contain',
-                opacity: imageLoaded && !imageError ? 1 : 0,
+                // WORKAROUND: Mostrar blob URLs y data URIs (placeholders) inmediatamente, otras esperar a que carguen
+                opacity: (imageLoaded && !imageError) || (imageInfo.imageSource && (imageInfo.imageSource.startsWith('blob:') || imageInfo.imageSource.startsWith('data:'))) ? 1 : 0,
                 transition: 'opacity 0.2s',
                 display: 'block',
                 margin: 0,
@@ -2559,6 +2577,13 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
                   imageSource: imageInfo.imageSource,
                   error: e.target.error
                 });
+                
+                // Solo reportar error real si no es blob URL o data URI que debería funcionar
+                if (!imageInfo.imageSource.startsWith('blob:') && !imageInfo.imageSource.startsWith('data:')) {
+                  // Usar el hook para manejar el error
+                  imageManager.handleImageError(component.id, `Error cargando imagen: ${imageInfo.imageSource}`);
+                }
+                
                 setImageError(true);
                 setImageLoaded(true);
                 // Guardar en caché que esta imagen dio error
@@ -2569,8 +2594,8 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
             />
           )}
           
-          {/* Mostrar estado de carga solo si la imagen realmente está cargando */}
-          {imageInfo.imageSource && !imageLoaded && !imageError && (
+          {/* Mostrar estado de carga usando el hook unificado */}
+          {imageInfo.imageSource && (imageManager.isImageLoading(component.id) || (!imageLoaded && !imageError)) && (
             <div style={{
               position: 'absolute',
               top: 0,
@@ -2593,8 +2618,8 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
             </div>
           )}
           
-          {/* Placeholder cuando no hay imagen o hay error */}
-          {(!imageInfo.imageSource || imageError) && (
+          {/* Placeholder cuando no hay imagen o hay error usando el hook unificado */}
+          {(!imageInfo.imageSource || (imageError && !imageInfo.imageSource.startsWith('blob:') && !imageInfo.imageSource.startsWith('data:'))) && (
             <div style={{
               position: 'absolute',
               top: 0,
@@ -2611,19 +2636,24 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
             }}>
               <ImageIcon size={24} className="mb-2 text-gray-400" />
               <span style={{ fontSize: '13px', textAlign: 'center', padding: '0 10px' }}>
-                {imageError 
+                {imageError || imageManager.getImageError(component.id)
                   ? 'Error al cargar la imagen' 
                   : imageInfo.isTemporaryRef
                     ? 'Imagen seleccionada (vista en panel)'
                     : 'Haga doble clic para seleccionar'}
               </span>
-              {imageError && imageInfo.imageSource && (
+              {(imageError || imageManager.getImageError(component.id)) && imageInfo.imageSource && (
                 <span style={{ fontSize: '10px', textAlign: 'center', padding: '5px 10px 0', color: '#999' }}>
                   URL: {typeof imageInfo.imageSource === 'string' 
                     ? (imageInfo.imageSource.length > 30 
                       ? imageInfo.imageSource.substring(0, 30) + '...' 
                       : imageInfo.imageSource)
                     : 'Formato no válido'}
+                </span>
+              )}
+              {imageManager.getImageError(component.id) && (
+                <span style={{ fontSize: '10px', textAlign: 'center', padding: '5px 10px 0', color: '#d32f2f' }}>
+                  {imageManager.getImageError(component.id)}
                 </span>
               )}
             </div>
@@ -2715,23 +2745,29 @@ if (deviceStyle.height && typeof deviceStyle.height === 'string' && deviceStyle.
             </div>
           )}
           
-          {/* Indicador de tipo de imagen */}
+          {/* Indicador de tipo de imagen mejorado */}
           {imageInfo.imageSource && (
             <div style={{
               position: 'absolute',
               top: '0',
               left: '0',
-              backgroundColor: imageInfo.imageType === 'temp' 
-                ? 'rgba(59, 130, 246, 0.7)' 
-                : imageInfo.imageType === 'server' ? 'rgba(16, 185, 129, 0.7)' : 'rgba(99, 102, 241, 0.7)',
+              backgroundColor: 
+                imageInfo.imageType === 'temp' ? 'rgba(59, 130, 246, 0.8)' :     // Azul para temporal
+                imageInfo.imageType === 'server' ? 'rgba(16, 185, 129, 0.8)' :   // Verde para servidor
+                imageInfo.imageType === 'blob' ? 'rgba(245, 158, 11, 0.8)' :     // Amarillo para blob
+                imageInfo.imageType === 'local' ? 'rgba(139, 69, 19, 0.8)' :     // Marrón para local
+                'rgba(99, 102, 241, 0.8)',                                        // Púrpura por defecto
               color: 'white',
               padding: '2px 4px',
               fontSize: '10px',
-              borderRadius: '0 0 4px 0'
+              borderRadius: '0 0 4px 0',
+              fontWeight: 'bold'
             }}>
-              {imageInfo.imageType === 'temp' 
-                ? 'Temporal' 
-                : imageInfo.imageType === 'server' ? 'Servidor' : 'Imagen'}
+              {imageInfo.imageType === 'temp' ? '📷 Temp' :
+               imageInfo.imageType === 'server' ? '☁️ Server' :
+               imageInfo.imageType === 'blob' ? '🔗 Blob' :
+               imageInfo.imageType === 'local' ? '💾 Local' :
+               '🖼️ Image'}
             </div>
           )}
           

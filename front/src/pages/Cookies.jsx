@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { getDomains } from '../api/domain';
-import { getCookies, createCookie, updateCookieStatus } from '../api/cookie';
+import { getCookies, createCookie, updateCookieStatus, deleteCookie, deleteCookies } from '../api/cookie';
 import { getClients } from '../api/client';
 import { startScan, startAsyncAnalysis, getActiveScan, cancelScanInProgress, forceStopAllScans, forceStopAllAnalysis, cancelAnalysis } from '../api/cookieScan';
 import DomainSelector from '../components/domain/DomainSelector';
@@ -17,6 +17,7 @@ import CreateCookieModal from '../components/cookie/CreateCookieModal';
 import CookieScanHistoryModal from '../components/cookie/CookieScanHistoryModal';
 import CancelScanConfirmModal from '../components/cookie/CancelScanConfirmModal';
 import ScanLogsConsole from '../components/debug/ScanLogsConsole';
+import SubscriptionAlert from '../components/common/SubscriptionAlert';
 import { useAuth } from '../contexts/AuthContext';
 import {
   Tooltip,
@@ -28,6 +29,7 @@ import {
 const Cookies = () => {
   const [domains, setDomains] = useState([]);
   const [clients, setClients] = useState([]);
+  const [subscriptionInfo, setSubscriptionInfo] = useState({});
   const [selectedDomain, setSelectedDomain] = useState(null);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [cookies, setCookies] = useState([]);
@@ -48,6 +50,7 @@ const Cookies = () => {
   const [isAdvancedProgressModalOpen, setIsAdvancedProgressModalOpen] = useState(false);
   const [currentAdvancedAnalysisId, setCurrentAdvancedAnalysisId] = useState(null);
   const [showLogsConsole, setShowLogsConsole] = useState(false);
+  const [enableBulkSelection, setEnableBulkSelection] = useState(false);
   const [scanConfig, setScanConfig] = useState({
     includeSubdomains: true,
     maxUrls: 100,
@@ -91,6 +94,13 @@ const Cookies = () => {
         
         const res = await getDomains(params);
         setDomains(Array.isArray(res.data.domains) ? res.data.domains : []);
+        
+        // Capturar información de suscripción
+        setSubscriptionInfo({
+          subscriptionInactive: res.subscriptionInactive,
+          subscriptionMessage: res.subscriptionMessage,
+          subscriptionStatus: res.subscriptionStatus
+        });
       } catch (error) {
         console.error('Error fetching domains:', error);
         toast.error(error.message || 'Error al cargar dominios');
@@ -374,19 +384,54 @@ const Cookies = () => {
 
   // Función para eliminar una cookie (marcar como inactiva)
   const handleDelete = async (cookieId) => {
-    if (!selectedDomain || !cookieId) {
-      toast.error('Datos insuficientes para eliminar la cookie');
+    if (!cookieId) {
+      toast.error('ID de cookie requerido para eliminar');
       return;
     }
     
     try {
-      await updateCookieStatus(cookieId, 'inactive');
-      toast.success('Cookie eliminada');
-      const res = await getCookies(selectedDomain._id);
-      setCookies(Array.isArray(res.data.cookies) ? res.data.cookies : []);
+      await deleteCookie(cookieId);
+      toast.success('Cookie eliminada permanentemente');
+      
+      // Recargar la lista de cookies
+      await reloadCookies();
     } catch (error) {
       console.error('Error deleting cookie:', error);
       toast.error(error.message || 'Error al eliminar la cookie');
+    }
+  };
+
+  const handleBulkDelete = async (cookieIds) => {
+    if (!cookieIds || !Array.isArray(cookieIds) || cookieIds.length === 0) {
+      toast.error('No se han seleccionado cookies para eliminar');
+      return;
+    }
+
+    try {
+      const result = await deleteCookies(cookieIds);
+      toast.success(`${result.data.deletedCount} cookies eliminadas exitosamente`);
+      
+      // Recargar la lista de cookies
+      await reloadCookies();
+    } catch (error) {
+      console.error('Error deleting cookies:', error);
+      toast.error(error.message || 'Error al eliminar las cookies');
+    }
+  };
+
+  const reloadCookies = async () => {
+    try {
+      if (selectedDomain) {
+        const res = await getCookies(selectedDomain._id);
+        setCookies(Array.isArray(res.data.cookies) ? res.data.cookies : []);
+      } else if (isOwner && selectedClientId) {
+        // Si es owner y tiene cliente seleccionado, recargar cookies de ese cliente
+        const res = await getCookies(null, { clientId: selectedClientId });
+        setCookies(Array.isArray(res.data.cookies) ? res.data.cookies : []);
+      }
+    } catch (error) {
+      console.error('Error reloading cookies:', error);
+      toast.error('Error al recargar la lista de cookies');
     }
   };
 
@@ -536,6 +581,13 @@ const Cookies = () => {
       <h1 className="text-2xl font-bold mb-4 text-[#181818]">
         {isOwner ? 'Gestión Global de Cookies' : 'Gestión de Cookies'}
       </h1>
+
+      {/* Alerta de suscripción */}
+      <SubscriptionAlert 
+        subscriptionInactive={subscriptionInfo.subscriptionInactive}
+        subscriptionMessage={subscriptionInfo.subscriptionMessage}
+        subscriptionStatus={subscriptionInfo.subscriptionStatus}
+      />
       
       {/* Filtros para owner */}
       {isOwner && (
@@ -620,8 +672,9 @@ const Cookies = () => {
             <div className="flex items-center gap-1">
               <button 
                 onClick={handleAdvancedAnalysis} 
-                disabled={loading || activeScan}
+                disabled={loading || activeScan || subscriptionInfo.subscriptionInactive}
                 className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded hover:from-purple-700 hover:to-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                title={subscriptionInfo.subscriptionInactive ? "Suscripción requerida para análisis avanzado" : ""}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -654,7 +707,9 @@ const Cookies = () => {
             <div className="flex items-center gap-1">
               <button 
                 onClick={() => setIsCreateCookieOpen(true)}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition flex items-center space-x-2"
+                disabled={subscriptionInfo.subscriptionInactive}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                title={subscriptionInfo.subscriptionInactive ? "Suscripción requerida para crear cookies" : ""}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -781,6 +836,29 @@ const Cookies = () => {
         </TooltipProvider>
       )}
 
+      {/* Controles de cookies */}
+      {cookies.length > 0 && (
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-600">
+              {cookies.length} cookie{cookies.length !== 1 ? 's' : ''} encontrada{cookies.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setEnableBulkSelection(!enableBulkSelection)}
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                enableBulkSelection 
+                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {enableBulkSelection ? 'Desactivar selección múltiple' : 'Selección múltiple'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Lista de cookies */}
       {loading ? (
         <div className="flex items-center justify-center py-8">
@@ -791,7 +869,9 @@ const Cookies = () => {
         <CookieList 
           cookies={cookies} 
           onViewDetails={handleViewDetails} 
-          onDelete={handleDelete} 
+          onDelete={handleDelete}
+          onBulkDelete={handleBulkDelete}
+          enableBulkSelection={enableBulkSelection}
           showDomainInfo={isOwner} // Mostrar información de dominio para owners
         />
       )}

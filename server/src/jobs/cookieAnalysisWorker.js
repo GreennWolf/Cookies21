@@ -465,7 +465,7 @@ class CookieAnalysisWorker {
       return 'necessary';
     }
 
-    return 'unknown';
+    return 'other';
   }
 
   /**

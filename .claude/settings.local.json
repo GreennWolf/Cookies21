@@ -44,7 +44,17 @@
       "Bash(/home/wolf/.claude/local/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n \"createBanner\\|createClientBanner\" front/src/api/)",
       "Bash(/home/wolf/.claude/local/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n -A 10 \"handleSave\\|onSave\\|save.*banner\" front/src/components/banner/Editor/FullScreenBannerEditor.jsx)",
       "Bash(pkill:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(npm restart)",
+      "Bash(yarn restart)",
+      "Bash(pm2 restart:*)",
+      "Bash(npx pm2 restart:*)",
+      "Bash(NODE_ENV=development PORT=3000 node -e \"\nconst express = require(''express'');\nconst cors = require(''cors'');\nconst app = express();\n\napp.use(cors());\napp.use(express.json());\n\n// Mock de los endpoints\napp.get(''/api/v1/consent/providers'', (req, res) => {\n  res.json({\n    status: ''success'',\n    data: [\n      { name: ''Google Analytics'', description: ''Servicio de análisis web de Google'', category: ''analytics'', cookieCount: 3 },\n      { name: ''Facebook Pixel'', description: ''Herramienta de seguimiento de Facebook'', category: ''marketing'', cookieCount: 2 },\n      { name: ''Cookie21 Platform'', description: ''Gestión de consentimientos'', category: ''necessary'', cookieCount: 1 }\n    ]\n  });\n});\n\napp.get(''/api/v1/consent/cookies'', (req, res) => {\n  res.json({\n    status: ''success'',\n    data: {\n      necessary: [\n        { name: ''_consent'', provider: ''Cookie21 Platform'', description: ''Almacena las preferencias de consentimiento del usuario'', duration: ''1 año'', purpose: ''Gestión de consentimientos'' }\n      ],\n      analytics: [\n        { name: ''_ga'', provider: ''Google Analytics'', description: ''Distingue a los usuarios únicos'', duration: ''2 años'', purpose: ''Análisis de tráfico web'' }\n      ],\n      marketing: [\n        { name: ''_fbp'', provider: ''Facebook Pixel'', description: ''Almacena y rastrea visitas en sitios web'', duration: ''3 meses'', purpose: ''Publicidad dirigida'' }\n      ]\n    }\n  });\n});\n\nconst port = process.env.PORT || 3000;\napp.listen(port, () => {\n  console.log(\\`✅ Mock server running on port ${port}\\`);\n  console.log(\\`Test URLs:\\`);\n  console.log(\\`  http://localhost:${port}/api/v1/consent/providers\\`);\n  console.log(\\`  http://localhost:${port}/api/v1/consent/cookies\\`);\n});\n\")",
+      "Bash(/home/wolf/.claude/local/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n \"useImageManager|getUnifiedImageUrl\" src/components/banner/Editor/ComponentRenderer.jsx)",
+      "Bash(true)",
+      "Bash(yarn build)",
+      "Bash(yarn test:*)",
+      "Bash(npm install:*)"
     ],
     "deny": []
   }

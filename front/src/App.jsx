@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigat
 import { AuthProvider, AuthContext } from './contexts/AuthContext';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
+import SubscriptionAlert from './components/common/SubscriptionAlert';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
@@ -78,6 +79,7 @@ function MainLayout() {
     <>
       <Header />
       <main className="flex-grow container mx-auto px-4 py-4">
+        <SubscriptionAlert />
         <Outlet />
       </main>
       <Footer />

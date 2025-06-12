@@ -17,6 +17,7 @@ const bannerExportService = require('../services/bannerExport.service');
 const componentProcessor = require('../services/componentProcessor.service');
 const { getBaseUrl } = require('../config/urls');
 const bannerTranslationService = require('../services/bannerTranslation.service');
+const bannerImageManager = require('../services/bannerImageManager.service');
 
 const moveFromTempToBannerFolder = async (tempFilePath, bannerId, filename) => {
   try {
@@ -81,6 +82,44 @@ const isSystemTemplate = (data) => {
 };
 
 class BannerTemplateController {
+
+  /**
+   * Convierte URLs de imágenes relativas a absolutas
+   * @param {Array} components - Componentes del banner
+   * @param {string} baseUrl - URL base del servidor
+   * @returns {Array} - Componentes con URLs absolutas
+   */
+  processImageUrls(components, baseUrl) {
+    if (!components || !Array.isArray(components)) return components;
+    
+    return components.map(comp => {
+      const processedComp = { ...comp };
+      
+      // Si es un componente de imagen y tiene URL relativa
+      if (processedComp.type === 'image' && processedComp.content) {
+        // Procesar string directo
+        if (typeof processedComp.content === 'string' && processedComp.content.startsWith('/templates/')) {
+          processedComp.content = baseUrl + processedComp.content;
+        }
+        // Procesar objeto con texts
+        else if (processedComp.content.texts) {
+          Object.keys(processedComp.content.texts).forEach(lang => {
+            if (typeof processedComp.content.texts[lang] === 'string' && 
+                processedComp.content.texts[lang].startsWith('/templates/')) {
+              processedComp.content.texts[lang] = baseUrl + processedComp.content.texts[lang];
+            }
+          });
+        }
+      }
+      
+      // Procesar hijos recursivamente
+      if (processedComp.children && Array.isArray(processedComp.children)) {
+        processedComp.children = this.processImageUrls(processedComp.children, baseUrl);
+      }
+      
+      return processedComp;
+    });
+  }
 
  /**
  * Procesa imágenes en componentes de un banner (base64 → archivos)
@@ -715,9 +754,19 @@ uploadBase64Image = async (req, res) => {
       })));
     }
 
+    // Procesar URLs de imágenes para hacerlas absolutas
+    const baseUrl = getBaseUrl();
+    const templatesWithAbsoluteUrls = templates.map(template => {
+      const templateObj = template.toObject();
+      if (templateObj.components) {
+        templateObj.components = this.processImageUrls(templateObj.components, baseUrl);
+      }
+      return templateObj;
+    });
+
     res.status(200).json({
       status: 'success',
-      data: { templates }
+      data: { templates: templatesWithAbsoluteUrls }
     });
   });
   
@@ -793,152 +842,27 @@ createSystemTemplate = async (req, res) => {
       });
     }
     
-    // 5. Procesar componentes y archivos (COPIADO DE createTemplate normal)
+    // 5. Procesar componentes y archivos usando el servicio unificado
     if (templateData.components && Array.isArray(templateData.components)) {
       // Normalizar posiciones a porcentajes
       templateData.components = bannerValidator.normalizePositions(templateData.components);
       
-      // Generar un ID temporal para el banner
-      const temporaryBannerId = `temp_${Date.now()}`;
-      
-      // Función recursiva para procesar componentes (igual que en createTemplate)
-      const processComponents = (components) => {
-        return components.map(comp => {
-          const component = { ...comp };
-          
-          // Si es componente de imagen con marcador temporal
-          if (component.type === 'image' && 
-              typeof component.content === 'string' && 
-              component.content.startsWith('__IMAGE_REF__')) {
-            
-            const imageId = component.content.replace('__IMAGE_REF__', '');
-            const file = uploadedFiles.find(f => 
-              f.originalname.includes(`IMAGE_REF_${imageId}_`));
-            
-            if (file) {
-              console.log(`✅ Encontrado archivo ${file.originalname} para componente ${component.id}`);
-              
-              const fileName = `img_${component.id}_${Date.now()}${path.extname(file.originalname)}`;
-              const bannerDir = path.join(process.cwd(), 'public', 'templates', 'images', temporaryBannerId);
-              
-              try {
-                // Crear directorio si no existe
-                fsSync.mkdirSync(bannerDir, { recursive: true });
-                console.log(`📁 Creado directorio: ${bannerDir}`);
-                
-                const destPath = path.join(bannerDir, fileName);
-                
-                // Copiar archivo
-                fsSync.copyFileSync(file.path, destPath);
-                console.log(`📋 Archivo copiado a: ${destPath}`);
-                
-                // Generar URL relativa
-                const relativeUrl = `/templates/images/${temporaryBannerId}/${fileName}`;
-                
-                // Actualizar contenido del componente
-                component.content = relativeUrl;
-                console.log(`🔗 Actualizando componente con URL: ${relativeUrl}`);
-                
-                // Aplicar configuración de estilo si existe
-                if (component._imageSettings) {
-                  console.log(`🎨 Aplicando configuración de estilo para componente ${component.id}`);
-                  
-                  ['desktop', 'tablet', 'mobile'].forEach(device => {
-                    if (component.style && component.style[device]) {
-                      // Aplicar posición si existe
-                      if (component._imageSettings.position) {
-                        if (component._imageSettings.position.left !== undefined) {
-                          const left = parseFloat(component._imageSettings.position.left);
-                          component.style[device].left = `${left}px`;
-                        }
-                        
-                        if (component._imageSettings.position.top !== undefined) {
-                          const top = parseFloat(component._imageSettings.position.top);
-                          component.style[device].top = `${top}px`;
-                        }
-                        
-                        component.style[device]._customPosition = {
-                          left: parseFloat(component._imageSettings.position.left),
-                          top: parseFloat(component._imageSettings.position.top),
-                          mode: 'pixels'
-                        };
-                      }
-                      
-                      // Aplicar tamaño si existe
-                      if (component._imageSettings.width !== undefined || component._imageSettings.height !== undefined) {
-                        component.style[device]._customDimensions = {
-                          mode: 'pixels'
-                        };
-                        
-                        if (component._imageSettings.widthRaw !== undefined) {
-                          const width = parseInt(component._imageSettings.widthRaw);
-                          if (!isNaN(width) && width > 0) {
-                            component.style[device].width = `${width}px`;
-                            component.style[device]._customDimensions.width = width;
-                          }
-                        } else if (component._imageSettings.width !== undefined) {
-                          const width = component._imageSettings.width > 0 ? component._imageSettings.width : 100;
-                          component.style[device].width = `${width}px`;
-                          component.style[device]._customDimensions.width = width;
-                        }
-                        
-                        if (component._imageSettings.heightRaw !== undefined) {
-                          const height = parseInt(component._imageSettings.heightRaw);
-                          if (!isNaN(height) && height > 0) {
-                            component.style[device].height = `${height}px`;
-                            component.style[device]._customDimensions.height = height;
-                          }
-                        } else if (component._imageSettings.height !== undefined) {
-                          const height = component._imageSettings.height > 0 ? component._imageSettings.height : 100;
-                          component.style[device].height = `${height}px`;
-                          component.style[device]._customDimensions.height = height;
-                        }
-                      }
-                      
-                      // Aplicar object-fit y object-position si existen
-                      if (component._imageSettings.objectFit) {
-                        component.style[device].objectFit = component._imageSettings.objectFit;
-                      }
-                      if (component._imageSettings.objectPosition) {
-                        component.style[device].objectPosition = component._imageSettings.objectPosition;
-                      }
-                    }
-                  });
-                }
-              } catch (dirError) {
-                console.error(`❌ Error al crear directorio o copiar archivo: ${dirError.message}`);
-              }
-            } else {
-              console.warn(`⚠️ No se encontró archivo para componente ${component.id} con referencia ${imageId}`);
-            }
-          }
-          
-          // Limpiar propiedades temporales
-          delete component._tempFile;
-          delete component._imageFile;
-          delete component._imageSettings;
-          
-          // Limpiar también en estilos
-          if (component.style) {
-            Object.keys(component.style).forEach(device => {
-              if (component.style[device]) {
-                delete component.style[device]._tempFile;
-                delete component.style[device]._previewUrl;
-              }
-            });
-          }
-          
-          // Procesar hijos recursivamente
-          if (component.children && Array.isArray(component.children)) {
-            component.children = processComponents(component.children);
-          }
-          
-          return component;
+      // Usar el servicio unificado para procesar imágenes (IGUAL QUE createTemplate)
+      let tempBannerId = null;
+      if (uploadedFiles.length > 0) {
+        console.log('🖼️ SISTEMA: Procesando imágenes con servicio unificado...');
+        tempBannerId = `temp_${Date.now()}`;
+        const imageResult = await bannerImageManager.processImagesUnified({
+          bannerId: tempBannerId, // Temporal hasta obtener el ID real
+          uploadedFiles,
+          components: templateData.components,
+          isUpdate: false,
+          metadata: { operation: 'create_system', timestamp: Date.now() }
         });
-      };
-      
-      // Procesar componentes recursivamente
-      templateData.components = processComponents(templateData.components);
+        
+        templateData.components = imageResult.components;
+        console.log(`✅ Procesadas ${imageResult.stats.successful} imágenes de ${imageResult.stats.total}`);
+      }
     }
     
     // 6. Procesar y validar componentes
@@ -990,39 +914,40 @@ createSystemTemplate = async (req, res) => {
     const createdTemplate = await BannerTemplate.create(templateWithMetadata);
     console.log(`✅ Plantilla del sistema creada con ID: ${createdTemplate._id}`);
     
-    // 8. Si se creó con ID temporal, mover las imágenes al directorio correcto
-    if (uploadedFiles.length > 0) {
-      const tempDir = path.join(process.cwd(), 'public', 'templates', 'images', `temp_${Date.now()}`);
-      const finalDir = path.join(process.cwd(), 'public', 'templates', 'images', createdTemplate._id.toString());
-      
+    // 8. Finalizar procesamiento de imágenes con el ID real del banner (IGUAL QUE createTemplate)
+    if (uploadedFiles.length > 0 && tempBannerId) {
+      console.log('🔄 Finalizando procesamiento de imágenes con ID real del banner...');
       try {
-        // Renombrar el directorio temporal al ID final
-        if (fsSync.existsSync(tempDir)) {
-          fsSync.renameSync(tempDir, finalDir);
-          console.log(`📁 Directorio renombrado de temporal a ${createdTemplate._id}`);
+        const finalResult = await bannerImageManager.finalizeImages({
+          tempBannerId: tempBannerId,
+          realBannerId: createdTemplate._id.toString(),
+          components: templateData.components
+        });
+        
+        if (finalResult.success) {
+          console.log(`✅ Finalización de imágenes completada para banner ${createdTemplate._id}`);
         }
-      } catch (err) {
-        console.warn(`⚠️ No se pudo renombrar directorio: ${err.message}`);
+      } catch (finalizeError) {
+        console.error('❌ Error finalizando imágenes:', finalizeError);
       }
     }
     
-    // 9. Eliminar archivos temporales
+    // 9. Limpiar archivos temporales
     if (uploadedFiles.length > 0) {
-      for (const file of uploadedFiles) {
-        try {
-          await fs.unlink(file.path);
-          console.log(`🗑️ Eliminado archivo temporal: ${file.path}`);
-        } catch (error) {
-          console.warn(`⚠️ No se pudo eliminar archivo temporal ${file.path}: ${error.message}`);
-        }
-      }
+      await bannerImageManager.cleanupTempFiles(uploadedFiles);
     }
     
-    // 10. Responder con éxito
+    // 10. Procesar URLs de imágenes y responder con éxito
+    const baseUrl = getBaseUrl();
+    const createdTemplateObj = createdTemplate.toObject();
+    if (createdTemplateObj.components) {
+      createdTemplateObj.components = this.processImageUrls(createdTemplateObj.components, baseUrl);
+    }
+    
     res.status(201).json({
       status: 'success',
       message: 'System template created successfully',
-      data: { template: createdTemplate }
+      data: { template: createdTemplateObj }
     });
     
   } catch (error) {
@@ -1084,6 +1009,11 @@ createSystemTemplate = async (req, res) => {
         try {
           updates = JSON.parse(req.body.template);
           console.log('📄 Updates parseados desde FormData');
+          console.log('🔍 DEBUG - Contenido de updates:', {
+            hasTranslationConfig: !!updates.translationConfig,
+            translationConfig: updates.translationConfig,
+            updateKeys: Object.keys(updates)
+          });
         } catch (error) {
           return res.status(400).json({
             status: 'error',
@@ -1128,9 +1058,21 @@ createSystemTemplate = async (req, res) => {
         // Normalizar posiciones a porcentajes
         updates.components = bannerValidator.normalizePositions(updates.components);
         
-        // Procesar imágenes en componentes
-        const processedComponents = await this.processImagesInBanner(id, updates.components);
-        updates.components = processedComponents;
+        // Procesar imágenes usando el servicio unificado (IGUAL QUE updateTemplate)
+        if (isMultipart && uploadedFiles.length > 0) {
+          console.log('🖼️ SISTEMA: Procesando imágenes con servicio unificado...');
+          
+          const imageResult = await bannerImageManager.processImagesUnified({
+            bannerId: id,
+            uploadedFiles,
+            components: updates.components,
+            isUpdate: true,
+            metadata: { operation: 'update_system', timestamp: Date.now() }
+          });
+          
+          updates.components = imageResult.components;
+          console.log(`✅ Procesadas ${imageResult.stats.successful} imágenes de ${imageResult.stats.total}`);
+        }
       }
       
       // 6. Actualizar la plantilla en la base de datos
@@ -1172,23 +1114,24 @@ createSystemTemplate = async (req, res) => {
       
       console.log(`✅ Plantilla del sistema actualizada: ${updatedTemplate._id}`);
       
-      // 7. Eliminar archivos temporales
+      // NOTA: No se requiere finalización en updates porque los archivos se procesan directamente en la carpeta del banner
+      
+      // 8. Limpiar archivos temporales usando el manager
       if (uploadedFiles.length > 0) {
-        for (const file of uploadedFiles) {
-          try {
-            await fs.unlink(file.path);
-            console.log(`🗑️ Eliminado archivo temporal: ${file.path}`);
-          } catch (error) {
-            console.warn(`⚠️ No se pudo eliminar archivo temporal ${file.path}: ${error.message}`);
-          }
-        }
+        await bannerImageManager.cleanupTempFiles(uploadedFiles);
       }
       
-      // 8. Responder con éxito
+      // 9. Procesar URLs de imágenes y responder con éxito
+      const baseUrl = getBaseUrl();
+      const updatedTemplateObj = updatedTemplate.toObject();
+      if (updatedTemplateObj.components) {
+        updatedTemplateObj.components = this.processImageUrls(updatedTemplateObj.components, baseUrl);
+      }
+      
       res.status(200).json({
         status: 'success',
         message: 'System template updated successfully',
-        data: { template: updatedTemplate }
+        data: { template: updatedTemplateObj }
       });
       
     } catch (error) {
@@ -1292,12 +1235,25 @@ createSystemTemplate = async (req, res) => {
       });
     }
 
+    // Procesar URLs de imágenes para hacerlas absolutas
+    const baseUrl = getBaseUrl();
+    const templatesWithAbsoluteUrls = templates.map(template => {
+      const templateObj = template.toObject();
+      if (templateObj.components) {
+        templateObj.components = this.processImageUrls(templateObj.components, baseUrl);
+      }
+      return templateObj;
+    });
+
     res.status(200).json({
       status: 'success',
       data: { 
-        templates,
+        templates: templatesWithAbsoluteUrls,
         client: clientInfo
-      }
+      },
+      subscriptionStatus: req.subscriptionStatus,
+      subscriptionInactive: req.subscriptionInactive || false,
+      subscriptionMessage: req.subscriptionMessage
     });
   });
 
@@ -1355,9 +1311,18 @@ createSystemTemplate = async (req, res) => {
       template.components = this._applyLanguagePreference(template.components, language);
     }
 
+    // Convertir a objeto para poder modificar
+    const templateObj = template.toObject();
+    
+    // Procesar URLs de imágenes para hacerlas absolutas
+    const baseUrl = getBaseUrl();
+    if (templateObj.components) {
+      templateObj.components = this.processImageUrls(templateObj.components, baseUrl);
+    }
+
     res.status(200).json({
       status: 'success',
-      data: { template }
+      data: { template: templateObj }
     });
   });
 
@@ -1472,215 +1437,27 @@ createSystemTemplate = async (req, res) => {
         });
       }
       
-      // Variable para trackear el directorio temporal
-      let tempBannerId = null;
-      
       // 5. Procesar componentes y archivos
       if (templateData.components && Array.isArray(templateData.components)) {
         // Normalizar posiciones a porcentajes
         templateData.components = bannerValidator.normalizePositions(templateData.components);
         
-        // Función recursiva para encontrar referencias de imágenes y asociarlas con archivos
-        const processComponents = (components) => {
-          return components.map(comp => {
-            // Hacer una copia limpia del componente
-            const component = { ...comp };
-            
-            // Si es componente de imagen con marcador temporal
-            if (component.type === 'image' && 
-                typeof component.content === 'string' && 
-                component.content.startsWith('__IMAGE_REF__')) {
-              
-              // Extraer ID del marcador
-              const imageId = component.content.replace('__IMAGE_REF__', '');
-              
-              // Buscar archivo correspondiente por nombre usando el formato consistente
-              // El imageId puede incluir componentId_timestamp, así que buscamos el archivo completo
-              // Formato esperado: IMAGE_REF_{imageId}_filename donde imageId = componentId_timestamp
-              const file = uploadedFiles.find(f => {
-                // Buscar coincidencia exacta con el imageId completo
-                const matches = f.originalname.includes(`IMAGE_REF_${imageId}_`);
-                if (matches) {
-                  console.log(`🔍 Coincidencia encontrada: ${f.originalname} para imageId: ${imageId}`);
-                }
-                return matches;
-              });
-              
-              if (file) {
-                console.log(`✅ Encontrado archivo ${file.originalname} para componente ${component.id}`);
-                
-                // Crear bannerId temporal consistente (solo una vez)
-                if (!tempBannerId) {
-                  tempBannerId = `temp_${Date.now()}`;
-                }
-                
-                const fileName = `img_${component.id}_${Date.now()}${path.extname(file.originalname)}`;
-                
-                // Crear directorio si no existe
-                const bannerDir = path.join(process.cwd(), 'public', 'templates', 'images', tempBannerId);
-                
-                try {
-                  // Create directory if it doesn't exist
-                  fsSync.mkdirSync(bannerDir, { recursive: true });
-                  console.log(`📁 Creado directorio: ${bannerDir}`);
-                  
-                  // Ruta destino del archivo
-                  const destPath = path.join(bannerDir, fileName);
-                  
-                  // Copiar archivo desde la carpeta temporal
-                  fsSync.copyFileSync(file.path, destPath);
-                  console.log(`📋 Archivo copiado a: ${destPath}`);
-                  
-                  // Generar URL relativa para el frontend
-                  const relativeUrl = `/templates/images/${tempBannerId}/${fileName}`;
-                  
-                  // Actualizar contenido del componente
-                  component.content = relativeUrl;
-                  console.log(`🔗 Actualizando componente con URL: ${relativeUrl}`);
-                  
-                  // Aplicar configuración de estilo si existe
-                  if (component._imageSettings) {
-                    console.log(`🎨 Aplicando configuración de estilo para componente ${component.id}:`, component._imageSettings);
-                    console.log(`🔍 DEBUG - Configuración de imagen original para ${component.id}:`, {
-                      position: component._imageSettings.position,
-                      width: component._imageSettings.width,
-                      height: component._imageSettings.height,
-                      widthRaw: component._imageSettings.widthRaw,
-                      heightRaw: component._imageSettings.heightRaw,
-                      objectFit: component._imageSettings.objectFit,
-                      objectPosition: component._imageSettings.objectPosition
-                    });
-                    
-                    // Procesar estilos para todos los dispositivos
-                    ['desktop', 'tablet', 'mobile'].forEach(device => {
-                      if (component.style && component.style[device]) {
-                        // Aplicar posición si existe
-                        if (component._imageSettings.position) {
-                          // Aplicar left y top directamente al estilo - usando píxeles, no porcentajes
-                          if (component._imageSettings.position.left !== undefined) {
-                            // Asegurar que tenemos un valor numérico
-                            const left = parseFloat(component._imageSettings.position.left);
-                            // Usar directamente el valor en píxeles, no como porcentaje
-                            component.style[device].left = `${left}px`;
-                            console.log(`🔄 Estableciendo posición left: ${left}px para ${component.id}`);
-                            console.log(`🔍 DEBUG - Valor left original: ${component._imageSettings.position.left}, convertido a: ${left}px para ${component.id}`);
-                          }
-                          
-                          if (component._imageSettings.position.top !== undefined) {
-                            // Asegurar que tenemos un valor numérico
-                            const top = parseFloat(component._imageSettings.position.top);
-                            // Usar directamente el valor en píxeles, no como porcentaje
-                            component.style[device].top = `${top}px`;
-                            console.log(`🔄 Estableciendo posición top: ${top}px para ${component.id}`);
-                            console.log(`🔍 DEBUG - Valor top original: ${component._imageSettings.position.top}, convertido a: ${top}px para ${component.id}`);
-                          }
-                          
-                          // Conservar la posición original sin convertirla
-                          component.style[device]._customPosition = {
-                            left: parseFloat(component._imageSettings.position.left),
-                            top: parseFloat(component._imageSettings.position.top),
-                            mode: 'pixels'
-                          };
-                          console.log(`🔍 DEBUG - Guardando _customPosition para ${component.id}:`, component.style[device]._customPosition);
-                        }
-                        
-                        // Aplicar tamaño si existe - VERSIÓN CORREGIDA
-                        if (component._imageSettings.width !== undefined || component._imageSettings.height !== undefined) {
-                          // En lugar de usar factores de escala, vamos a usar los valores directamente
-                          
-                          // Inicializar objeto para almacenar dimensiones originales
-                          component.style[device]._customDimensions = {
-                            mode: 'pixels'
-                          };
-                          
-                          // Preferir dimensiones exactas en píxeles si están disponibles
-                          if (component._imageSettings.widthRaw !== undefined) {
-                            const width = parseInt(component._imageSettings.widthRaw);
-                            if (!isNaN(width) && width > 0) {
-                              component.style[device].width = `${width}px`;
-                              component.style[device]._customDimensions.width = width;
-                              console.log(`🔄 Usando ancho en píxeles exacto: ${width}px para ${component.id}`);
-                              console.log(`🔍 DEBUG - Valor widthRaw original: ${component._imageSettings.widthRaw}, convertido a: ${width}px para ${component.id}`);
-                            } else {
-                              console.log(`🔍 DEBUG - Valor de widthRaw inválido para ${component.id}: ${component._imageSettings.widthRaw}`);
-                            }
-                          } else if (component._imageSettings.width !== undefined) {
-                            // Fallback a ancho porcentual si no hay dimensión exacta
-                            const width = component._imageSettings.width > 0 ? component._imageSettings.width : 100;
-                            component.style[device].width = `${width}px`;
-                            component.style[device]._customDimensions.width = width;
-                            console.log(`🔄 Usando ancho aproximado: ${width}px para ${component.id}`);
-                            console.log(`🔍 DEBUG - Valor width original: ${component._imageSettings.width}, convertido a: ${width}px para ${component.id}`);
-                          }
-                          
-                          // Preferir dimensiones exactas en píxeles si están disponibles
-                          if (component._imageSettings.heightRaw !== undefined) {
-                            const height = parseInt(component._imageSettings.heightRaw);
-                            if (!isNaN(height) && height > 0) {
-                              component.style[device].height = `${height}px`;
-                              component.style[device]._customDimensions.height = height;
-                              console.log(`🔄 Usando alto en píxeles exacto: ${height}px para ${component.id}`);
-                              console.log(`🔍 DEBUG - Valor heightRaw original: ${component._imageSettings.heightRaw}, convertido a: ${height}px para ${component.id}`);
-                            } else {
-                              console.log(`🔍 DEBUG - Valor de heightRaw inválido para ${component.id}: ${component._imageSettings.heightRaw}`);
-                            }
-                          } else if (component._imageSettings.height !== undefined) {
-                            // Fallback a alto porcentual si no hay dimensión exacta
-                            const height = component._imageSettings.height > 0 ? component._imageSettings.height : 100;
-                            component.style[device].height = `${height}px`;
-                            component.style[device]._customDimensions.height = height;
-                            console.log(`🔄 Usando alto aproximado: ${height}px para ${component.id}`);
-                            console.log(`🔍 DEBUG - Valor height original: ${component._imageSettings.height}, convertido a: ${height}px para ${component.id}`);
-                          }
-                        }
-                        
-                        // Aplicar object-fit y object-position si existen
-                        if (component._imageSettings.objectFit) {
-                          component.style[device].objectFit = component._imageSettings.objectFit;
-                        }
-                        if (component._imageSettings.objectPosition) {
-                          component.style[device].objectPosition = component._imageSettings.objectPosition;
-                        }
-                      }
-                    });
-                  }
-                } catch (dirError) {
-                  console.error(`❌ Error al crear directorio o copiar archivo: ${dirError.message}`);
-                }
-              } else {
-                console.warn(`⚠️ No se encontró archivo para componente ${component.id} con referencia ${imageId}`);
-                console.log('📋 Archivos disponibles:');
-                uploadedFiles.forEach(f => {
-                  console.log(`  - ${f.originalname}`);
-                });
-              }
-            }
-            
-            // Limpiar propiedades temporales
-            delete component._tempFile;
-            delete component._imageFile;
-            
-            // Limpiar también en estilos
-            if (component.style) {
-              Object.keys(component.style).forEach(device => {
-                if (component.style[device]) {
-                  delete component.style[device]._tempFile;
-                  delete component.style[device]._previewUrl;
-                }
-              });
-            }
-            
-            // Procesar hijos recursivamente
-            if (component.children && Array.isArray(component.children)) {
-              component.children = processComponents(component.children);
-            }
-            
-            return component;
+        // Usar el servicio unificado para procesar imágenes
+        let tempBannerId = null;
+        if (uploadedFiles.length > 0) {
+          console.log('🖼️ Procesando imágenes con servicio unificado...');
+          tempBannerId = `temp_${Date.now()}`;
+          const imageResult = await bannerImageManager.processImagesUnified({
+            bannerId: tempBannerId, // Temporal hasta obtener el ID real
+            uploadedFiles,
+            components: templateData.components,
+            isUpdate: false,
+            metadata: { operation: 'create', timestamp: Date.now() }
           });
-        };
-        
-        // Procesar componentes recursivamente
-        templateData.components = processComponents(templateData.components);
+          
+          templateData.components = imageResult.components;
+          console.log(`✅ Procesadas ${imageResult.stats.successful} imágenes de ${imageResult.stats.total}`);
+        }
       }
       
       // 6. Procesar y validar componentes
@@ -1789,129 +1566,74 @@ createSystemTemplate = async (req, res) => {
       // metadata.isPublic ya no es necesario, todos los banners system son públicos
       console.log('- metadata.category:', templateWithMetadata.metadata.category);
       
+      // Logs para traducción
+      if (templateWithMetadata.translationConfig) {
+        console.log('🌐 === CONFIGURACIÓN DE TRADUCCIÓN (CREACIÓN) ===');
+        console.log(`🌐 Idioma origen: ${templateWithMetadata.translationConfig.sourceLanguage}`);
+        console.log(`🌐 Idiomas destino:`, templateWithMetadata.translationConfig.targetLanguages);
+        console.log(`🌐 Es array targetLanguages:`, Array.isArray(templateWithMetadata.translationConfig.targetLanguages));
+        console.log(`🌐 Número de idiomas destino:`, templateWithMetadata.translationConfig.targetLanguages?.length);
+        console.log(`🌐 Auto-traducir al guardar: ${templateWithMetadata.translationConfig.autoTranslateOnSave}`);
+        console.log('🌐 Configuración completa:', JSON.stringify(templateWithMetadata.translationConfig, null, 2));
+      }
+      
+      // Log de textos traducidos en componentes
+      if (templateWithMetadata.components) {
+        console.log('📝 === TEXTOS TRADUCIDOS EN COMPONENTES (CREACIÓN) ===');
+        const logTranslatedTexts = (components, path = '') => {
+          components.forEach((comp, index) => {
+            const currentPath = `${path}[${index}](${comp.id})`;
+            
+            if (comp.type === 'text' || comp.type === 'button') {
+              if (typeof comp.content === 'object' && comp.content.texts) {
+                console.log(`📝 Componente ${currentPath} - Tipo: ${comp.type}`);
+                console.log(`   Traducciones disponibles: ${Object.keys(comp.content.texts).join(', ')}`);
+                Object.entries(comp.content.texts).forEach(([lang, text]) => {
+                  console.log(`   ${lang}: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
+                });
+              } else if (typeof comp.content === 'string') {
+                console.log(`⚠️  Componente ${currentPath} - Tipo: ${comp.type} - Sin traducciones (string simple)`);
+              }
+            }
+            
+            if (comp.children && comp.children.length > 0) {
+              logTranslatedTexts(comp.children, `${currentPath}.children`);
+            }
+          });
+        };
+        
+        logTranslatedTexts(templateWithMetadata.components);
+      }
+      
       const createdTemplate = await BannerTemplate.create(templateWithMetadata);
       console.log(`✅ Template creado con ID: ${createdTemplate._id}`);
       
-      // 7.5. Crear directorio del banner (siempre, incluso si no hay imágenes iniciales)
-      const bannerDir = path.join(process.cwd(), 'public', 'templates', 'images', createdTemplate._id.toString());
-      try {
-        await fs.mkdir(bannerDir, { recursive: true });
-        console.log(`📁 Directorio del banner creado: ${bannerDir}`);
-      } catch (error) {
-        console.warn(`⚠️ No se pudo crear directorio del banner: ${error.message}`);
-      }
-      
-      // 7.6. Renombrar directorio temporal al ID final del template si hay archivos
+      // 7.5. Finalizar procesamiento de imágenes con el ID real del banner
       if (uploadedFiles.length > 0 && tempBannerId) {
-        const tempDirPath = path.join(process.cwd(), 'public', 'templates', 'images', tempBannerId);
-        const finalDir = path.join(process.cwd(), 'public', 'templates', 'images', createdTemplate._id.toString());
-        
+        console.log('🔄 Finalizando procesamiento de imágenes con ID real del banner...');
         try {
-          if (fsSync.existsSync(tempDirPath)) {
-            // Si el directorio final ya existe, mover archivos en lugar de renombrar
-            if (fsSync.existsSync(finalDir)) {
-              console.log(`📁 Directorio final ya existe, moviendo archivos de ${tempBannerId} a ${createdTemplate._id}`);
-              const files = await fs.readdir(tempDirPath);
-              for (const file of files) {
-                const srcPath = path.join(tempDirPath, file);
-                const destPath = path.join(finalDir, file);
-                await fs.copyFile(srcPath, destPath);
-                console.log(`📋 Archivo movido: ${file}`);
-              }
-              // Eliminar directorio temporal después de mover archivos
-              await fs.rmdir(tempDirPath, { recursive: true });
-              console.log(`🗑️ Directorio temporal eliminado: ${tempDirPath}`);
-            } else {
-              // Renombrar como antes si el directorio final no existe
-              fsSync.renameSync(tempDirPath, finalDir);
-              console.log(`📁 Directorio renombrado de ${tempBannerId} a ${createdTemplate._id}`);
-            }
-            
-            // Actualizar las URLs en los componentes
-            const updateImageUrls = (components) => {
-              console.log(`🔍 Procesando ${components.length} componentes para actualizar URLs...`);
-              console.log(`🔍 Buscando patrón: /templates/images/temp_`);
-              console.log(`🔍 Reemplazando por: /templates/images/${createdTemplate._id}/`);
-              
-              return components.map(comp => {
-                console.log(`🔍 Procesando componente tipo: ${comp.type}, content: ${typeof comp.content === 'string' ? comp.content : 'objeto'}`);
-                
-                if (comp.type === 'image' && comp.content) {
-                  // Caso 1: content es string directo
-                  if (typeof comp.content === 'string' && comp.content.includes('/templates/images/temp_')) {
-                    const oldContent = comp.content;
-                    comp.content = comp.content.replace(/\/templates\/images\/temp_\d+\//, `/templates/images/${createdTemplate._id}/`);
-                    console.log(`🔗 URL actualizada (string directo):`);
-                    console.log(`   ANTES: ${oldContent}`);
-                    console.log(`   DESPUÉS: ${comp.content}`);
-                  }
-                  // Caso 2: content es objeto con texts.en
-                  else if (typeof comp.content === 'object' && comp.content.texts && comp.content.texts.en && typeof comp.content.texts.en === 'string' && comp.content.texts.en.includes('/templates/images/temp_')) {
-                    const oldUrl = comp.content.texts.en;
-                    comp.content.texts.en = comp.content.texts.en.replace(/\/templates\/images\/temp_\d+\//, `/templates/images/${createdTemplate._id}/`);
-                    console.log(`🔗 URL actualizada (objeto texts.en):`);
-                    console.log(`   ANTES: ${oldUrl}`);
-                    console.log(`   DESPUÉS: ${comp.content.texts.en}`);
-                  }
-                  // Caso 3: debug de otros formatos
-                  else {
-                    if (typeof comp.content === 'string') {
-                      console.log(`❌ Componente imagen NO coincide con patrón: ${comp.content}`);
-                    } else {
-                      console.log(`❌ Componente imagen con content objeto. Structure:`, JSON.stringify(comp.content, null, 2));
-                    }
-                  }
-                }
-                
-                if (comp.children) {
-                  comp.children = updateImageUrls(comp.children);
-                }
-                return comp;
-              });
-            };
-            
-            // Actualizar el template con las URLs corregidas DESPUÉS de moverlo
-            if (createdTemplate.components) {
-              console.log(`📝 Actualizando URLs en template con ${createdTemplate.components.length} componentes...`);
-              
-              // Obtener el template actualizado de la BD y modificar las URLs
-              const templateToUpdate = await BannerTemplate.findById(createdTemplate._id);
-              templateToUpdate.components = updateImageUrls(templateToUpdate.components);
-              
-              // Marcar como modificado para Mongoose
-              templateToUpdate.markModified('components');
-              await templateToUpdate.save();
-              console.log('💾 Template actualizado con URLs correctas');
-              
-              // Verificar que se guardó correctamente
-              const savedTemplate = await BannerTemplate.findById(createdTemplate._id);
-              console.log('🔍 Verificación post-guardado:');
-              savedTemplate.components.forEach((comp, index) => {
-                if (comp.type === 'image' && comp.content) {
-                  if (typeof comp.content === 'string') {
-                    console.log(`   Componente ${index}: ${comp.content}`);
-                  } else if (comp.content.texts && comp.content.texts.en) {
-                    console.log(`   Componente ${index}: ${comp.content.texts.en}`);
-                  }
-                }
-              });
-            }
+          const finalResult = await bannerImageManager.finalizeImages({
+            tempBannerId: tempBannerId,
+            realBannerId: createdTemplate._id.toString(),
+            components: createdTemplate.components
+          });
+          
+          if (finalResult.components) {
+            // Actualizar el template con las URLs corregidas
+            const templateToUpdate = await BannerTemplate.findById(createdTemplate._id);
+            templateToUpdate.components = finalResult.components;
+            templateToUpdate.markModified('components');
+            await templateToUpdate.save();
+            console.log('💾 Template actualizado con URLs definitivas');
           }
         } catch (err) {
-          console.warn(`⚠️ No se pudo procesar directorio temporal: ${err.message}`);
+          console.warn(`⚠️ Error finalizando imágenes: ${err.message}`);
         }
       }
       
-      // 8. Eliminar archivos temporales
+      // 8. Limpiar archivos temporales
       if (uploadedFiles.length > 0) {
-        for (const file of uploadedFiles) {
-          try {
-            await fs.unlink(file.path);
-            console.log(`🗑️ Eliminado archivo temporal: ${file.path}`);
-          } catch (error) {
-            console.warn(`⚠️ No se pudo eliminar archivo temporal ${file.path}: ${error.message}`);
-          }
-        }
+        await bannerImageManager.cleanupTempFiles(uploadedFiles);
       }
       
       // 8. Poblar información del cliente para owners
@@ -2278,9 +2000,16 @@ createSystemTemplate = async (req, res) => {
       console.log('✅ Template clonado actualizado con nuevas imágenes');
     }
 
+    // Procesar URLs de imágenes antes de enviar respuesta
+    const baseUrl = getBaseUrl();
+    const clonedObj = cloned.toObject();
+    if (clonedObj.components) {
+      clonedObj.components = this.processImageUrls(clonedObj.components, baseUrl);
+    }
+    
     res.status(201).json({
       status: 'success',
-      data: { template: cloned }
+      data: { template: clonedObj }
     });
   });
 
@@ -2316,6 +2045,11 @@ createSystemTemplate = async (req, res) => {
         try {
           updates = JSON.parse(req.body.template);
           console.log('📄 Updates parseados desde FormData');
+          console.log('🔍 DEBUG - Contenido de updates:', {
+            hasTranslationConfig: !!updates.translationConfig,
+            translationConfig: updates.translationConfig,
+            updateKeys: Object.keys(updates)
+          });
         } catch (error) {
           return res.status(400).json({
             status: 'error',
@@ -2326,6 +2060,11 @@ createSystemTemplate = async (req, res) => {
       } else {
         // Para solicitudes JSON normales
         updates = req.body;
+        console.log('🔍 DEBUG - Contenido de updates (JSON):', {
+          hasTranslationConfig: !!updates.translationConfig,
+          translationConfig: updates.translationConfig,
+          updateKeys: Object.keys(updates)
+        });
       }
       
       // 3. Buscar el template existente (permitir que owners editen plantillas del sistema)
@@ -2399,239 +2138,48 @@ createSystemTemplate = async (req, res) => {
         // Normalizar posiciones a porcentajes
         updates.components = bannerValidator.normalizePositions(updates.components);
         
-        // IMPORTANTE: Procesar imágenes en los componentes
+        // Procesar imágenes usando el servicio unificado
         if (isMultipart && validFiles.length > 0) {
-          console.log("🖼️ SERVIDOR: Procesando imágenes para componentes...");
+          console.log('🖼️ SERVIDOR: Procesando imágenes con servicio unificado...');
           
-          // Función recursiva para contar componentes de imagen (incluye hijos)
-          const countImageComponents = (components) => {
-            let count = 0;
-            if (!components || !Array.isArray(components)) return count;
-            
-            components.forEach(comp => {
-              if (comp.type === 'image') {
-                count++;
-              }
-              // Buscar también en hijos si es contenedor
-              if (comp.children && Array.isArray(comp.children)) {
-                count += countImageComponents(comp.children);
-              }
-            });
-            
-            return count;
-          };
+          // DEBUG: Mostrar archivos que van a ser procesados
+          console.log('📁 SERVIDOR: Archivos subidos para procesamiento:', validFiles.map(f => ({
+            originalname: f.originalname,
+            size: f.size,
+            mimetype: f.mimetype,
+            filename: f.filename,
+            path: f.path
+          })));
           
-          const imageCount = countImageComponents(updates.components);
-          console.log(`📊 SERVIDOR: Encontrados ${imageCount} componentes de tipo imagen (incluyendo hijos en contenedores)`);
-          
-          // NUEVO: Intentar asociar cada archivo con un componente de imagen
-          // Fase 1: Crear un mapa de archivos para cada componente
-          const componentFileMap = new Map();
-          
-          // Extraer patrones de ID de cada archivo
-          validFiles.forEach(file => {
-            // Intentar diferentes patrones para asociar archivos a componentes
-            const patterns = [];
-            
-            // Patrón 1: IMAGE_REF_componentId_ (patrón más explícito desde el cliente)
-            // Busca tanto comp-XXX como image_XXX
-            const imageRefMatch = file.originalname.match(/IMAGE_REF_((comp-[^_]+)|(image_[^_]+))_/);
-            if (imageRefMatch && imageRefMatch[1]) {
-              patterns.push({
-                type: 'exact',
-                componentId: imageRefMatch[1],
-                confidence: 0.9
-              });
-            }
-            
-            // Patrón 2: Cualquier parte del nombre incluye el ID del componente
-            // Busca comp-XXX o image_XXX
-            const compIdMatch = file.originalname.match(/(comp-[0-9]+)|(image_[0-9]+)/);
-            if (compIdMatch) {
-              patterns.push({
-                type: 'partial',
-                componentId: compIdMatch[0],
-                confidence: 0.7
-              });
-            }
-            
-            // Patrón 3: Si no hay patrones claros, valor nulo para asignar manualmente después
-            if (patterns.length === 0) {
-              patterns.push({
-                type: 'unknown',
-                componentId: null,
-                confidence: 0.1
-              });
-            }
-            
-            // Ordenar patrones por confianza (mayor primero)
-            patterns.sort((a, b) => b.confidence - a.confidence);
-            
-            // Guardar en el mapa de archivos
-            if (patterns[0].componentId) {
-              // Si ya existe una entrada para este componente, agregar este archivo
-              if (componentFileMap.has(patterns[0].componentId)) {
-                componentFileMap.get(patterns[0].componentId).push({
-                  file,
-                  confidence: patterns[0].confidence,
-                  patternType: patterns[0].type
-                });
-              } else {
-                // Si no existe, crear nueva entrada
-                componentFileMap.set(patterns[0].componentId, [{
-                  file,
-                  confidence: patterns[0].confidence,
-                  patternType: patterns[0].type
-                }]);
-              }
-              
-              console.log(`📎 SERVIDOR: Archivo ${file.originalname} asociado a componente ${patterns[0].componentId} (confianza: ${patterns[0].confidence})`);
-            } else {
-              console.log(`⚠️ SERVIDOR: No se pudo asociar archivo ${file.originalname} a ningún componente`);
-            }
+          const imageResult = await bannerImageManager.processImagesUnified({
+            bannerId: id,
+            uploadedFiles: validFiles,
+            components: updates.components,
+            isUpdate: true,
+            metadata: { operation: 'update', timestamp: Date.now() }
           });
           
-          console.log(`🗂️ SERVIDOR: Mapa de archivos creado para ${componentFileMap.size} componentes`);
+          updates.components = imageResult.components;
+          console.log(`✅ Procesadas ${imageResult.stats.successful} imágenes de ${imageResult.stats.total}`);
           
-          // Fase 2: Procesar cada componente de imagen (función recursiva)
-          const processImageComponents = async (components, parentPath = '') => {
-            if (!components || !Array.isArray(components)) return;
-            
-            for (const comp of components) {
+          // DEBUG: Mostrar componentes después del procesamiento
+          const imageCompsAfter = [];
+          const findImageComps = (comps) => {
+            comps.forEach(comp => {
               if (comp.type === 'image') {
-              console.log(`\n🔍 SERVIDOR: Procesando componente imagen SIMPLE: ${comp.id}`);
-              
-              // ARREGLADO: Buscar archivo usando el mapa de componentes creado anteriormente
-              let fileToUse = null;
-              
-              // Buscar archivo para este componente en el mapa
-              if (componentFileMap.has(comp.id)) {
-                const filesForComponent = componentFileMap.get(comp.id);
-                if (filesForComponent && filesForComponent.length > 0) {
-                  // Usar el archivo con mayor confianza
-                  const bestFile = filesForComponent.sort((a, b) => b.confidence - a.confidence)[0];
-                  fileToUse = bestFile.file;
-                  console.log(`✅ SERVIDOR: Archivo encontrado para componente ${comp.id}: ${fileToUse.originalname} (confianza: ${bestFile.confidence})`);
-                }
+                imageCompsAfter.push({
+                  id: comp.id,
+                  content: comp.content,
+                  esImageRef: typeof comp.content === 'string' && comp.content.startsWith('__IMAGE_REF__'),
+                  esRutaServidor: typeof comp.content === 'string' && comp.content.startsWith('/templates/')
+                });
               }
-              
-              // RESPALDO: Si no se encuentra en el mapa, buscar por inclusión simple del ID
-              if (!fileToUse) {
-                const fileIndex = validFiles.findIndex(file => file.originalname.includes(comp.id));
-                if (fileIndex >= 0) {
-                  fileToUse = validFiles.splice(fileIndex, 1)[0];
-                  console.log(`✅ SERVIDOR: Archivo encontrado por búsqueda simple para ${comp.id}: ${fileToUse.originalname}`);
-                }
-              }
-              
-              // ÚLTIMO RESPALDO: Si el componente tiene referencia temporal, buscar por esa referencia
-              if (!fileToUse && comp.content && typeof comp.content === 'string' && comp.content.startsWith('__IMAGE_REF__')) {
-                const imageId = comp.content.replace('__IMAGE_REF__', '');
-                const fileIndex = validFiles.findIndex(file => 
-                  file.originalname.includes(`IMAGE_REF_${imageId}_`) || 
-                  file.originalname.includes(imageId)
-                );
-                if (fileIndex >= 0) {
-                  fileToUse = validFiles.splice(fileIndex, 1)[0];
-                  console.log(`✅ SERVIDOR: Archivo encontrado por referencia temporal para ${comp.id}: ${fileToUse.originalname}`);
-                }
-              }
-              
-              if (!fileToUse) {
-                console.log(`⚠️ SERVIDOR: No se encontró archivo para componente ${comp.id}`);
-                continue;
-              }
-              
-              try {
-                // Crear directorio y guardar el archivo
-                  const bannerDir = path.join(process.cwd(), 'public', 'templates', 'images', id);
-                  await fs.mkdir(bannerDir, { recursive: true });
-                  
-                  // Generar nombre único y guardar archivo
-                  const timestamp = Date.now();
-                  const extension = path.extname(fileToUse.originalname) || '.jpg';
-                  const fileName = `img_${comp.id}_${timestamp}${extension}`;
-                  const destPath = path.join(bannerDir, fileName);
-                  
-                  // Verificar que el archivo temporal existe y tiene tamaño
-                  try {
-                    const stats = await fs.stat(fileToUse.path);
-                    console.log(`📊 SERVIDOR: Archivo a procesar: ${fileToUse.path} (${stats.size} bytes)`);
-                    
-                    if (stats.size === 0) {
-                      console.error(`❌ SERVIDOR: El archivo está vacío: ${fileToUse.path}`);
-                      continue;
-                    }
-                  } catch (statErr) {
-                    console.error(`❌ SERVIDOR: No se puede acceder al archivo: ${statErr.message}`);
-                    continue;
-                  }
-                  
-                  // Leer y escribir el archivo de forma segura
-                  const data = await fs.readFile(fileToUse.path);
-                  await fs.writeFile(destPath, data);
-                  
-                  // Verificar que se guardó correctamente
-                  try {
-                    const stats = await fs.stat(destPath);
-                    console.log(`✅ SERVIDOR: Archivo guardado: ${destPath} (${stats.size} bytes)`);
-                    
-                    if (stats.size === 0) {
-                      throw new Error('El archivo guardado está vacío');
-                    }
-                  } catch (statErr) {
-                    console.error(`❌ SERVIDOR: Error verificando archivo guardado: ${statErr.message}`);
-                    continue;
-                  }
-                  
-                  // Usar ambas URLs para diagnóstico
-                  const templateUrl = `/templates/images/${id}/${fileName}`;
-                  const directUrl = `/direct-image/${id}/${fileName}`;
-                  
-                  // AHORA USAMOS LA URL DE TEMPLATE - esto debería funcionar si express.static está configurado correctamente
-                  comp.content = templateUrl;
-                  
-                  console.log(`✅ SERVIDOR: Componente ${comp.id} actualizado con URL: ${templateUrl}`);
-                  console.log(`🔍 DEBUG - Componente de imagen actualizado ${comp.id}:`, {
-                    content: templateUrl,
-                    imageSettings: comp._imageSettings ? {
-                      position: comp._imageSettings.position,
-                      width: comp._imageSettings.width,
-                      height: comp._imageSettings.height,
-                      widthRaw: comp._imageSettings.widthRaw,
-                      heightRaw: comp._imageSettings.heightRaw
-                    } : 'no hay imageSettings'
-                  });
-                  console.log(`ℹ️ SERVIDOR: URL alternativa (no usada): ${directUrl}`);
-                  
-                  // Limpiar propiedades temporales
-                  delete comp._tempFile;
-                  delete comp._imageFile;
-                  delete comp._tempPath;
-                  
-                  // Intentar eliminar el archivo temporal
-                  try {
-                    await fs.unlink(fileToUse.path);
-                    console.log(`🗑️ SERVIDOR: Archivo temporal eliminado: ${fileToUse.path}`);
-                  } catch (err) {
-                    console.warn(`⚠️ SERVIDOR: No se pudo eliminar archivo temporal: ${err.message}`);
-                  }
-                } catch (error) {
-                  console.error(`❌ SERVIDOR: Error procesando imagen: ${error.message}`);
-                }
-            }
-            
-            // Procesar hijos recursivamente si es contenedor
-            if (comp.type === 'container' && comp.children && Array.isArray(comp.children)) {
-              console.log(`📦 SERVIDOR: Procesando ${comp.children.length} hijos del contenedor ${comp.id}`);
-              await processImageComponents(comp.children, `${parentPath}${comp.id}/`);
-            }
-          }
-        };
-        
-        // Iniciar el procesamiento recursivo
-        await processImageComponents(updates.components);
-      }
+              if (comp.children) findImageComps(comp.children);
+            });
+          };
+          findImageComps(updates.components);
+          console.log('🔍 SERVIDOR: Componentes imagen después del procesamiento:', imageCompsAfter);
+        }
         
         // Log antes del procesamiento
         console.log('🔍 ANTES de componentProcessor.processComponents:');
@@ -2768,6 +2316,45 @@ createSystemTemplate = async (req, res) => {
       
       // NOTA: Los componentes ya fueron procesados anteriormente, no procesarlos de nuevo
       
+      // Agregar logs para traducción
+      if (updateData.translationConfig) {
+        console.log('🌐 === CONFIGURACIÓN DE TRADUCCIÓN ===');
+        console.log(`🌐 Idioma origen: ${updateData.translationConfig.sourceLanguage}`);
+        console.log(`🌐 Idiomas destino:`, updateData.translationConfig.targetLanguages);
+        console.log(`🌐 Es array targetLanguages:`, Array.isArray(updateData.translationConfig.targetLanguages));
+        console.log(`🌐 Número de idiomas destino:`, updateData.translationConfig.targetLanguages?.length);
+        console.log(`🌐 Auto-traducir al guardar: ${updateData.translationConfig.autoTranslateOnSave}`);
+        console.log('🌐 Configuración completa:', JSON.stringify(updateData.translationConfig, null, 2));
+      }
+      
+      // Log de textos traducidos en componentes
+      if (updateData.components) {
+        console.log('📝 === TEXTOS TRADUCIDOS EN COMPONENTES ===');
+        const logTranslatedTexts = (components, path = '') => {
+          components.forEach((comp, index) => {
+            const currentPath = `${path}[${index}](${comp.id})`;
+            
+            if (comp.type === 'text' || comp.type === 'button') {
+              if (typeof comp.content === 'object' && comp.content.texts) {
+                console.log(`📝 Componente ${currentPath} - Tipo: ${comp.type}`);
+                console.log(`   Traducciones disponibles: ${Object.keys(comp.content.texts).join(', ')}`);
+                Object.entries(comp.content.texts).forEach(([lang, text]) => {
+                  console.log(`   ${lang}: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
+                });
+              } else if (typeof comp.content === 'string') {
+                console.log(`⚠️  Componente ${currentPath} - Tipo: ${comp.type} - Sin traducciones (string simple)`);
+              }
+            }
+            
+            if (comp.children && comp.children.length > 0) {
+              logTranslatedTexts(comp.children, `${currentPath}.children`);
+            }
+          });
+        };
+        
+        logTranslatedTexts(updateData.components);
+      }
+      
       const updatedTemplate = await BannerTemplate.findByIdAndUpdate(
         id,
         updateData,
@@ -2776,49 +2363,51 @@ createSystemTemplate = async (req, res) => {
       
       console.log(`✅ Template actualizado: ${updatedTemplate._id}`);
       
-      // 7. Eliminar archivos temporales DESPUÉS de guardar (mejorado)
-      if (uploadedFiles.length > 0) {
-        console.log(`🧹 CLEANUP: Iniciando limpieza de ${uploadedFiles.length} archivos temporales...`);
-        
-        for (const file of uploadedFiles) {
-          try {
-            // Mostrar información del archivo antes de intentar borrarlo
-            try {
-              const stats = await fs.stat(file.path);
-              console.log(`📄 CLEANUP: Archivo temporal a eliminar: ${file.path} (${stats.size} bytes)`);
-            } catch (statErr) {
-              console.warn(`⚠️ CLEANUP: No se pudo verificar archivo temporal: ${file.path}`);
-            }
-            
-            // Intentar eliminar el archivo
-            await fs.unlink(file.path);
-            console.log(`✅ CLEANUP: Eliminado archivo temporal: ${file.path}`);
-          } catch (error) {
-            console.warn(`⚠️ CLEANUP: No se pudo eliminar archivo temporal ${file.path}: ${error.message}`);
-            
-            // Intentar con fs normal como backup
-            try {
-              require('fs').unlinkSync(file.path);
-              console.log(`✅ CLEANUP: Eliminado archivo temporal (sync): ${file.path}`);
-            } catch (syncErr) {
-              console.error(`❌ CLEANUP: Fallo permanente al eliminar archivo: ${syncErr.message}`);
-            }
-          }
-        }
-        
-        console.log(`🧹 CLEANUP: Limpieza de archivos temporales completada`);
-      } else {
-        console.log(`ℹ️ CLEANUP: No hay archivos temporales para limpiar`);
+      // Verificar qué se guardó realmente en la DB
+      if (updateData.translationConfig) {
+        console.log('🔍 === VERIFICACIÓN POST-GUARDADO ===');
+        console.log('🔍 translationConfig enviado:', updateData.translationConfig);
+        console.log('🔍 translationConfig guardado en DB:', updatedTemplate.translationConfig);
+        console.log('🔍 targetLanguages guardado:', updatedTemplate.translationConfig?.targetLanguages);
       }
       
-      // 8. Limpieza de imágenes no utilizadas ELIMINADA
-      // Se mantiene solo la limpieza automática de banners eliminados
+      // NOTA: No se requiere finalización en updates porque los archivos se procesan directamente en la carpeta del banner
       
-      // 8. Responder con éxito
+      // 8. Limpiar archivos temporales
+      if (uploadedFiles.length > 0) {
+        await bannerImageManager.cleanupTempFiles(uploadedFiles);
+      }
+      
+      // 9. Procesar URLs de imágenes y responder con éxito
+      const baseUrl = getBaseUrl();
+      const templateObj = updatedTemplate.toObject();
+      
+      // DEBUG: Verificar que las URLs estén correctas ANTES de processImageUrls
+      const imageCompsDB = [];
+      const findImageCompsDB = (comps) => {
+        comps.forEach(comp => {
+          if (comp.type === 'image') {
+            imageCompsDB.push({
+              id: comp.id,
+              content: comp.content,
+              esImageRef: typeof comp.content === 'string' && comp.content.startsWith('__IMAGE_REF__'),
+              esRutaServidor: typeof comp.content === 'string' && comp.content.startsWith('/templates/')
+            });
+          }
+          if (comp.children) findImageCompsDB(comp.children);
+        });
+      };
+      findImageCompsDB(templateObj.components);
+      console.log('🔍 SERVIDOR: Componentes imagen DESDE LA BD:', imageCompsDB);
+      
+      if (templateObj.components) {
+        templateObj.components = this.processImageUrls(templateObj.components, baseUrl);
+      }
+      
       res.status(200).json({
         status: 'success',
         message: 'Template updated successfully',
-        data: { template: updatedTemplate }
+        data: { template: templateObj }
       });
       
     } catch (error) {

@@ -1,7 +1,7 @@
 const puppeteer = require('puppeteer');
 const { URL } = require('url');
 const logger = require('../utils/logger');
-const CookieAnalysisResult = require('../models/CookieAnalysisResult');
+const CookieAnalysis = require('../models/CookieAnalysis');
 const providerService = require('./provider.service');
 
 class AdvancedCookieAnalyzer {
@@ -88,7 +88,8 @@ class AdvancedCookieAnalyzer {
           '--disable-background-timer-throttling',
           '--disable-backgrounding-occluded-windows',
           '--disable-renderer-backgrounding'
-        ]
+        ],
+        protocolTimeout: 60000  // Aumentar timeout a 60 segundos
       });
     }
     return this.browser;
@@ -101,7 +102,7 @@ class AdvancedCookieAnalyzer {
     
     if (analysisId) {
       // Si se proporciona un ID, usar el análisis existente
-      analysis = await CookieAnalysisResult.findById(analysisId);
+      analysis = await CookieAnalysis.findOne({ analysisId });
       if (!analysis) {
         throw new Error('Analysis not found');
       }
@@ -116,7 +117,7 @@ class AdvancedCookieAnalyzer {
       const random = Math.random().toString(36).substr(2, 9);
       const scanId = `scan_${timestamp}_${random}`;
       
-      analysis = new CookieAnalysisResult({
+      analysis = new CookieAnalysis({
         scanId,
         domainId,
         domain,
@@ -436,7 +437,7 @@ class AdvancedCookieAnalyzer {
     if (cookie.domain.includes('facebook')) return 'social';
     if (cookie.domain.includes('doubleclick')) return 'advertising';
     
-    return 'unknown';
+    return 'other';
   }
 
   identifyProvider(cookie) {
@@ -451,9 +452,9 @@ class AdvancedCookieAnalyzer {
     }
     
     return {
-      name: 'Unknown',
+      name: 'Propios',
       domain: cookie.domain,
-      category: 'unknown'
+      category: 'other'
     };
   }
 
@@ -465,7 +466,7 @@ class AdvancedCookieAnalyzer {
       'Hotjar': 'analytics',
       'TikTok': 'social'
     };
-    return categories[provider] || 'unknown';
+    return categories[provider] || 'other';
   }
 
   analyzeDuration(cookie) {
@@ -605,7 +606,7 @@ class AdvancedCookieAnalyzer {
       if (pattern.test(key)) return purpose;
     }
     
-    return 'unknown';
+    return 'other';
   }
 
   async analyzeScriptsOnPage(page, analysis, url) {
@@ -649,7 +650,7 @@ class AdvancedCookieAnalyzer {
     const scriptData = {
       url: script.src || 'inline',
       type: script.inline ? 'inline' : 'external',
-      category: 'unknown',
+      category: 'other',
       size: script.content ? script.content.length : 0,
       loadType: script.async ? 'async' : (script.defer ? 'defer' : 'sync'),
       foundOnUrls: [foundOnUrl],
@@ -685,7 +686,7 @@ class AdvancedCookieAnalyzer {
       }
     }
     
-    return 'unknown';
+    return 'other';
   }
 
   identifyScriptProvider(src) {
@@ -708,9 +709,9 @@ class AdvancedCookieAnalyzer {
         }
       }
       
-      return { name: 'Unknown', domain };
+      return { name: 'Propios', domain };
     } catch (e) {
-      return { name: 'Unknown', domain: 'unknown' };
+      return { name: 'Propios', domain: 'other' };
     }
   }
 
@@ -728,7 +729,7 @@ class AdvancedCookieAnalyzer {
       }
     }
     
-    return 'unknown';
+    return 'other';
   }
 
   detectTrackingInScript(content) {
@@ -792,7 +793,7 @@ class AdvancedCookieAnalyzer {
       }
     }
     
-    return 'unknown';
+    return 'other';
   }
 
   identifyIframeProvider(src) {
@@ -800,7 +801,7 @@ class AdvancedCookieAnalyzer {
       const url = new URL(src);
       return url.hostname;
     } catch (e) {
-      return 'unknown';
+      return 'other';
     }
   }
 
@@ -977,7 +978,7 @@ class AdvancedCookieAnalyzer {
         url,
         method,
         type: request.resourceType(),
-        initiator: request.frame() ? request.frame().url() : 'unknown',
+        initiator: request.frame() ? request.frame().url() : 'direct',
         requestHeaders: headers,
         trackingPurpose,
         timing: { start: Date.now() }
@@ -1062,7 +1063,7 @@ class AdvancedCookieAnalyzer {
       
       return hostname;
     } catch (e) {
-      return 'Unknown';
+      return 'Propios';
     }
   }
 
@@ -1080,7 +1081,10 @@ class AdvancedCookieAnalyzer {
   }
 
   async detectChanges(analysis) {
-    const lastAnalysis = await CookieAnalysisResult.getLastCompletedAnalysis(analysis.domainId);
+    const lastAnalysis = await CookieAnalysis.findOne({ 
+      domainId: analysis.domainId, 
+      status: 'completed' 
+    }).sort({ endTime: -1 });
     
     if (!lastAnalysis) {
       // Primer análisis, todas las cookies son nuevas

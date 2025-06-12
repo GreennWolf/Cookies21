@@ -650,6 +650,21 @@ const bannerTemplateSchema = new mongoose.Schema({
       default: 'google'
     }
   },
+  // Configuración de traducción
+  translationConfig: {
+    sourceLanguage: {
+      type: String,
+      default: 'es'
+    },
+    targetLanguages: {
+      type: [String],
+      default: ['en']
+    },
+    autoTranslateOnSave: {
+      type: Boolean,
+      default: false
+    }
+  },
   metadata: {
     version: { type: Number, default: 1 },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'UserAccount' },

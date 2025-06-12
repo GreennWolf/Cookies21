@@ -8,6 +8,8 @@ import BorderControl from './BorderControl';
 import handleAutocompleteSize from './handleAutocompleteSize';
 import ContainerPropertyPanel from './ContainerPropertyPanel'; // NUEVO - FASE 3
 import ContainerContentPanel from './ContainerContentPanel'; // NUEVO - FASE 4 EDICIÓN
+import { getImageUrl } from '../../../utils/imageProcessing';
+import { useImageManager } from '../../../hooks/useImageManager';
 
 // Estilos para el scrollbar y el indicador - Versión optimizada
 const scrollbarStyles = `
@@ -93,6 +95,9 @@ function BannerPropertyPanel({
   onAlignElements,
   embedded = true // Ahora por defecto está integrado en el sidebar
 }) {
+  // Hook unificado para gestión de imágenes
+  const imageManager = useImageManager();
+  
   // Usar la versión correcta de la función de actualización de estilos
   const updateStyleFn = onUpdateStyle || updateStyle;
   // Estado para estilos
@@ -184,7 +189,30 @@ function BannerPropertyPanel({
   useEffect(() => {
     // Obtener estilo actual para el dispositivo seleccionado
     const currentStyle = component.style?.[deviceView] || {};
-    setLocalStyle(currentStyle);
+    
+    // CORRECCION: Sincronizar _previewUrl con content si es una imagen con URL final
+    if (component.type === 'image' && 
+        typeof component.content === 'string' && 
+        !component.content.startsWith('__IMAGE_REF__') &&
+        (component.content.startsWith('http') || component.content.startsWith('/') || component.content.startsWith('data:image'))) {
+      // Si content tiene una URL final y _previewUrl es diferente, sincronizar
+      if (currentStyle._previewUrl !== component.content) {
+        currentStyle._previewUrl = component.content;
+      }
+    }
+    
+    // NUEVA LÓGICA SIMPLE: Solo preservar _previewUrl si existe y es diferente del content
+    setLocalStyle(prevLocalStyle => {
+      const newStyle = { ...currentStyle };
+      
+      // Si hay una _previewUrl temporal y es diferente del content, preservarla
+      if (prevLocalStyle._previewUrl && prevLocalStyle._previewUrl !== component.content) {
+        newStyle._previewUrl = prevLocalStyle._previewUrl;
+        newStyle._tempFile = prevLocalStyle._tempFile;
+      }
+      
+      return newStyle;
+    });
     
     // Extraer y establecer contenido textual
     let textContent = '';
@@ -514,7 +542,8 @@ function BannerPropertyPanel({
       };
     }
     
-    onUpdateContent(updatedContent);
+    // ARREGLADO: Pasar componentId como primer parámetro
+    onUpdateContent(component.id, updatedContent);
   };
 
   // Manejador mejorado de cambios de posición (siempre en %)
@@ -939,58 +968,104 @@ function BannerPropertyPanel({
   const topParsed = parsePositionValue(localPosition.top);
   const leftParsed = parsePositionValue(localPosition.left);
 
-  // Manejador para subida de imágenes
-  const handleImageUpdate = (imageRef, file) => {
-    // Verificar que file es un objeto File válido
-    if (!(file instanceof File || file instanceof Blob)) {
-      console.error("⚠️ El archivo no es válido:", file);
-      return;
-    }
-    
-    // Actualizar el contenido con la referencia temporal
-    handleContentChange(imageRef);
-    
-    // Si hay un archivo, actualizar propiedades temporales para vista previa
-    if (file) {
-      // Crear URL de vista previa
-      const previewUrl = URL.createObjectURL(file);
+  // Manejador para subida de imágenes usando el sistema unificado
+  const handleImageUpdate = async (imageRef, file, aspectRatio) => {
+    try {
+      // Verificar que file es un objeto File válido
+      if (!(file instanceof File || file instanceof Blob)) {
+        console.error("⚠️ BannerPropertyPanel: El archivo no es válido:", file);
+        return;
+      }
       
-      // Guardar referencia al archivo y URL de vista previa en el estilo
-      // Esto es temporal y se usa solo para mostrar la imagen localmente
-      const updatedStyle = {
-        ...localStyle,
-        _previewUrl: previewUrl,
-        _tempFile: file,  // Asegurar que se guarda el objeto File, no un objeto vacío
-        // NUEVO: Establecer dimensiones por defecto si no existen para evitar contenedores gigantes
-        // IMPORTANTE: Solo para imágenes independientes, NO para imágenes dentro de contenedores
-        ...((!localStyle.width || !localStyle.height) && !component.parentId && {
-          width: '200px',
-          height: '150px',
-          objectFit: 'contain'
-        })
-      };
+      console.log(`📷 BannerPropertyPanel: Procesando imagen para ${component.id}`, {
+        imageRef,
+        fileName: file.name,
+        size: file.size,
+        aspectRatio
+      });
       
-      // Actualizar estilo local
-      setLocalStyle(updatedStyle);
+      // Usar el hook unificado para procesar la imagen
+      const result = await imageManager.updateComponentImage(component.id, file, (processedRef, processedFile, processedAspectRatio) => {
+        // Callback: actualizar el contenido con la referencia temporal
+        console.log(`📷 BannerPropertyPanel: Actualizando contenido con ref ${processedRef}`);
+        handleContentChange(processedRef);
+        
+        // Crear ObjectURL directamente para vista previa inmediata
+        const previewUrl = URL.createObjectURL(processedFile);
+        console.log(`📷 BannerPropertyPanel: Creando preview URL: ${previewUrl}`);
+        
+        const updatedStyle = {
+          ...localStyle,
+          _previewUrl: previewUrl,
+          _tempFile: processedFile,
+          _aspectRatio: processedAspectRatio,
+          // Establecer dimensiones por defecto con aspect ratio si no existen
+          // ARREGLADO: También aplicar a imágenes dentro de contenedores
+          ...((!localStyle.width || !localStyle.height) && {
+            width: component.parentId ? '150px' : '200px', // Imágenes en contenedores un poco más pequeñas
+            height: processedAspectRatio ? 
+              `${Math.round((component.parentId ? 150 : 200) / processedAspectRatio)}px` : 
+              (component.parentId ? '113px' : '150px'),
+            objectFit: 'contain'
+          })
+        };
+        
+        // Actualizar estado local
+        setLocalStyle(updatedStyle);
+        
+        // Enviar actualización al componente padre
+        console.log(`🔄 BannerPropertyPanel: Enviando estilo para ${component.id}${component.parentId ? ' (HIJO)' : ''}:`, {
+          _previewUrl: !!updatedStyle._previewUrl,
+          _tempFile: !!updatedStyle._tempFile,
+          width: updatedStyle.width,
+          height: updatedStyle.height
+        });
+        updateStyleFn(component.id, updatedStyle);
+        
+        console.log(`✅ BannerPropertyPanel: Imagen actualizada exitosamente para ${component.id}`);
+      });
       
+      if (!result.success) {
+        console.error(`❌ BannerPropertyPanel: Error procesando imagen:`, result.error);
+        setImageError(true);
+      } else {
+        setImageError(false);
+      }
       
-      // Enviar actualización al componente padre
-      updateStyleFn(component.id, updatedStyle);
-      
-      // También actualizar referencia directa en el componente para mayor seguridad
-      setTimeout(() => {
-        try {
-          const compEl = document.querySelector(`[data-component-id="${component.id}"]`);
-          if (compEl && compEl.parentNode) {
-            compEl.parentNode._tempFile = file;
-            compEl.parentNode._imageFile = file;
-          }
-        } catch (e) {
-          console.error("Error guardando referencia en DOM:", e);
-        }
-      }, 100);
+    } catch (error) {
+      console.error("❌ BannerPropertyPanel: Error en handleImageUpdate:", error);
+      setImageError(true);
     }
   };
+
+  // NUEVA FUNCIÓN: Sincronizar _previewUrl cuando se actualiza content con URL final
+  const syncPreviewUrlWithContent = useCallback(() => {
+    if (component.type === 'image' && 
+        typeof component.content === 'string' && 
+        !component.content.startsWith('__IMAGE_REF__') &&
+        (component.content.startsWith('http') || component.content.startsWith('/') || component.content.startsWith('data:image'))) {
+      
+      // Actualizar _previewUrl solo para el dispositivo actual
+      const currentDeviceStyle = component.style?.[deviceView] || {};
+      if (currentDeviceStyle._previewUrl !== component.content) {
+        const updatedDeviceStyle = {
+          ...currentDeviceStyle,
+          _previewUrl: component.content
+        };
+        
+        // Actualizar estilo local primero
+        setLocalStyle(updatedDeviceStyle);
+        
+        // Actualizar estilo en el componente padre
+        updateStyleFn(component.id, updatedDeviceStyle);
+      }
+    }
+  }, [component, updateStyleFn, deviceView]);
+
+  // Efecto para sincronizar _previewUrl cuando content cambia a URL final
+  useEffect(() => {
+    syncPreviewUrlWithContent();
+  }, [component.content, syncPreviewUrlWithContent]);
 
   // Si está integrado, renderizamos la versión compacta
   if (embedded) {
@@ -1094,17 +1169,11 @@ function BannerPropertyPanel({
                     <ImageUploader 
                       componentId={component.id}
                       currentImage={
-                        // Si es una imagen válida o hay vista previa, mostrarla
-                        typeof component.content === 'string' && (
-                          component.content.startsWith('data:image') || 
-                          component.content.startsWith('/') || 
-                          component.content.match(/^https?:\/\//)
-                        ) ? component.content : 
-                        // Si hay vista previa en el estilo, usarla
-                        localStyle._previewUrl || null
+                        // NUEVA LÓGICA: Usar sistema unificado
+                        imageManager.getUnifiedImageUrl(component, deviceView, 'propertyPanel')
                       }
                       onImageUpdate={handleImageUpdate}
-                      disabled={component.locked}
+                      disabled={component.locked && component.type !== 'button'}
                     />
                     
                     {/* Input para URL externa */}
@@ -1124,13 +1193,13 @@ function BannerPropertyPanel({
                           }
                           onChange={(e) => handleContentChange(e.target.value)}
                           className="w-full p-2 text-sm border rounded"
-                          disabled={component.locked}
+                          disabled={component.locked && component.type !== 'button'}
                           placeholder="https://ejemplo.com/imagen.jpg"
                         />
                         <button 
                           className="p-1 text-sm border rounded hover:bg-gray-50"
                           onClick={() => handleContentChange(localContent)}
-                          disabled={!localContent || component.locked}
+                          disabled={!localContent || (component.locked && component.type !== 'button')}
                         >
                           <RefreshCw size={16} />
                         </button>
@@ -1139,8 +1208,7 @@ function BannerPropertyPanel({
                   </div>
                   
                   {/* Vista previa si hay imagen */}
-                  {(localStyle._previewUrl || 
-                    (typeof component.content === 'string' && (
+                  {(localStyle._previewUrl || (typeof component.content === 'string' && (
                       component.content.startsWith('data:image') || 
                       component.content.startsWith('/') || 
                       component.content.match(/^https?:\/\//)
@@ -1152,8 +1220,8 @@ function BannerPropertyPanel({
                       <div className="border rounded p-2 bg-gray-50">
                         <img 
                           src={
-                            localStyle._previewUrl || 
-                            component.content
+                            // LÓGICA SIMPLE: _previewUrl si existe, sino content
+                            localStyle._previewUrl || component.content
                           } 
                           alt="Preview" 
                           className="mx-auto max-h-32 object-contain" 
@@ -1393,13 +1461,21 @@ function BannerPropertyPanel({
                     value={localContent || ''}
                     onChange={(e) => handleContentChange(e.target.value)}
                     className="w-full p-2 border rounded"
-                    disabled={component.locked}
+                    disabled={component.locked && component.type !== 'button'}
+                    placeholder="Texto del botón"
                   />
                   
                   {/* Mostrar info para traducción */}
                   {component.content && typeof component.content === 'object' && component.content.translatable && (
                     <div className="mt-2 text-xs text-blue-600 italic">
                       Este texto es traducible. Actualmente editando versión en inglés.
+                    </div>
+                  )}
+                  
+                  {/* Mostrar info para componentes obligatorios */}
+                  {component.locked && component.type === 'button' && (
+                    <div className="mt-2 text-xs text-green-600 bg-green-50 p-2 rounded border border-green-200">
+                      <strong>Componente obligatorio:</strong> Puedes editar el texto del botón, pero no puedes eliminarlo.
                     </div>
                   )}
                 </div>
@@ -1629,6 +1705,52 @@ function BannerPropertyPanel({
                   </div>
                 </div>
               </div>
+              
+              {/* Sección de Hover - Solo para botones */}
+              {component.type === 'button' && (
+                <div className="space-y-3">
+                  <h4 className="font-medium text-xs flex items-center gap-1">
+                    <Palette size={14} />
+                    Colores de Hover
+                  </h4>
+                  <div className="space-y-2">
+                    <label className="block text-xs">Color de fondo al hover</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={localStyle.hoverBackgroundColor || '#ffffff'}
+                        onChange={(e) => handleStyleChange('hoverBackgroundColor', e.target.value)}
+                        className="w-6 h-6 rounded cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={localStyle.hoverBackgroundColor || ''}
+                        onChange={(e) => handleStyleChange('hoverBackgroundColor', e.target.value)}
+                        placeholder="Color de fondo al hover"
+                        className="flex-1 p-1 text-xs border rounded"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs">Color de texto al hover</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={localStyle.hoverColor || '#000000'}
+                        onChange={(e) => handleStyleChange('hoverColor', e.target.value)}
+                        className="w-6 h-6 rounded cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={localStyle.hoverColor || ''}
+                        onChange={(e) => handleStyleChange('hoverColor', e.target.value)}
+                        placeholder="Color de texto al hover"
+                        className="flex-1 p-1 text-xs border rounded"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
               
               {/* Sección de Bordes */}
               <div className="space-y-3">
@@ -2073,17 +2195,11 @@ function BannerPropertyPanel({
                   <ImageUploader 
                     componentId={component.id}
                     currentImage={
-                      // Si es una imagen válida o hay vista previa, mostrarla
-                      typeof component.content === 'string' && (
-                        component.content.startsWith('data:image') || 
-                        component.content.startsWith('/') || 
-                        component.content.match(/^https?:\/\//)
-                      ) ? component.content : 
-                      // Si hay vista previa en el estilo, usarla
-                      localStyle._previewUrl || null
+                      // NUEVA LÓGICA: Usar sistema unificado
+                      imageManager.getUnifiedImageUrl(component, deviceView, 'propertyPanel')
                     }
                     onImageUpdate={handleImageUpdate}
-                    disabled={component.locked}
+                    disabled={component.locked && component.type !== 'button'}
                   />
                   
                   {/* Input para URL externa */}
@@ -2103,13 +2219,13 @@ function BannerPropertyPanel({
                         }
                         onChange={(e) => handleContentChange(e.target.value)}
                         className="w-full p-2 text-sm border rounded"
-                        disabled={component.locked}
+                        disabled={component.locked && component.type !== 'button'}
                         placeholder="https://ejemplo.com/imagen.jpg"
                       />
                       <button 
                         className="p-1 text-sm border rounded hover:bg-gray-50"
                         onClick={() => handleContentChange(localContent)}
-                        disabled={!localContent || component.locked}
+                        disabled={!localContent || (component.locked && component.type !== 'button')}
                       >
                         <RefreshCw size={16} />
                       </button>
@@ -2118,12 +2234,11 @@ function BannerPropertyPanel({
                 </div>
                 
                 {/* Vista previa si hay imagen */}
-                {(localStyle._previewUrl || 
-                  (typeof component.content === 'string' && (
+                {((typeof component.content === 'string' && (
                     component.content.startsWith('data:image') || 
                     component.content.startsWith('/') || 
                     component.content.match(/^https?:\/\//)
-                  ))) && (
+                  )) || localStyle._previewUrl) && (
                   <div className="mt-2">
                     <label className="block text-sm font-medium mb-1">
                       Vista previa:
@@ -2131,8 +2246,8 @@ function BannerPropertyPanel({
                     <div className="border rounded p-2 bg-gray-50">
                       <img 
                         src={
-                          localStyle._previewUrl || 
-                          component.content
+                          // LÓGICA SIMPLE: _previewUrl si existe, sino content
+                          localStyle._previewUrl || component.content
                         } 
                         alt="Preview" 
                         className="mx-auto max-h-32 object-contain" 
@@ -2170,13 +2285,21 @@ function BannerPropertyPanel({
                   value={localContent || ''}
                   onChange={(e) => handleContentChange(e.target.value)}
                   className="w-full p-2 border rounded"
-                  disabled={component.locked}
+                  disabled={component.locked && component.type !== 'button'}
+                  placeholder="Texto del botón"
                 />
                 
                 {/* Mostrar info para traducción */}
                 {component.content && typeof component.content === 'object' && component.content.translatable && (
                   <div className="mt-2 text-xs text-blue-600 italic">
                     Este texto es traducible. Actualmente editando versión en inglés.
+                  </div>
+                )}
+                
+                {/* Mostrar info para componentes obligatorios */}
+                {component.locked && component.type === 'button' && (
+                  <div className="mt-2 text-xs text-green-600 bg-green-50 p-2 rounded border border-green-200">
+                    <strong>Componente obligatorio:</strong> Puedes editar el texto del botón, pero no puedes eliminarlo.
                   </div>
                 )}
               </div>
@@ -2415,6 +2538,52 @@ function BannerPropertyPanel({
                 </div>
               </div>
             </div>
+
+            {/* Sección de Hover - Solo para botones */}
+            {component.type == 'button' && (
+              <div className="space-y-4">
+                <h4 className="font-medium text-sm flex items-center gap-2">
+                  <Palette size={16} />
+                  Colores de Hover
+                </h4>
+              <div className="space-y-2">
+                <label className="block text-sm">Color de fondo al hover</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={localStyle.hoverBackgroundColor || '#ffffff'}
+                    onChange={(e) => handleStyleChange('hoverBackgroundColor', e.target.value)}
+                    className="w-8 h-8 rounded cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={localStyle.hoverBackgroundColor || ''}
+                    onChange={(e) => handleStyleChange('hoverBackgroundColor', e.target.value)}
+                    placeholder="Color de fondo al hover"
+                    className="flex-1 p-2 border rounded"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm">Color de texto al hover</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={localStyle.hoverColor || '#000000'}
+                    onChange={(e) => handleStyleChange('hoverColor', e.target.value)}
+                    className="w-8 h-8 rounded cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={localStyle.hoverColor || ''}
+                    onChange={(e) => handleStyleChange('hoverColor', e.target.value)}
+                    placeholder="Color de texto al hover"
+                    className="flex-1 p-2 border rounded"
+                  />
+                </div>
+              </div>
+              </div>
+            )}
             
             {/* Sección de Bordes */}
             <div className="space-y-4">

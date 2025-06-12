@@ -6,6 +6,7 @@ const { protect, restrictTo, hasPermission } = require('../../middleware/auth');
 const { validateRequest } = require('../../middleware/validateRequest');
 const { userValidation } = require('../../validations/user.validation');
 const { rateLimiter, RATE_LIMIT_TYPES } = require('../../middleware/rateLimiter');
+const { requireActiveSubscription, checkSubscriptionLimits } = require('../../middleware/subscriptionCheck');
 
 // Proteger todas las rutas para que solo usuarios autenticados puedan acceder
 router.use(protect);
@@ -23,6 +24,8 @@ router.get(
 // Solo owner y admin pueden crear usuarios
 router.post(
   '/',
+  requireActiveSubscription,
+  checkSubscriptionLimits('users'),
   hasPermission('users', 'create'),
   validateRequest(userValidation.createUser),
   UserController.createUser

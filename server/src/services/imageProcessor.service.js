@@ -276,7 +276,7 @@ class ImageProcessorService {
       logger.info('Iniciando limpieza de imágenes de banners eliminados');
       
       // Ruta al directorio de imágenes de templates
-      const imagesDir = path.join(process.cwd(), 'public', 'templates', 'images');
+      const imagesDir = path.join(process.cwd(), '/../public', 'templates', 'images');
       
       // Verificar si el directorio existe
       try {

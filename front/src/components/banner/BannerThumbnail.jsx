@@ -2,12 +2,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ImageOff } from 'lucide-react';
 import { getImageUrl, handleImageError, processImageStyles } from '../../utils/imageProcessing';
+import { useImageManager } from '../../hooks/useImageManager';
 
 /**
  * Componente mejorado para mostrar una vista previa en miniatura de un banner
  * con mejor escala, renderizado y optimizaciones visuales
  */
 const BannerThumbnail = ({ bannerConfig, className = '', deviceView = 'desktop' }) => {
+  // Hook unificado para gestión de imágenes
+  const imageManager = useImageManager();
+  
   // Estado para rastrear errores de carga de imágenes
   const [imageErrors, setImageErrors] = useState({});
   // Estado para dimensiones del contenedor del thumbnail
@@ -435,17 +439,19 @@ const BannerThumbnail = ({ bannerConfig, className = '', deviceView = 'desktop' 
         );
         
       case 'image': {
-        const imageUrl = getImageUrl(component, deviceView, 'thumbnail');
-        const hasError = imageErrors[component.id];
+        // Usar el sistema unificado para obtener la URL
+        const imageUrl = imageManager.getUnifiedImageUrl(component, deviceView, 'thumbnail');
+        const hasError = imageErrors[component.id] || imageManager.getImageError(component.id);
+        const isLoading = imageManager.isImageLoading(component.id);
+        const isTemporary = imageManager.isTemporaryImage(component, deviceView);
         
-        // Log reducido para evitar spam en consola
-        if (Math.random() < 0.1) { // Solo log 10% de las veces
-          console.log(`🖼️ Thumbnail: Procesando imagen ${component.id}:`, {
-            imageUrl,
+        // Log solo si hay problemas o es temporal
+        if (process.env.NODE_ENV === 'development' && (hasError || isTemporary)) {
+          console.log(`🖼️ Thumbnail: Imagen ${component.id}:`, {
+            imageUrl: imageUrl?.substring(0, 50) + '...',
             hasError,
-            contentType: typeof component.content,
-            content: component.content,
-            hasPreviewUrl: !!component.style?.[deviceView]?._previewUrl
+            isTemporary,
+            isPlaceholder: imageUrl?.startsWith('data:image/svg+xml')
           });
         }
         
@@ -487,7 +493,7 @@ const BannerThumbnail = ({ bannerConfig, className = '', deviceView = 'desktop' 
             }}
             crossOrigin="anonymous"
             onLoad={() => {
-              // Clear error state if image loads successfully
+              // Clear error state if image loads successfully usando el hook
               if (imageErrors[component.id]) {
                 setImageErrors(prev => {
                   const newErrors = {...prev};
@@ -495,10 +501,22 @@ const BannerThumbnail = ({ bannerConfig, className = '', deviceView = 'desktop' 
                   return newErrors;
                 });
               }
+              
+              console.log(`✅ Thumbnail: Imagen cargada exitosamente para ${component.id}`);
             }}
             onError={(e) => {
-              // Usar el manejador de errores centralizado con callback simple
-              setImageErrors(prev => ({ ...prev, [component.id]: true }));
+              // Solo registrar error si no es un placeholder o imagen temporal
+              if (!imageUrl?.startsWith('data:image/svg+xml') && !isTemporary) {
+                const errorMessage = `Error cargando imagen en thumbnail: ${imageUrl}`;
+                imageManager.handleImageError(component.id, errorMessage);
+                
+                // Mantener compatibilidad con estado local
+                setImageErrors(prev => ({ ...prev, [component.id]: true }));
+                
+                if (process.env.NODE_ENV === 'development') {
+                  console.error(`❌ Thumbnail: Error cargando imagen para ${component.id}:`, errorMessage);
+                }
+              }
             }}
           />
         );

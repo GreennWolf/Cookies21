@@ -4,6 +4,7 @@ const CookieScanController = require('../../controllers/CookiesScanController');
 const { validateRequest } = require('../../middleware/validateRequest');
 const { cookieScanValidation } = require('../../validations/cookie-scan.validation');
 const { protect } = require('../../middleware/auth');
+const { checkSubscriptionWithReadOnlyMode } = require('../../middleware/subscriptionCheck');
 const { checkDomainAccess } = require('../../middleware/domainAccess');
 
 // Verificar que todos los métodos del controlador existen
@@ -15,6 +16,7 @@ router.use(protect);
 // Rutas principales
 router.post(
   '/domain/:domainId/scan',
+  checkSubscriptionWithReadOnlyMode,
   checkDomainAccess,
   validateRequest(cookieScanValidation.startScan),
   CookieScanController.startScan
@@ -22,12 +24,14 @@ router.post(
 
 router.get(
   '/scan/:scanId',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(cookieScanValidation.getScanStatus),
   CookieScanController.getScanStatus
 );
 
 router.get(
   '/domain/:domainId/history',
+  checkSubscriptionWithReadOnlyMode,
   checkDomainAccess,
   validateRequest(cookieScanValidation.getScanHistory),
   CookieScanController.getScanHistory
@@ -35,18 +39,21 @@ router.get(
 
 router.post(
   '/scan/:scanId/cancel',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(cookieScanValidation.cancelScan),
   CookieScanController.cancelScan
 );
 
 router.get(
   '/scan/:scanId/results',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(cookieScanValidation.getScanResults),
   CookieScanController.getScanResults
 );
 
 router.post(
   '/scan/:scanId/apply',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(cookieScanValidation.applyChanges),
   CookieScanController.applyChanges
 );
@@ -138,6 +145,13 @@ router.post(
   CookieScanController.forceStopAllAnalysis
 );
 
+// Cancel active scan for a domain
+router.post(
+  '/domain/:domainId/cancel-active',
+  checkDomainAccess,
+  CookieScanController.cancelActiveScan
+);
+
 // Logs Routes
 router.get(
   '/scan/:scanId/logs',
@@ -147,6 +161,18 @@ router.get(
 router.get(
   '/logs/active',
   CookieScanController.getActiveScanLogs
+);
+
+// Debug route to find scan by multiple criteria
+router.get(
+  '/debug/find/:scanId',
+  CookieScanController.findScan
+);
+
+// Auto-cancel fallback route
+router.post(
+  '/scan/:scanId/auto-cancel',
+  CookieScanController.autoCancel
 );
 
 module.exports = router;

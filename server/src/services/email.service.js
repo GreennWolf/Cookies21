@@ -1701,6 +1701,542 @@ Si estás recibiendo este email, la configuración SMTP está funcionando correc
       };
     }
   }
+
+  /**
+   * Envía notificación a owners sobre nueva solicitud de renovación
+   */
+  async sendRenewalRequestNotification(data) {
+    const { to, ownerName, clientName, clientEmail, requestType, urgency, message, requestedBy, requestId } = data;
+    
+    const urgencyText = {
+      low: 'Baja',
+      medium: 'Media', 
+      high: 'Alta'
+    };
+    
+    const requestTypeText = {
+      renewal: 'Renovación de Suscripción',
+      reactivation: 'Reactivación de Suscripción',
+      upgrade: 'Actualización de Plan',
+      support: 'Soporte Técnico'
+    };
+    
+    const urgencyColor = {
+      low: '#22C55E',
+      medium: '#F59E0B',
+      high: '#EF4444'
+    };
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Nueva Solicitud de ${requestTypeText[requestType]}</title>
+      <style>
+        ${this._getEmailStyles()}
+        .urgency-badge {
+          display: inline-block;
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: 600;
+          color: white;
+          background-color: ${urgencyColor[urgency]};
+        }
+        .request-details {
+          background-color: #f8fafc;
+          border-left: 4px solid #235C88;
+          padding: 20px;
+          margin: 20px 0;
+          border-radius: 0 8px 8px 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="email-container">
+        <div class="content">
+          <h1>🔔 Nueva Solicitud Recibida</h1>
+          
+          <p>Hola <strong>${ownerName}</strong>,</p>
+          
+          <p>Se ha recibido una nueva solicitud de <strong>${requestTypeText[requestType]}</strong> que requiere tu atención.</p>
+          
+          <div class="request-details">
+            <h3 style="margin-top: 0; color: #235C88;">📋 Detalles de la Solicitud</h3>
+            <p><strong>Cliente:</strong> ${clientName}</p>
+            <p><strong>Email:</strong> ${clientEmail}</p>
+            <p><strong>Solicitado por:</strong> ${requestedBy}</p>
+            <p><strong>Tipo:</strong> ${requestTypeText[requestType]}</p>
+            <p><strong>Urgencia:</strong> <span class="urgency-badge">${urgencyText[urgency]}</span></p>
+            <p><strong>Mensaje:</strong></p>
+            <div style="background: white; padding: 15px; border-radius: 6px; font-style: italic; border-left: 3px solid #235C88;">
+              "${message}"
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.CLIENT_URL}/dashboard/renewal-requests" class="button">
+              🚀 Ver en Dashboard
+            </a>
+          </div>
+          
+          <p style="font-size: 14px; color: #6B7280; border-top: 1px solid #E5E7EB; padding-top: 20px;">
+            <strong>ID de solicitud:</strong> ${requestId}<br>
+            <strong>Recibida:</strong> ${new Date().toLocaleString('es-ES')}
+          </p>
+          
+          <p style="font-size: 12px; color: #9CA3AF;">
+            Este email se envió automáticamente desde el sistema de gestión de suscripciones de Cookies21.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>`;
+
+    return this.sendEmail({
+      to,
+      subject: `🔔 Nueva ${requestTypeText[requestType]} - ${clientName}`,
+      html
+    });
+  }
+
+  /**
+   * Envía notificación al cliente sobre cambio de estado de su solicitud
+   */
+  async sendRenewalStatusUpdate(data) {
+    const { to, clientName, requestType, newStatus, adminNotes, requestId } = data;
+    
+    const statusText = {
+      pending: 'Pendiente',
+      in_progress: 'En Proceso',
+      completed: 'Completada',
+      rejected: 'Rechazada'
+    };
+    
+    const statusColor = {
+      pending: '#F59E0B',
+      in_progress: '#3B82F6',
+      completed: '#22C55E',
+      rejected: '#EF4444'
+    };
+    
+    const requestTypeText = {
+      renewal: 'Renovación de Suscripción',
+      reactivation: 'Reactivación de Suscripción',
+      upgrade: 'Actualización de Plan',
+      support: 'Soporte Técnico'
+    };
+
+    let statusMessage = '';
+    let nextSteps = '';
+    
+    switch (newStatus) {
+      case 'in_progress':
+        statusMessage = 'Nuestro equipo está revisando tu solicitud y se contactará contigo pronto.';
+        nextSteps = 'Te notificaremos por email cuando tengamos una actualización.';
+        break;
+      case 'completed':
+        statusMessage = 'Tu solicitud ha sido procesada exitosamente.';
+        nextSteps = 'Revisa tu panel de control para ver los cambios aplicados.';
+        break;
+      case 'rejected':
+        statusMessage = 'Lamentablemente, no pudimos procesar tu solicitud en este momento.';
+        nextSteps = 'Puedes contactar a nuestro equipo de soporte para más información.';
+        break;
+      default:
+        statusMessage = 'El estado de tu solicitud ha sido actualizado.';
+        nextSteps = 'Te mantendremos informado sobre cualquier cambio.';
+    }
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Actualización de tu Solicitud</title>
+      <style>
+        ${this._getEmailStyles()}
+        .status-badge {
+          display: inline-block;
+          padding: 6px 16px;
+          border-radius: 20px;
+          font-size: 14px;
+          font-weight: 600;
+          color: white;
+          background-color: ${statusColor[newStatus]};
+        }
+        .status-update {
+          background-color: #f8fafc;
+          border: 2px solid ${statusColor[newStatus]};
+          padding: 25px;
+          margin: 25px 0;
+          border-radius: 12px;
+          text-align: center;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="email-container">
+        <div class="content">
+          <h1>📱 Actualización de Solicitud</h1>
+          
+          <p>Estimado cliente de <strong>${clientName}</strong>,</p>
+          
+          <p>Te escribimos para informarte sobre una actualización en tu solicitud de <strong>${requestTypeText[requestType]}</strong>.</p>
+          
+          <div class="status-update">
+            <h3 style="margin-top: 0;">Estado Actual</h3>
+            <span class="status-badge">${statusText[newStatus]}</span>
+            <p style="margin: 15px 0 5px 0; font-size: 16px;">${statusMessage}</p>
+          </div>
+          
+          ${adminNotes ? `
+          <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+            <h4 style="margin-top: 0; color: #92400E;">💬 Nota del Equipo:</h4>
+            <p style="margin-bottom: 0; color: #92400E;">${adminNotes}</p>
+          </div>
+          ` : ''}
+          
+          <div style="background: #E0F2FE; padding: 20px; border-radius: 8px; margin: 25px 0;">
+            <h4 style="margin-top: 0; color: #0C4A6E;">🔄 Próximos Pasos:</h4>
+            <p style="margin-bottom: 0; color: #0C4A6E;">${nextSteps}</p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.CLIENT_URL}/dashboard" class="button">
+              📊 Ir al Dashboard
+            </a>
+          </div>
+          
+          <p style="font-size: 14px; color: #6B7280; border-top: 1px solid #E5E7EB; padding-top: 20px;">
+            <strong>Solicitud:</strong> ${requestTypeText[requestType]}<br>
+            <strong>ID de referencia:</strong> ${requestId}<br>
+            <strong>Actualizada:</strong> ${new Date().toLocaleString('es-ES')}
+          </p>
+          
+          <p style="font-size: 12px; color: #9CA3AF;">
+            Si tienes preguntas, puedes responder a este email o contactar a nuestro equipo de soporte.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>`;
+
+    return this.sendEmail({
+      to,
+      subject: `📱 Actualización: ${requestTypeText[requestType]} - ${statusText[newStatus]}`,
+      html
+    });
+  }
+
+  // Método para enviar confirmación de renovación exitosa
+  async sendRenewalSuccessNotification({ 
+    to, 
+    clientName, 
+    planName, 
+    endDate, 
+    features = [],
+    requestType = 'renewal' 
+  }) {
+    console.log(`📧 Enviando confirmación de renovación exitosa a: ${to}`);
+    
+    const typeMessages = {
+      renewal: {
+        title: '¡Suscripción Renovada Exitosamente!',
+        message: 'Tu suscripción ha sido renovada y ya puedes continuar disfrutando de todos nuestros servicios.',
+        icon: '🎉'
+      },
+      reactivation: {
+        title: '¡Suscripción Reactivada!',
+        message: 'Tu suscripción ha sido reactivada y ya tienes acceso completo a todos los servicios.',
+        icon: '✅'
+      },
+      upgrade: {
+        title: '¡Plan Actualizado!',
+        message: 'Tu plan ha sido actualizado exitosamente. Disfruta de las nuevas características.',
+        icon: '⬆️'
+      }
+    };
+
+    const typeInfo = typeMessages[requestType] || typeMessages.renewal;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const dashboardUrl = `${frontendUrl}/dashboard`;
+    const formattedEndDate = new Date(endDate).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const html = `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${typeInfo.title}</title>
+        <style>
+          body, html { 
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            color: #1a202c;
+            line-height: 1.6;
+            background-color: #f7fafc;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          .header {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            padding: 40px 30px;
+            text-align: center;
+            color: white;
+          }
+          .header img {
+            max-height: 60px;
+            width: auto;
+            display: block;
+            margin: 0 auto 20px auto;
+            filter: brightness(0) invert(1);
+          }
+          .success-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+            display: block;
+          }
+          .success-title {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 0 0 10px 0;
+            color: white;
+          }
+          .success-subtitle {
+            font-size: 16px;
+            margin: 0;
+            opacity: 0.9;
+            color: white;
+          }
+          .content {
+            padding: 40px 30px;
+          }
+          .renewal-card {
+            background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+            border: 2px solid #3B82F6;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            text-align: center;
+          }
+          .plan-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1E40AF;
+            margin: 0 0 8px 0;
+          }
+          .plan-details {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+          }
+          .detail-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #F3F4F6;
+          }
+          .detail-item:last-child {
+            border-bottom: none;
+          }
+          .detail-label {
+            font-weight: 600;
+            color: #374151;
+          }
+          .detail-value {
+            color: #10B981;
+            font-weight: 600;
+          }
+          .features-list {
+            background: #F9FAFB;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+          }
+          .features-title {
+            font-weight: bold;
+            color: #374151;
+            margin: 0 0 12px 0;
+          }
+          .feature-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            color: #6B7280;
+          }
+          .feature-check {
+            color: #10B981;
+            font-weight: bold;
+            margin-right: 8px;
+          }
+          .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #235C88 0%, #1a4668 100%);
+            color: white;
+            text-decoration: none;
+            padding: 16px 32px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+          }
+          .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(35, 92, 136, 0.3);
+          }
+          .footer {
+            background-color: #F9FAFB;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #E5E7EB;
+          }
+          .footer-text {
+            font-size: 14px;
+            color: #6B7280;
+            margin: 8px 0;
+          }
+          .brand-footer {
+            background: linear-gradient(135deg, #235C88 0%, #1a4668 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+          }
+          @media (max-width: 600px) {
+            .container {
+              margin: 0;
+              border-radius: 0;
+            }
+            .header, .content, .footer {
+              padding: 20px;
+            }
+            .success-title {
+              font-size: 24px;
+            }
+            .plan-name {
+              font-size: 20px;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <!-- Header -->
+          <div class="header">
+            <img src="https://via.placeholder.com/200x60/FFFFFF/FFFFFF?text=COOKIE21" alt="Cookie21 Logo" />
+            <div class="success-icon">${typeInfo.icon}</div>
+            <h1 class="success-title">${typeInfo.title}</h1>
+            <p class="success-subtitle">${typeInfo.message}</p>
+          </div>
+
+          <!-- Content -->
+          <div class="content">
+            <p style="font-size: 16px; color: #374151; margin: 0 0 20px 0;">
+              Hola,
+            </p>
+            
+            <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0;">
+              ¡Excelentes noticias! Tu suscripción de <strong>${clientName}</strong> está activa y lista para usar.
+            </p>
+
+            <!-- Renewal Card -->
+            <div class="renewal-card">
+              <h2 class="plan-name">Plan ${planName}</h2>
+              
+              <div class="plan-details">
+                <div class="detail-item">
+                  <span class="detail-label">Estado:</span>
+                  <span class="detail-value">✅ Activo</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Válido hasta:</span>
+                  <span class="detail-value">${formattedEndDate}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Renovado el:</span>
+                  <span class="detail-value">${new Date().toLocaleDateString('es-ES')}</span>
+                </div>
+              </div>
+
+              ${features.length > 0 ? `
+                <div class="features-list">
+                  <h3 class="features-title">🚀 Características incluidas:</h3>
+                  ${features.map(feature => `
+                    <div class="feature-item">
+                      <span class="feature-check">✓</span>
+                      <span>${feature}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
+            </div>
+
+            <div style="text-align: center; margin: 32px 0;">
+              <a href="${dashboardUrl}" class="cta-button">
+                🚀 Acceder al Panel de Control
+              </a>
+            </div>
+
+            <div style="background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; padding: 16px; margin: 24px 0;">
+              <p style="margin: 0; color: #92400E; font-size: 14px;">
+                <strong>💡 Consejo:</strong> Ahora puedes configurar nuevos dominios, crear banners personalizados y acceder a todas las herramientas de gestión de cookies y consentimiento.
+              </p>
+            </div>
+
+            <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0;">
+              Gracias por confiar en Cookie21 para el cumplimiento de privacidad de tu sitio web.
+            </p>
+          </div>
+
+          <!-- Footer -->
+          <div class="footer">
+            <p class="footer-text">
+              ¿Necesitas ayuda? Responde a este email o visita nuestro centro de ayuda.
+            </p>
+            <p class="footer-text">
+              <strong>Equipo de Cookie21</strong>
+            </p>
+          </div>
+
+          <!-- Brand Footer -->
+          <div class="brand-footer">
+            <p style="margin: 0;">
+              <strong>Cookie21</strong> - Solución completa de gestión de consentimiento y privacidad
+            </p>
+            <p style="margin: 8px 0 0 0; opacity: 0.8; font-size: 12px;">
+              Cumplimiento GDPR • Gestión de Cookies • Banners Personalizables
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>`;
+
+    return this.sendEmail({
+      to,
+      subject: `${typeInfo.icon} ${typeInfo.title} - ${clientName}`,
+      html
+    });
+  }
 }
 
 module.exports = new EmailService();

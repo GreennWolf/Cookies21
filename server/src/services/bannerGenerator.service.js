@@ -1113,6 +1113,14 @@ class BannerGeneratorService {
         css += `${selector} {
           ${this._styleObjToCSS(styleToApply)}
         }`;
+        
+        // Agregar estilos de hover para botones
+        if (c.type === 'button' && (styleToApply.hoverBackgroundColor || styleToApply.hoverColor)) {
+          css += `${selector}:hover {
+            ${styleToApply.hoverBackgroundColor ? `background-color: ${styleToApply.hoverBackgroundColor} !important;` : ''}
+            ${styleToApply.hoverColor ? `color: ${styleToApply.hoverColor} !important;` : ''}
+          }`;
+        }
       }
       
       // Añadir la posición del componente (desde position)
@@ -1276,6 +1284,11 @@ class BannerGeneratorService {
             ${selector} {
               ${this._styleObjToCSS(tabletStyleToApply)}
             }
+            ${c.type === 'button' && (tabletStyleToApply.hoverBackgroundColor || tabletStyleToApply.hoverColor) ? `
+            ${selector}:hover {
+              ${tabletStyleToApply.hoverBackgroundColor ? `background-color: ${tabletStyleToApply.hoverBackgroundColor} !important;` : ''}
+              ${tabletStyleToApply.hoverColor ? `color: ${tabletStyleToApply.hoverColor} !important;` : ''}
+            }` : ''}
           }
         `;
       }
@@ -1350,6 +1363,11 @@ class BannerGeneratorService {
             ${selector} {
               ${this._styleObjToCSS(mobileStyleToApply)}
             }
+            ${c.type === 'button' && (mobileStyleToApply.hoverBackgroundColor || mobileStyleToApply.hoverColor) ? `
+            ${selector}:hover {
+              ${mobileStyleToApply.hoverBackgroundColor ? `background-color: ${mobileStyleToApply.hoverBackgroundColor} !important;` : ''}
+              ${mobileStyleToApply.hoverColor ? `color: ${mobileStyleToApply.hoverColor} !important;` : ''}
+            }` : ''}
           }
         `;
       }

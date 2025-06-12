@@ -145,7 +145,7 @@ class CookieScanController {
     }
 
     // Si no es owner, verificar que el scan pertenece al cliente
-    if (!isOwner && scan.domainId.clientId.toString() !== clientId) {
+    if (!isOwner && scan.domainId.clientId && scan.domainId.clientId.toString() !== clientId) {
       throw new AppError('Scan not found', 404);
     }
 
@@ -210,7 +210,7 @@ class CookieScanController {
     }
 
     // Si no es owner, verificar que el scan pertenece al cliente
-    if (!isOwner && scan.domainId.clientId.toString() !== clientId) {
+    if (!isOwner && scan.domainId.clientId && scan.domainId.clientId.toString() !== clientId) {
       throw new AppError('Scan not found', 404);
     }
 
@@ -250,7 +250,7 @@ class CookieScanController {
     }
 
     // Si no es owner, verificar que el scan pertenece al cliente
-    if (!isOwner && scan.domainId.clientId.toString() !== clientId) {
+    if (!isOwner && scan.domainId.clientId && scan.domainId.clientId.toString() !== clientId) {
       throw new AppError('Scan not found', 404);
     }
 
@@ -302,25 +302,68 @@ class CookieScanController {
     const { scanId } = req.params;
     const { clientId, isOwner } = req;
 
-    // Buscar el escaneo
-    let scan;
-    if (isOwner) {
-      scan = await CookieScan.findById(scanId).populate('domainId');
-    } else {
-      scan = await CookieScan.findById(scanId).populate('domainId');
-      if (!scan || scan.domainId.clientId.toString() !== clientId) {
-        throw new AppError('Scan not found', 404);
-      }
+    logger.info(`Attempting to cancel scan: ${scanId} by user ${req.userId} (isOwner: ${isOwner})`);
+
+    // Validar formato del ID
+    if (!scanId || !scanId.match(/^[0-9a-fA-F]{24}$/)) {
+      logger.warn(`Invalid scan ID format: ${scanId}`);
+      throw new AppError('Invalid scan ID format', 400);
     }
 
-    if (!scan) {
-      throw new AppError('Scan not found', 404);
+    // Buscar el escaneo por _id o scanId
+    let scan;
+    try {
+      // Intentar primero por _id (ObjectId)
+      scan = await CookieScan.findById(scanId).populate('domainId');
+      
+      // Si no se encuentra, intentar por el campo scanId
+      if (!scan) {
+        scan = await CookieScan.findOne({ scanId: scanId }).populate('domainId');
+      }
+      
+      if (!scan) {
+        logger.warn(`Scan not found with ID: ${scanId}`);
+        
+        // Buscar cualquier scan activo del usuario para dar información útil
+        const activeScans = await CookieScan.find({ 
+          status: { $in: ['pending', 'running', 'in_progress'] }
+        }).populate('domainId').limit(5);
+        
+        logger.info(`Active scans available:`, activeScans.map(s => ({
+          id: s._id,
+          scanId: s.scanId,
+          domain: s.domainId?.domain,
+          status: s.status
+        })));
+        
+        // Sugerir usar la ruta de cancelar por dominio
+        throw new AppError(
+          `Scan not found with ID: ${scanId}. The scan may have already completed or been cancelled. ` +
+          `Try using POST /api/v1/cookie-scan/domain/{domainId}/cancel-active to cancel any active scan for this domain.`, 
+          404
+        );
+      }
+
+      // Si no es owner, verificar permisos
+      if (!isOwner && scan.domainId.clientId && scan.domainId.clientId.toString() !== clientId) {
+        logger.warn(`User ${req.userId} does not have permission to cancel scan ${scanId}`);
+        throw new AppError('You do not have permission to cancel this scan', 403);
+      }
+    } catch (error) {
+      if (error.name === 'CastError') {
+        logger.error(`Invalid ObjectId format: ${scanId}`);
+        throw new AppError('Invalid scan ID format', 400);
+      }
+      throw error;
     }
 
     // Verificar que el escaneo esté en progreso
     if (!['pending', 'in_progress', 'running'].includes(scan.status)) {
-      throw new AppError('Scan is not in progress and cannot be cancelled', 400);
+      logger.warn(`Scan ${scanId} is in status ${scan.status} and cannot be cancelled`);
+      throw new AppError(`Scan is in status '${scan.status}' and cannot be cancelled`, 400);
     }
+    
+    logger.info(`Proceeding to cancel scan ${scanId} with current status: ${scan.status}`);
 
     // Cancelar el escaneo
     scan.status = 'cancelled';
@@ -371,7 +414,7 @@ class CookieScanController {
     }
 
     // Si no es owner, verificar que el scan pertenece al cliente
-    if (!isOwner && scan.domainId.clientId.toString() !== clientId) {
+    if (!isOwner && scan.domainId.clientId && scan.domainId.clientId.toString() !== clientId) {
       throw new AppError('Scan not found', 404);
     }
 
@@ -404,7 +447,7 @@ class CookieScanController {
     }
 
     // Si no es owner, verificar que el scan pertenece al cliente
-    if (!isOwner && scan.domainId.clientId.toString() !== clientId) {
+    if (!isOwner && scan.domainId.clientId && scan.domainId.clientId.toString() !== clientId) {
       throw new AppError('Scan not found', 404);
     }
 
@@ -416,26 +459,50 @@ class CookieScanController {
     for (const change of changes) {
       switch (change.type) {
         case 'add':
-          await Cookie.create({
-            domainId: scan.domainId._id,
-            clientId: scan.domainId.clientId,
-            name: change.cookie.name,
-            domain: change.cookie.domain || scan.domainId.domain,
-            provider: await providerService.detectCookieProvider(change.cookie),
-            category: change.cookie.category,
-            description: {
-              en: change.cookie.description || `Cookie: ${change.cookie.name}`,
-              auto: true
-            },
-            attributes: change.cookie.attributes,
-            isFirstParty: change.cookie.isFirstParty,
-            detection: {
-              method: 'scan',
-              firstDetected: new Date(),
-              lastSeen: new Date()
-            },
-            status: 'active'
-          });
+          try {
+            await Cookie.create({
+              domainId: scan.domainId._id,
+              name: change.cookie.name,
+              provider: await providerService.detectCookieProvider(change.cookie),
+              category: change.cookie.category,
+              description: {
+                en: change.cookie.description || `Cookie: ${change.cookie.name}`,
+                auto: true
+              },
+              attributes: {
+                ...change.cookie.attributes,
+                domain: change.cookie.domain || change.cookie.attributes?.domain || scan.domainId.domain
+              },
+              detection: {
+                method: 'scan',
+                firstDetected: new Date(),
+                lastSeen: new Date(),
+                frequency: 1
+              },
+              status: 'active'
+            });
+          } catch (error) {
+            // Si es error de duplicación, actualizar la cookie existente
+            if (error.code === 11000) {
+              logger.info(`Cookie duplicada detectada, actualizando: ${change.cookie.name}`);
+              await Cookie.findOneAndUpdate(
+                {
+                  domainId: scan.domainId._id,
+                  name: change.cookie.name,
+                  'attributes.domain': change.cookie.domain || change.cookie.attributes?.domain || scan.domainId.domain
+                },
+                {
+                  $set: {
+                    category: change.cookie.category,
+                    'detection.lastSeen': new Date()
+                  },
+                  $inc: { 'detection.frequency': 1 }
+                }
+              );
+            } else {
+              throw error;
+            }
+          }
           break;
 
         case 'update':
@@ -593,7 +660,7 @@ class CookieScanController {
     const analysis = await CookieAnalysis.create({
       analysisId,
       domainId,
-      clientId: domain.clientId._id || domain.clientId,
+      clientId: domain.clientId ? (domain.clientId._id || domain.clientId) : null,
       status: 'pending',
       configuration: {
         deepScan,
@@ -626,14 +693,23 @@ class CookieScanController {
     const { analysisId } = req.params;
     const { clientId, isOwner } = req;
 
-    const filter = { analysisId };
+    let analysis = null;
+    let searchFilter = {};
     
     // Si no es owner, restringir por clientId
     if (!isOwner) {
-      filter.clientId = clientId;
+      searchFilter.clientId = clientId;
     }
 
-    const analysis = await CookieAnalysis.findOne(filter).populate('domainId', 'domain');
+    // Intentar buscar por analysisId (UUID)
+    const uuidFilter = { ...searchFilter, analysisId };
+    analysis = await CookieAnalysis.findOne(uuidFilter).populate('domainId', 'domain');
+
+    // Si no se encuentra y parece ser un ObjectId, buscar por _id
+    if (!analysis && analysisId.match(/^[0-9a-fA-F]{24}$/)) {
+      const objectIdFilter = { ...searchFilter, _id: analysisId };
+      analysis = await CookieAnalysis.findOne(objectIdFilter).populate('domainId', 'domain');
+    }
 
     if (!analysis) {
       throw new AppError('Analysis not found', 404);
@@ -728,7 +804,7 @@ class CookieScanController {
 
       // Ejecutar análisis de forma asíncrona
       setTimeout(() => {
-        this._executeAdvancedAnalysis(analysis._id, domain);
+        this._executeAdvancedAnalysis(analysis.analysisId, domain);
       }, 100);
 
       res.status(201).json({
@@ -756,7 +832,11 @@ class CookieScanController {
     // El dominio ya fue validado por el middleware checkDomainAccess
     const domain = req.domain;
 
-    const filter = { domainId, clientId: domain.clientId };
+    const filter = { domainId };
+    // Solo agregar clientId al filtro si no es null
+    if (domain.clientId) {
+      filter.clientId = domain.clientId;
+    }
     if (status) {
       filter.status = status;
     }
@@ -768,13 +848,20 @@ class CookieScanController {
       .select('analysisId status progress currentStep startTime endTime results error')
       .lean();
 
+    // Asegurar que cada análisis tenga un ID correcto para el frontend
+    const processedAnalyses = analyses.map(analysis => ({
+      ...analysis,
+      // Si no tiene analysisId (análisis antiguo), usar _id
+      analysisId: analysis.analysisId || analysis._id.toString()
+    }));
+
     const total = await CookieAnalysis.countDocuments(filter);
 
     res.status(200).json({
       status: 'success',
       success: true,
       data: {
-        analyses,
+        analyses: processedAnalyses,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -790,17 +877,23 @@ class CookieScanController {
     const { analysisId } = req.params;
     const { clientId, isOwner } = req;
 
-    const filter = {
-      analysisId,
-      status: { $in: ['pending', 'running'] }
-    };
+    let analysis = null;
+    let searchFilter = { status: { $in: ['pending', 'running'] } };
 
     // Si no es owner, restringir por clientId
     if (!isOwner) {
-      filter.clientId = clientId;
+      searchFilter.clientId = clientId;
     }
 
-    const analysis = await CookieAnalysis.findOne(filter);
+    // Intentar buscar por analysisId (UUID)
+    const uuidFilter = { ...searchFilter, analysisId };
+    analysis = await CookieAnalysis.findOne(uuidFilter);
+
+    // Si no se encuentra y parece ser un ObjectId, buscar por _id
+    if (!analysis && analysisId.match(/^[0-9a-fA-F]{24}$/)) {
+      const objectIdFilter = { ...searchFilter, _id: analysisId };
+      analysis = await CookieAnalysis.findOne(objectIdFilter);
+    }
 
     if (!analysis) {
       throw new AppError('Analysis not found or cannot be cancelled', 404);
@@ -943,17 +1036,41 @@ class CookieScanController {
     const { analysisId } = req.params;
     const { clientId, isOwner } = req;
 
-    const filter = {
-      analysisId,
-      status: 'completed'
-    };
+    // Primero intentar como UUID, luego como ObjectId para retrocompatibilidad
+    let analysis = null;
+    let searchFilter = {};
 
     // Si no es owner, restringir por clientId
     if (!isOwner) {
-      filter.clientId = clientId;
+      searchFilter.clientId = clientId;
     }
 
-    const analysis = await CookieAnalysis.findOne(filter).populate('domainId', 'domain');
+    // Intentar buscar por analysisId (UUID)
+    const uuidFilter = { ...searchFilter, analysisId, status: 'completed' };
+    analysis = await CookieAnalysis.findOne(uuidFilter).populate('domainId', 'domain');
+
+    // Si no se encuentra y parece ser un ObjectId, buscar por _id
+    if (!analysis && analysisId.match(/^[0-9a-fA-F]{24}$/)) {
+      const objectIdFilter = { ...searchFilter, _id: analysisId, status: 'completed' };
+      analysis = await CookieAnalysis.findOne(objectIdFilter).populate('domainId', 'domain');
+    }
+
+    // Debug: Log solo si no se encuentra el análisis
+    if (!analysis) {
+      const anyAnalysis = await CookieAnalysis.findOne({ 
+        $or: [
+          { analysisId },
+          ...(analysisId.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: analysisId }] : [])
+        ]
+      }).populate('domainId', 'domain');
+      
+      logger.info(`Analysis ${analysisId} not found as completed:`, {
+        found: !!anyAnalysis,
+        status: anyAnalysis?.status,
+        isObjectId: analysisId.match(/^[0-9a-fA-F]{24}$/),
+        analysisIdInDB: anyAnalysis?.analysisId
+      });
+    }
 
     if (!analysis) {
       throw new AppError('Analysis not found or not completed', 404);
@@ -963,15 +1080,37 @@ class CookieScanController {
     const cookies = await Cookie.find({
       domainId: analysis.domainId,
       $or: [
-        { detectedAt: { $gte: analysis.startTime, $lte: analysis.endTime } },
-        { lastModified: { $gte: analysis.startTime, $lte: analysis.endTime } }
+        { 'detection.firstDetected': { $gte: analysis.startTime, $lte: analysis.endTime } },
+        { 'detection.lastSeen': { $gte: analysis.startTime, $lte: analysis.endTime } }
       ]
-    }).select('name domain category description isFirstParty status');
+    }).select('name domain category description isFirstParty status provider attributes');
 
     res.status(200).json({
       status: 'success',
       success: true,
       data: {
+        scan: {
+          findings: {
+            cookies: cookies.map(cookie => ({
+              _id: cookie._id,
+              name: cookie.name,
+              category: cookie.category,
+              domain: cookie.attributes?.domain || analysis.domainId.domain,
+              duration: cookie.attributes?.duration || 'N/A',
+              purpose: cookie.description?.en || cookie.description || 'Sin descripción',
+              provider: cookie.provider || 'Propios'
+            }))
+          },
+          stats: {
+            cookies: {
+              count: cookies.length
+            },
+            urlsScanned: analysis.results?.scanDetails?.urlsScanned || 1,
+            vendors: {
+              count: analysis.results?.scanDetails?.technologies?.length || 0
+            }
+          }
+        },
         analysis: {
           analysisId: analysis.analysisId,
           domain: analysis.domainId.domain,
@@ -981,12 +1120,11 @@ class CookieScanController {
           results: analysis.results,
           configuration: analysis.configuration
         },
-        cookies,
         summary: {
-          totalCookies: analysis.results.totalCookies,
-          newCookies: analysis.results.newCookies,
-          updatedCookies: analysis.results.updatedCookies,
-          errorCookies: analysis.results.errorCookies
+          totalCookies: cookies.length,
+          newCookies: analysis.results?.newCookies || 0,
+          updatedCookies: analysis.results?.updatedCookies || 0,
+          errorCookies: analysis.results?.errorCookies || 0
         }
       }
     });
@@ -1000,7 +1138,7 @@ class CookieScanController {
     const scanLog = scanLogger.createScanLogger(analysisId, 'advanced', domain.domain);
     
     try {
-      const analysis = await CookieAnalysis.findById(analysisId);
+      const analysis = await CookieAnalysis.findOne({ analysisId });
       if (!analysis || analysis.status === 'cancelled') {
         scanLog.warn('Análisis no encontrado o ya cancelado');
         return;
@@ -1109,6 +1247,7 @@ class CookieScanController {
         }
       }
       
+      // Obtener todas las cookies existentes de este dominio de la base de datos
       const existingCookies = await Cookie.find({ domainId: domain._id });
       
       scanLog.debug(`Cookies encontradas: ${cookiesFound.length}, cookies únicas: ${uniqueCookies.length}, cookies existentes: ${existingCookies.length}`);
@@ -1136,7 +1275,16 @@ class CookieScanController {
           });
           provider = null;
         }
-        const category = provider?.category || cookieData.category || 'other';
+        let category = provider?.category || cookieData.category || 'other';
+        // Asegurar que nunca sea 'unknown'
+        if (category === 'unknown') {
+          category = 'other';
+        }
+        let providerName = provider?.name || 'Propios';
+        // Asegurar que nunca sea 'Unknown'
+        if (providerName === 'Unknown' || providerName === 'unknown') {
+          providerName = 'Propios';
+        }
         
         scanLog.cookieFound(cookieData.name, cookieData.domain, category);
         
@@ -1147,54 +1295,94 @@ class CookieScanController {
           cookiesByCategory.other++;
         }
 
-        // Buscar si la cookie ya existe
+        // VERIFICACIÓN UNIFICADA: Solo buscar por nombre dentro del mismo dominio
+        const CookieDetector = require('../utils/cookieDetector');
         const existingCookie = existingCookies.find(c => 
-          c.name === cookieData.name && c.domain === cookieData.domain
+          CookieDetector.areCookiesEqual(c, cookieData)
         );
 
         if (existingCookie) {
-          // Actualizar cookie existente si hay cambios
-          const hasChanges = 
-            existingCookie.httpOnly !== cookieData.httpOnly ||
-            existingCookie.secure !== cookieData.secure ||
-            existingCookie.sameSite !== cookieData.sameSite ||
-            existingCookie.duration !== cookieData.duration;
-
-          if (hasChanges) {
-            existingCookie.httpOnly = cookieData.httpOnly;
-            existingCookie.secure = cookieData.secure;
-            existingCookie.sameSite = cookieData.sameSite;
-            existingCookie.duration = cookieData.duration;
-            existingCookie.lastSeen = new Date();
-            existingCookie.provider = provider?.name || existingCookie.provider;
-            existingCookie.category = category;
-            await existingCookie.save();
-            updatedCookies++;
+          // Cookie ya existe, solo actualizar lastSeen y frecuencia
+          existingCookie.detection.lastSeen = new Date();
+          existingCookie.detection.frequency += 1;
+          
+          // Actualizar atributos si han cambiado
+          if (cookieData.duration) {
+            existingCookie.attributes.duration = cookieData.duration;
           }
+          if (cookieData.secure !== undefined) {
+            existingCookie.attributes.secure = cookieData.secure;
+          }
+          if (cookieData.httpOnly !== undefined) {
+            existingCookie.attributes.httpOnly = cookieData.httpOnly;
+          }
+          if (cookieData.sameSite) {
+            existingCookie.attributes.sameSite = cookieData.sameSite;
+          }
+          
+          await existingCookie.save();
+          updatedCookies++;
+          
+          scanLog.info(`Cookie existente actualizada: ${cookieData.name}`);
         } else {
           // Crear nueva cookie
-          await Cookie.create({
-            domainId: domain._id,
-            clientId: domain.clientId,
-            name: cookieData.name,
-            domain: cookieData.domain,
-            path: cookieData.path || '/',
-            category: category,
-            description: provider?.description || cookieData.description || '',
-            purpose: provider?.purpose || cookieData.purpose || '',
-            provider: provider?.name || 'Unknown',
-            duration: cookieData.duration,
-            isFirstParty: cookieData.domain === domain.domain || (cookieData.domain && typeof cookieData.domain === 'string' && cookieData.domain.endsWith(`.${domain.domain}`)),
-            httpOnly: cookieData.httpOnly,
-            secure: cookieData.secure,
-            sameSite: cookieData.sameSite,
-            value: cookieData.value,
-            expires: cookieData.expires,
-            detectedAt: new Date(),
-            lastSeen: new Date(),
-            status: 'active'
-          });
-          newCookies++;
+          try {
+            await Cookie.create({
+              domainId: domain._id,
+              name: cookieData.name,
+              category: category,
+              description: {
+                en: provider?.description || cookieData.description || `Cookie: ${cookieData.name}`,
+                auto: true
+              },
+              purpose: provider?.purpose ? {
+                name: provider.purpose,
+                description: provider.purpose
+              } : undefined,
+              provider: providerName,
+              attributes: {
+                duration: cookieData.duration,
+                type: cookieData.type || 'http',
+                path: cookieData.path || '/',
+                domain: cookieData.domain || domain.domain,
+                secure: cookieData.secure || false,
+                httpOnly: cookieData.httpOnly || false,
+                sameSite: cookieData.sameSite || 'Lax'
+              },
+              detection: {
+                method: 'scan',
+                firstDetected: new Date(),
+                lastSeen: new Date(),
+                frequency: 1
+              },
+              status: 'active'
+            });
+            newCookies++;
+          } catch (error) {
+            // Si es error de duplicación, actualizar en lugar de crear
+            if (error.code === 11000) {
+              logger.info(`Cookie duplicada detectada durante análisis avanzado: ${cookieData.name}`);
+              await Cookie.findOneAndUpdate(
+                {
+                  domainId: domain._id,
+                  name: cookieData.name,
+                  'attributes.domain': cookieData.domain || domain.domain
+                },
+                {
+                  $set: {
+                    category: category,
+                    'detection.lastSeen': new Date(),
+                    provider: providerName
+                  },
+                  $inc: { 'detection.frequency': 1 }
+                }
+              );
+              // Contar como actualización en lugar de nueva
+              // No incrementar newCookies
+            } else {
+              throw error;
+            }
+          }
         }
       }
 
@@ -1263,7 +1451,7 @@ class CookieScanController {
       scanLog.scanError(error, { phase: 'analysis_execution' });
       
       try {
-        const analysis = await CookieAnalysis.findById(analysisId);
+        const analysis = await CookieAnalysis.findOne({ analysisId });
         if (analysis) {
           await analysis.markError(error);
         }
@@ -1435,69 +1623,107 @@ class CookieScanController {
         await Domain.findById(scan.domainId) : 
         scan.domainId;
 
+      // Obtener todas las cookies existentes de este dominio
+      const existingCookies = await Cookie.find({ domainId: domain._id });
+      
       logger.info(`Processing ${results.findings.cookies.length} cookies from scan`);
 
       for (const cookieData of results.findings.cookies) {
         try {
-          // Verificar si la cookie ya existe
-          const existingCookie = await Cookie.findOne({
-            name: cookieData.name,
-            domain: cookieData.domain || domain.domain
-          });
+          // Detectar proveedor para comparación
+          let provider = null;
+          try {
+            provider = await providerService.detectCookieProvider(cookieData);
+          } catch (error) {
+            provider = null;
+          }
+          
+          let category = cookieData.category || 'other';
+          // Asegurar que nunca sea 'unknown'
+          if (category === 'unknown') {
+            category = 'other';
+          }
+          let providerName = provider?.name || 'Propios';
+          // Asegurar que nunca sea 'Unknown'
+          if (providerName === 'Unknown' || providerName === 'unknown') {
+            providerName = 'Propios';
+          }
+          
+          // VERIFICACIÓN UNIFICADA: Solo buscar por nombre dentro del mismo dominio
+          const CookieDetector = require('../utils/cookieDetector');
+          const existingCookie = existingCookies.find(c => 
+            CookieDetector.areCookiesEqual(c, cookieData)
+          );
 
           if (existingCookie) {
-            // Actualizar cookie existente
-            existingCookie.category = cookieData.category || 'unknown';
-            existingCookie.description = {
-              en: cookieData.description || `Cookie: ${cookieData.name}`,
-              auto: true
-            };
-            existingCookie.isFirstParty = cookieData.isFirstParty !== undefined ? 
-              cookieData.isFirstParty : true;
-            existingCookie.lastModified = new Date();
+            // Cookie ya existe, solo actualizar lastSeen y frecuencia
+            existingCookie.detection.lastSeen = new Date();
+            existingCookie.detection.frequency += 1;
             
+            // Actualizar atributos si están disponibles
             if (cookieData.attributes) {
-              existingCookie.attributes = {
-                duration: cookieData.attributes.duration,
-                type: cookieData.attributes.type,
-                path: cookieData.attributes.path || '/',
-                domain: cookieData.attributes.domain || domain.domain,
-                secure: cookieData.attributes.secure || false,
-                httpOnly: cookieData.attributes.httpOnly || false,
-                sameSite: cookieData.attributes.sameSite || 'Lax'
-              };
+              existingCookie.attributes.duration = cookieData.attributes.duration || existingCookie.attributes.duration;
+              existingCookie.attributes.secure = cookieData.attributes.secure !== undefined ? cookieData.attributes.secure : existingCookie.attributes.secure;
+              existingCookie.attributes.httpOnly = cookieData.attributes.httpOnly !== undefined ? cookieData.attributes.httpOnly : existingCookie.attributes.httpOnly;
+              existingCookie.attributes.sameSite = cookieData.attributes.sameSite || existingCookie.attributes.sameSite;
             }
 
             await existingCookie.save();
             logger.info(`Updated existing cookie: ${cookieData.name}`);
           } else {
             // Crear nueva cookie
-            const newCookie = await Cookie.create({
-              name: cookieData.name,
-              domain: cookieData.domain || domain.domain,
-              domainId: domain._id,
-              clientId: domain.clientId,
-              category: cookieData.category || 'unknown',
-              description: {
-                en: cookieData.description || `Cookie: ${cookieData.name}`,
-                auto: true
-              },
-              isFirstParty: cookieData.isFirstParty !== undefined ? 
-                cookieData.isFirstParty : true,
-              attributes: {
-                duration: cookieData.attributes?.duration || 'session',
-                type: cookieData.attributes?.type || 'http',
-                path: cookieData.attributes?.path || '/',
-                domain: cookieData.attributes?.domain || domain.domain,
-                secure: cookieData.attributes?.secure || false,
-                httpOnly: cookieData.attributes?.httpOnly || false,
-                sameSite: cookieData.attributes?.sameSite || 'Lax'
-              },
-              status: 'active',
-              detectedAt: new Date()
-            });
+            try {
+              const newCookie = await Cookie.create({
+                name: cookieData.name,
+                domainId: domain._id,
+                category: category,
+                provider: providerName,
+                description: {
+                  en: cookieData.description || `Cookie: ${cookieData.name}`,
+                  auto: true
+                },
+                attributes: {
+                  duration: cookieData.attributes?.duration || 'session',
+                  type: cookieData.attributes?.type || 'http',
+                  path: cookieData.attributes?.path || '/',
+                  domain: cookieData.attributes?.domain || cookieData.domain || domain.domain,
+                  secure: cookieData.attributes?.secure || false,
+                  httpOnly: cookieData.attributes?.httpOnly || false,
+                  sameSite: cookieData.attributes?.sameSite || 'Lax'
+                },
+                detection: {
+                  method: 'scan',
+                  firstDetected: new Date(),
+                  lastSeen: new Date(),
+                  frequency: 1
+                },
+                status: 'active'
+              });
 
-            logger.info(`Created new cookie: ${cookieData.name}`);
+              logger.info(`Created new cookie: ${cookieData.name}`);
+            } catch (error) {
+              // Si es error de duplicación, actualizar la cookie existente
+              if (error.code === 11000) {
+                logger.info(`Cookie duplicada detectada en análisis detallado: ${cookieData.name}`);
+                await Cookie.findOneAndUpdate(
+                  {
+                    domainId: domain._id,
+                    name: cookieData.name,
+                    'attributes.domain': cookieData.attributes?.domain || cookieData.domain || domain.domain
+                  },
+                  {
+                    $set: {
+                      category: (cookieData.category === 'unknown' ? 'other' : cookieData.category) || 'other',
+                      'detection.lastSeen': new Date()
+                    },
+                    $inc: { 'detection.frequency': 1 }
+                  }
+                );
+                logger.info(`Updated existing cookie: ${cookieData.name}`);
+              } else {
+                throw error;
+              }
+            }
           }
         } catch (cookieError) {
           logger.error(`Error processing cookie ${cookieData.name}:`, cookieError);
@@ -1530,6 +1756,184 @@ class CookieScanController {
 
     return csv;
   }
+
+  // Cancelar el scan activo de un dominio (más robusto)
+  cancelActiveScan = catchAsync(async (req, res) => {
+    const { domainId } = req.params;
+    const { isOwner } = req;
+
+    logger.info(`Attempting to cancel active scan for domain: ${domainId} by user ${req.userId}`);
+
+    // Buscar el scan activo más reciente del dominio
+    const activeScan = await CookieScan.findOne({
+      domainId,
+      status: { $in: ['pending', 'running', 'in_progress'] }
+    }).sort({ createdAt: -1 });
+
+    if (!activeScan) {
+      logger.info(`No active scan found for domain: ${domainId}`);
+      throw new AppError('No active scan found for this domain', 404);
+    }
+
+    logger.info(`Found active scan ${activeScan._id} with status ${activeScan.status}`);
+
+    // Cancelar el escaneo
+    activeScan.status = 'cancelled';
+    activeScan.endTime = new Date();
+    activeScan.error = 'Cancelled by user';
+    
+    // Actualizar progress de forma segura
+    const cancelledProgress = this.createValidProgress({
+      percentage: activeScan.progress?.percentage || 0,
+      urlsScanned: activeScan.progress?.urlsScanned || 0,
+      urlsTotal: activeScan.progress?.urlsTotal || 100,
+      status: 'cancelled',
+      startTime: activeScan.progress?.startTime || activeScan.createdAt,
+      endTime: new Date(),
+      duration: null,
+      currentStep: 'Escaneo cancelado',
+      message: 'Cancelado por el usuario'
+    });
+    
+    // Calcular duración si es posible
+    if (cancelledProgress.startTime && cancelledProgress.endTime) {
+      cancelledProgress.duration = (cancelledProgress.endTime - cancelledProgress.startTime) / 1000;
+    }
+    
+    activeScan.progress = cancelledProgress;
+    await activeScan.save();
+
+    logger.info(`Scan ${activeScan._id} cancelled successfully`);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Active scan cancelled successfully',
+      data: { 
+        scan: activeScan,
+        scanId: activeScan._id 
+      }
+    });
+  });
+
+  // Buscar scan por múltiples criterios (para debugging)
+  findScan = catchAsync(async (req, res) => {
+    const { scanId } = req.params;
+    const { clientId, isOwner } = req;
+
+    logger.info(`Searching for scan with ID: ${scanId}`);
+
+    let scans = [];
+
+    // Buscar por _id
+    try {
+      const scanById = await CookieScan.findById(scanId).populate('domainId');
+      if (scanById) scans.push({ method: '_id', scan: scanById });
+    } catch (e) {
+      logger.info('Not found by _id');
+    }
+
+    // Buscar por scanId field
+    const scanByScanId = await CookieScan.findOne({ scanId: scanId }).populate('domainId');
+    if (scanByScanId) scans.push({ method: 'scanId', scan: scanByScanId });
+
+    // Buscar scans activos recientes
+    const activeScans = await CookieScan.find({ 
+      status: { $in: ['pending', 'running', 'in_progress'] }
+    }).populate('domainId').sort({ createdAt: -1 }).limit(10);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        searchId: scanId,
+        foundScans: scans.map(s => ({
+          method: s.method,
+          _id: s.scan._id,
+          scanId: s.scan.scanId,
+          status: s.scan.status,
+          domain: s.scan.domainId?.domain,
+          createdAt: s.scan.createdAt
+        })),
+        activeScans: activeScans.map(s => ({
+          _id: s._id,
+          scanId: s.scanId,
+          status: s.status,
+          domain: s.domainId?.domain,
+          createdAt: s.createdAt
+        }))
+      }
+    });
+  });
+
+  // Auto-cancelar scan activo como fallback
+  autoCancel = catchAsync(async (req, res) => {
+    const { scanId } = req.params;
+    const { clientId, isOwner } = req;
+
+    logger.info(`Auto-cancel fallback for scan ID: ${scanId}`);
+
+    // Intentar encontrar el dominio del scan ID que falló
+    let domainId = null;
+
+    // Si el scan ID parece ser de un dominio reciente, buscar scans activos
+    const recentScans = await CookieScan.find({ 
+      status: { $in: ['pending', 'running', 'in_progress'] }
+    }).populate('domainId').sort({ createdAt: -1 }).limit(5);
+
+    if (recentScans.length > 0) {
+      // Usar el dominio del scan más reciente
+      domainId = recentScans[0].domainId._id;
+      
+      logger.info(`Found recent active scan, using domainId: ${domainId}`);
+      
+      // Cancelar ese scan
+      const scanToCancel = recentScans[0];
+      scanToCancel.status = 'cancelled';
+      scanToCancel.endTime = new Date();
+      scanToCancel.error = 'Auto-cancelled via fallback';
+      
+      const cancelledProgress = this.createValidProgress({
+        percentage: scanToCancel.progress?.percentage || 0,
+        urlsScanned: scanToCancel.progress?.urlsScanned || 0,
+        urlsTotal: scanToCancel.progress?.urlsTotal || 100,
+        status: 'cancelled',
+        startTime: scanToCancel.progress?.startTime || scanToCancel.createdAt,
+        endTime: new Date(),
+        currentStep: 'Auto-cancelado',
+        message: 'Cancelado automáticamente'
+      });
+      
+      if (cancelledProgress.startTime && cancelledProgress.endTime) {
+        cancelledProgress.duration = (cancelledProgress.endTime - cancelledProgress.startTime) / 1000;
+      }
+      
+      scanToCancel.progress = cancelledProgress;
+      await scanToCancel.save();
+
+      return res.status(200).json({
+        status: 'success',
+        message: 'Found and cancelled most recent active scan',
+        data: { 
+          originalScanId: scanId,
+          cancelledScan: {
+            _id: scanToCancel._id,
+            scanId: scanToCancel.scanId,
+            domain: scanToCancel.domainId.domain,
+            status: scanToCancel.status
+          }
+        }
+      });
+    }
+
+    // Si no hay scans activos
+    res.status(404).json({
+      status: 'fail',
+      message: 'No active scans found to cancel',
+      data: { 
+        originalScanId: scanId,
+        suggestion: 'The scan may have already completed or been cancelled'
+      }
+    });
+  });
 }
 
 module.exports = new CookieScanController();

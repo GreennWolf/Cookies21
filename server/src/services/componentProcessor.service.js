@@ -553,13 +553,19 @@ class ComponentProcessorService {
       });
     }
     
-    // Validar selector de idioma obligatorio
+    // Validar selector de idioma (TEMPORALMENTE NO OBLIGATORIO)
     const languageButtons = findComponentsByType(components, 'language-button');
     if (languageButtons.length === 0) {
-      errors.push({
+      // COMENTADO TEMPORALMENTE: El selector de idioma ya no es obligatorio
+      // errors.push({
+      //   type: 'missing_component',
+      //   message: 'Falta el componente "Selector de Idioma" (language-button). Este componente es obligatorio para la selección de idioma en la vista previa.',
+      //   severity: 'error'
+      // });
+      warnings.push({
         type: 'missing_component',
-        message: 'Falta el componente "Selector de Idioma" (language-button). Este componente es obligatorio para la selección de idioma en la vista previa.',
-        severity: 'error'
+        message: 'Se recomienda incluir un "Selector de Idioma" (language-button) para mejor experiencia del usuario.',
+        severity: 'warning'
       });
     } else if (languageButtons.length > 1) {
       warnings.push({

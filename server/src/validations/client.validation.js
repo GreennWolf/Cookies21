@@ -92,8 +92,8 @@ const clientValidation = {
         'string.empty': 'El ID del plan no puede estar vacío'
       }),
       startDate: Joi.date(),
-      endDate: Joi.date().greater(Joi.ref('startDate')).messages({
-        'date.greater': 'La fecha de finalización debe ser posterior a la fecha de inicio'
+      endDate: Joi.date().allow(null).messages({
+        'date.base': 'La fecha de finalización debe ser una fecha válida'
       }),
       isUnlimited: Joi.boolean(),
       maxUsers: Joi.number().integer().min(1).messages({
@@ -124,6 +124,40 @@ const clientValidation = {
       status: Joi.string().valid('active', 'inactive', 'suspended').required().messages({
         'any.only': 'El estado debe ser active, inactive o suspended',
         'any.required': 'El estado es requerido'
+      })
+    })
+  },
+
+  // Validación para cancelar suscripción
+  cancelSubscription: {
+    params: Joi.object({
+      clientId: Joi.string().required().messages({
+        'any.required': 'El ID del cliente es requerido'
+      })
+    }),
+    body: Joi.object({
+      reason: Joi.string().max(500).optional().messages({
+        'string.max': 'La razón no puede exceder 500 caracteres'
+      }),
+      cancelImmediately: Joi.boolean().optional().default(false).messages({
+        'boolean.base': 'cancelImmediately debe ser true o false'
+      })
+    })
+  },
+
+  // Validación para reactivar suscripción
+  reactivateSubscription: {
+    params: Joi.object({
+      clientId: Joi.string().required().messages({
+        'any.required': 'El ID del cliente es requerido'
+      })
+    }),
+    body: Joi.object({
+      extendDays: Joi.number().integer().min(1).max(365).optional().default(30).messages({
+        'number.base': 'extendDays debe ser un número',
+        'number.integer': 'extendDays debe ser un número entero',
+        'number.min': 'extendDays debe ser al menos 1 día',
+        'number.max': 'extendDays no puede exceder 365 días'
       })
     })
   },

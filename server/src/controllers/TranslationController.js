@@ -19,9 +19,9 @@ class TranslationController {
 
     if (cachedTranslation) {
       return res.status(200).json({
-        status: 'success',
+        success: true,
         data: { 
-          translation: cachedTranslation,
+          translatedText: cachedTranslation,
           fromCache: true
         }
       });
@@ -40,9 +40,9 @@ class TranslationController {
     await cacheService.setCachedTranslation(cacheKey, translation);
 
     res.status(200).json({
-      status: 'success',
+      success: true,
       data: {
-        translation,
+        translatedText: translation,
         detectedLanguage,
         fromCache: false
       }

@@ -1,566 +1,152 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prueba de CMP TCF v2.2</title>
+    <title>CMP Validator Test - Cookies21</title>
+        <!-- Consent Management Platform -->
+<!-- Consent Management Platform -->
+<script>
+  (function(w,d,s,l,i){
+    w[l]=w[l]||[];
+    var f=d.getElementsByTagName(s)[0],j=d.createElement(s);
+    j.async=true;j.src=i;
+    f.parentNode.insertBefore(j,f);
+  })(window,document,'script','cmp','http://localhost:3000/api/v1/consent/script/6844cb57112320ba63ec5eef/embed.js?dev=true');
+</script>
+<!-- End Consent Management Platform -->
+    <!-- End Consent Management Platform -->
     <style>
-        body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.5;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            color: #333;
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: #f5f5f5; 
         }
-        header {
-            background-color: #f5f5f5;
+        .header {
+            background: white;
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        h1 {
-            margin-top: 0;
-            color: #0078d4;
-        }
-        .test-section {
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 20px;
+        .validator-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #2196F3;
             margin-bottom: 20px;
+        }
+        .cmp-debug {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            max-width: 300px;
+            z-index: 999999;
         }
         button {
-            background-color: #0078d4;
+            background: #2196F3;
             color: white;
             border: none;
             padding: 10px 15px;
+            margin: 5px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
-            margin-right: 10px;
-            margin-bottom: 10px;
         }
-        button:hover {
-            background-color: #0063a9;
-        }
-        .secondary {
-            background-color: #f5f5f5;
-            color: #333;
-            border: 1px solid #ccc;
-        }
-        .secondary:hover {
-            background-color: #e0e0e0;
-        }
-        .test-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-        }
-        .console {
-            background-color: #1e1e1e;
-            color: #ddd;
-            padding: 15px;
-            border-radius: 6px;
-            font-family: monospace;
-            max-height: 200px;
-            overflow-y: auto;
-            margin-top: 10px;
-        }
-        .log {
-            margin: 5px 0;
-        }
-        .success {
-            color: #4caf50;
-        }
-        .error {
-            color: #f44336;
-        }
-        .info {
-            color: #2196f3;
-        }
-        pre {
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            border: 1px solid #e0e0e0;
-            padding: 10px;
-            text-align: left;
-        }
-        th {
-            background-color: #f5f5f5;
-        }
-        footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e0e0e0;
-            font-size: 14px;
-            color: #666;
-        }
+        button:hover { background: #1976D2; }
     </style>
-<!-- Consent Management Platform -->
-<!-- Consent Management Platform -->
-    <script>
-    (function(w,d,s,l,i){
-        w[l]=w[l]||[];
-        var f=d.getElementsByTagName(s)[0],j=d.createElement(s);
-        j.async=true;j.src=i;
-        f.parentNode.insertBefore(j,f);
-    })(window,document,'script','cmp','https://api.cookie21.com/api/v1/consent/script/682cbc4c90db3a2d61bf750f/embed.js');
-    </script>
-<!-- End Consent Management Platform -->    
-<!-- End Consent Management Platform -->
-    <script type="text/plain" data-category="necessary">
-        console.log('Script necesario ejecutado');
-    </script>
-    <script type="text/plain" data-category="analytics">
-        console.log('Script analytics ejecutado');
-    </script>
-    <script type="text/plain" data-category="marketing">
-        console.log('Script marketing ejecutado');
-    </script>
-    <script type="text/plain" data-category="personalization">
-        console.log('Script personalización ejecutado');
-    </script>
-
-    <!-- Script de Google Consent Mode (demo) -->
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag() { dataLayer.push(arguments); }
-        
-        // Estado predeterminado - denegar hasta consentimiento
-        gtag('consent', 'default', {
-            'ad_storage': 'denied',
-            'analytics_storage': 'denied',
-            'personalization_storage': 'denied',
-            'functionality_storage': 'granted',
-            'security_storage': 'granted',
-            'wait_for_update': 500
-        });
-    </script>
 </head>
 <body>
-    <header>
-        <h1>Página de prueba para CMP TCF v2.2</h1>
-        <p>Esta página te ayudará a probar y verificar que tu implementación de CMP cumpla con los requisitos de IAB TCF v2.2.</p>
-    </header>
-
-    <div class="test-section">
-        <h2>Panel de Control de CMP</h2>
-        <div class="test-grid">
-            <div>
-                <h3>Acciones de banner</h3>
-                <button onclick="window.CMP.showBanner()">Mostrar Banner</button>
-                <button onclick="window.CMP.hideBanner()" class="secondary">Ocultar Banner</button>
-                <button onclick="window.CMP.showPreferences()">Mostrar Preferencias</button>
-            </div>
-            <div>
-                <h3>Administración de Consentimiento</h3>
-                <button onclick="window.CMP.acceptAll()">Aceptar Todo</button>
-                <button onclick="window.CMP.rejectAll()">Rechazar Todo</button>
-                <button onclick="window.CMP.reset()" class="secondary">Reiniciar Consentimiento</button>
-            </div>
-            <div>
-                <h3>Verificación API TCF</h3>
-                <button onclick="callTCFAPI('ping')">Test Ping</button>
-                <button onclick="callTCFAPI('getTCData')">Test getTCData</button>
-                <button onclick="callTCFAPI('addEventListener')">Test addEventListener</button>
-            </div>
-        </div>
-        
-        <div class="console" id="console">
-            <div class="log info">» Consola de resultados - Aquí verás la respuesta de las acciones</div>
-        </div>
+    <div class="header">
+        <h1>🧪 CMP Validator Test Page</h1>
+        <p><strong>CMP ID:</strong> 300 | <strong>Version:</strong> 1 | <strong>TCF:</strong> 2.2</p>
     </div>
-
-    <div class="test-section">
-        <h2>Información de Validación TCF v2.2</h2>
-        <p>La siguiente tabla muestra los requisitos esenciales para que tu CMP pase la validación de TCF v2.2:</p>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th>Requisito</th>
-                    <th>Estado</th>
-                    <th>Descripción</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Stub TCF</td>
-                    <td id="check-stub">Verificando...</td>
-                    <td>La función __tcfapi debe estar correctamente implementada</td>
-                </tr>
-                <tr>
-                    <td>TCF Locator</td>
-                    <td id="check-locator">Verificando...</td>
-                    <td>Debe existir un iframe llamado __tcfapiLocator</td>
-                </tr>
-                <tr>
-                    <td>Comando Ping</td>
-                    <td id="check-ping">Verificando...</td>
-                    <td>El comando ping debe devolver los datos correctos</td>
-                </tr>
-                <tr>
-                    <td>Policy Version</td>
-                    <td id="check-policy">Verificando...</td>
-                    <td>tcfPolicyVersion debe ser 4 para TCF v2.2</td>
-                </tr>
-                <tr>
-                    <td>TC String</td>
-                    <td id="check-tcstring">Verificando...</td>
-                    <td>Debe generarse una TC String válida</td>
-                </tr>
-                <tr>
-                    <td>UI Botones</td>
-                    <td id="check-ui">Verificando...</td>
-                    <td>La UI debe tener botones aceptar/rechazar equivalentes</td>
-                </tr>
-                <tr>
-                    <td>Cookie Almacenada</td>
-                    <td id="check-cookie">Verificando...</td>
-                    <td>El consentimiento debe guardarse en cookie</td>
-                </tr>
-            </tbody>
-        </table>
-        
-        <div style="margin-top: 20px;">
-            <button onclick="runAllChecks()">Ejecutar todas las verificaciones</button>
-        </div>
+    
+    <div class="validator-info">
+        <h3>📋 Instrucciones para CMP Validator:</h3>
+        <ol>
+            <li>Guarda este archivo como <code>test-cmp.html</code></li>
+            <li>Ábrelo en tu navegador</li>
+            <li>Ve al <a href="https://iabtcf.com/#validator" target="_blank">IAB TCF Validator</a></li>
+            <li>Introduce la URL o usa la herramienta de inspección</li>
+            <li>El validator debería detectar automáticamente el CMP</li>
+        </ol>
     </div>
-
-    <div class="test-section">
-        <h2>Verificación de Scripts</h2>
-        <p>Esta sección muestra si los scripts con diferentes categorías se activan correctamente según el consentimiento:</p>
-        
-        <div id="script-status" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <div style="padding: 15px; border-radius: 6px; background-color: #f5f5f5;">
-                <h3>Necesarios</h3>
-                <div id="script-necessary">No ejecutado</div>
-            </div>
-            <div style="padding: 15px; border-radius: 6px; background-color: #f5f5f5;">
-                <h3>Analíticos</h3>
-                <div id="script-analytics">No ejecutado</div>
-            </div>
-            <div style="padding: 15px; border-radius: 6px; background-color: #f5f5f5;">
-                <h3>Marketing</h3>
-                <div id="script-marketing">No ejecutado</div>
-            </div>
-            <div style="padding: 15px; border-radius: 6px; background-color: #f5f5f5;">
-                <h3>Personalización</h3>
-                <div id="script-personalization">No ejecutado</div>
-            </div>
-        </div>
-        
-        <div style="margin-top: 20px;">
-            <button onclick="checkScriptStatus()">Verificar estado de scripts</button>
-        </div>
+    
+    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+        <h3>🛠️ Debug Tools</h3>
+        <button onclick="showDebugInfo()">Ver Estado CMP</button>
+        <button onclick="testTCFAPI()">Probar __tcfapi</button>
+        <button onclick="showBanner()">Mostrar Banner</button>
+        <button onclick="clearAllConsent()">Limpiar Consentimiento</button>
+        <button onclick="simulateAcceptAll()">Simular Accept All</button>
+        <button onclick="simulateRejectAll()">Simular Reject All</button>
     </div>
+    
+    <div id="debug-output" style="background: #f8f9fa; padding: 15px; border-radius: 5px; white-space: pre-wrap; font-family: monospace; font-size: 12px; max-height: 400px; overflow-y: auto;"></div>
 
-    <footer>
-        <p>Esta página es solo para verificación y pruebas del CMP. No almacena ningún dato de usuarios reales.</p>
-        <p><strong>Importante:</strong> Para la verificación final, deberás usar la extensión oficial CMP Validator de IAB.</p>
-    </footer>
-
-    <!-- Incluir aquí el script CMP embebible generado -->
     <script>
-        // El script CMP se reemplaza con tu script generado en producción
-        // PEGA AQUÍ TU SCRIPT GENERADO
-
-        // Variables para script de prueba
-        const consoleDiv = document.getElementById('console');
-        let originalConsole = console.log;
-        
-        // Redireccionar console.log a nuestro div
-        console.log = function() {
-            originalConsole.apply(console, arguments);
-            const args = Array.from(arguments);
-            const message = args.map(arg => {
-                if (typeof arg === 'object') {
-                    try {
-                        return JSON.stringify(arg, null, 2);
-                    } catch (e) {
-                        return arg.toString();
-                    }
-                }
-                return arg;
-            }).join(' ');
-            
-            const logDiv = document.createElement('div');
-            logDiv.className = 'log';
-            
-            if (message.includes('Error') || message.includes('❌')) {
-                logDiv.classList.add('error');
-            } else if (message.includes('✅') || message.includes('éxito')) {
-                logDiv.classList.add('success');
-            } else {
-                logDiv.classList.add('info');
-            }
-            
-            logDiv.textContent = '» ' + message;
-            consoleDiv.appendChild(logDiv);
-            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        function showDebugInfo() {
+            const output = document.getElementById('debug-output');
+            const info = {
+                cmpLoaded: !!window.__tcfapi,
+                cmpObject: !!window.CMP,
+                config: window.CMP ? window.CMP.config : null,
+                iframe: !!document.querySelector('iframe[name="__tcfapiLocator"]')
+            };
+            output.textContent = JSON.stringify(info, null, 2);
         }
         
-        function callTCFAPI(command) {
-            clearConsole();
-            console.log(`Ejecutando comando TCF: ${command}`);
-            
-            switch(command) {
-                case 'ping':
-                    window.__tcfapi('ping', 2, function(data, success) {
-                        console.log('Ping result:', data);
-                        if (success) {
-                            console.log('✅ Ping ejecutado correctamente');
-                        } else {
-                            console.log('❌ Error en ping');
-                        }
-                    });
-                    break;
-                    
-                case 'getTCData':
-                    window.__tcfapi('getTCData', 2, function(data, success) {
-                        console.log('getTCData result:', data);
-                        if (success) {
-                            console.log('✅ getTCData ejecutado correctamente');
-                            if (data.tcString) {
-                                console.log(`TC String: ${data.tcString.substring(0, 20)}...`);
-                            }
-                        } else {
-                            console.log('❌ Error en getTCData');
-                        }
-                    });
-                    break;
-                    
-                case 'addEventListener':
-                    window.__tcfapi('addEventListener', 2, function(data, success) {
-                        console.log('addEventListener result:', data);
-                        if (success) {
-                            console.log('✅ addEventListener ejecutado correctamente');
-                            console.log(`Listener ID: ${data.listenerId}`);
-                            
-                            // Limpiar el listener para no acumularlos
-                            setTimeout(() => {
-                                window.__tcfapi('removeEventListener', 2, function(removeData, removeSuccess) {
-                                    console.log('removeEventListener result:', removeSuccess);
-                                }, data.listenerId);
-                            }, 2000);
-                        } else {
-                            console.log('❌ Error en addEventListener');
-                        }
-                    });
-                    break;
-            }
-        }
-        
-        function clearConsole() {
-            consoleDiv.innerHTML = '';
-        }
-        
-        function runAllChecks() {
-            clearConsole();
-            console.log('Ejecutando todas las verificaciones...');
-            
-            // Verificar Stub TCF
-            checkStubTCF();
-            
-            // Verificar TCF Locator
-            checkTCFLocator();
-            
-            // Verificar Ping y Policy Version
-            checkPingAndPolicy();
-            
-            // Verificar TC String
-            checkTCString();
-            
-            // Verificar UI
-            checkUI();
-            
-            // Verificar Cookie
-            checkCookie();
-        }
-        
-        function checkStubTCF() {
-            const el = document.getElementById('check-stub');
-            if (typeof window.__tcfapi === 'function') {
-                el.textContent = '✅ Implementado';
-                el.style.color = 'green';
-                console.log('✅ __tcfapi está correctamente implementado');
-            } else {
-                el.textContent = '❌ No implementado';
-                el.style.color = 'red';
-                console.log('❌ __tcfapi no está implementado correctamente');
-            }
-        }
-        
-        function checkTCFLocator() {
-            const el = document.getElementById('check-locator');
-            if (window.frames['__tcfapiLocator']) {
-                el.textContent = '✅ Presente';
-                el.style.color = 'green';
-                console.log('✅ iframe __tcfapiLocator está presente');
-            } else {
-                el.textContent = '❌ Ausente';
-                el.style.color = 'red';
-                console.log('❌ iframe __tcfapiLocator no está presente');
-            }
-        }
-        
-        function checkPingAndPolicy() {
-            const elPing = document.getElementById('check-ping');
-            const elPolicy = document.getElementById('check-policy');
-            
-            window.__tcfapi('ping', 2, function(data, success) {
-                if (success) {
-                    elPing.textContent = '✅ Correcto';
-                    elPing.style.color = 'green';
-                    console.log('✅ Comando ping está funcionando correctamente');
-                    
-                    if (data.tcfPolicyVersion === 4) {
-                        elPolicy.textContent = '✅ V2.2 (4)';
-                        elPolicy.style.color = 'green';
-                        console.log('✅ tcfPolicyVersion es 4 (TCF v2.2)');
-                    } else {
-                        elPolicy.textContent = `❌ Incorrecto (${data.tcfPolicyVersion})`;
-                        elPolicy.style.color = 'red';
-                        console.log(`❌ tcfPolicyVersion incorrecta: ${data.tcfPolicyVersion}, debería ser 4`);
-                    }
-                } else {
-                    elPing.textContent = '❌ Error';
-                    elPing.style.color = 'red';
-                    console.log('❌ Error ejecutando comando ping');
-                }
-            });
-        }
-        
-        function checkTCString() {
-            const el = document.getElementById('check-tcstring');
-            
-            window.__tcfapi('getTCData', 2, function(data, success) {
-                if (success && data.tcString) {
-                    el.textContent = '✅ Presente';
-                    el.style.color = 'green';
-                    console.log(`✅ TC String generada: ${data.tcString.substring(0, 20)}...`);
-                } else {
-                    el.textContent = '❌ Ausente o inválida';
-                    el.style.color = 'red';
-                    console.log('❌ TC String ausente o inválida');
-                }
-            });
-        }
-        
-        function checkUI() {
-            const el = document.getElementById('check-ui');
-            
-            // Buscar botones aceptar/rechazar
-            const acceptButton = document.querySelector('[data-cmp-action="accept_all"]');
-            const rejectButton = document.querySelector('[data-cmp-action="reject_all"]');
-            
-            if (!acceptButton && !rejectButton) {
-                el.textContent = '❓ Banner no visible';
-                el.style.color = 'orange';
-                console.log('⚠️ Banner no visible. Muestra el banner para verificar la UI');
+        function testTCFAPI() {
+            const output = document.getElementById('debug-output');
+            if (!window.__tcfapi) {
+                output.textContent = 'ERROR: __tcfapi no está disponible';
                 return;
             }
             
-            if (acceptButton && rejectButton) {
-                el.textContent = '✅ Botones presentes';
-                el.style.color = 'green';
-                console.log('✅ Botones Aceptar/Rechazar presentes en UI');
+            let results = [];
+            
+            // Test ping
+            window.__tcfapi('ping', 2, function(data, success) {
+                results.push('PING: ' + (success ? 'SUCCESS' : 'FAILED'));
+                results.push(JSON.stringify(data, null, 2));
+                
+                // Test getTCData
+                window.__tcfapi('getTCData', 2, function(tcData, success) {
+                    results.push('\\nGET_TC_DATA: ' + (success ? 'SUCCESS' : 'FAILED'));
+                    results.push(JSON.stringify(tcData, null, 2));
+                    
+                    output.textContent = results.join('\\n');
+                });
+            });
+        }
+        
+        function showBanner() {
+            alert('Banner functionality would be implemented here');
+        }
+        
+        function clearAllConsent() {
+            if (window.CMP && window.CMP.clearConsent) {
+                window.CMP.clearConsent();
+                alert('Consentimiento limpiado');
             } else {
-                el.textContent = '❌ Faltan botones';
-                el.style.color = 'red';
-                console.log('❌ No se encontraron botones Aceptar/Rechazar en la UI');
+                alert('Función clearConsent no disponible');
             }
         }
         
-        function checkCookie() {
-            const el = document.getElementById('check-cookie');
-            
-            // Buscar cookie de consentimiento
-            const cookies = document.cookie.split(';');
-            const tcfCookie = cookies.find(cookie => 
-                cookie.trim().startsWith('euconsent-v2=') ||
-                cookie.trim().includes('-consent=')
-            );
-            
-            if (tcfCookie) {
-                el.textContent = '✅ Presente';
-                el.style.color = 'green';
-                console.log('✅ Cookie de consentimiento encontrada');
-            } else {
-                el.textContent = '❌ Ausente';
-                el.style.color = 'red';
-                console.log('❌ Cookie de consentimiento no encontrada. Acepta/rechaza para establecerla');
-            }
+        function simulateAcceptAll() {
+            alert('Accept All simulation - implementation pending');
         }
         
-        function checkScriptStatus() {
-            // Verificar console.logs de scripts de cada categoría
-            const originalLogs = console.__proto__.log;
-            let logs = [];
-            
-            console.__proto__.log = function() {
-                originalLogs.apply(this, arguments);
-                logs.push(Array.from(arguments).join(' '));
-            };
-            
-            // Restaurar console.log original después de capturar
-            setTimeout(() => {
-                console.__proto__.log = originalLogs;
-                
-                // Verificar qué scripts se ejecutaron
-                const necessaryEl = document.getElementById('script-necessary');
-                const analyticsEl = document.getElementById('script-analytics');
-                const marketingEl = document.getElementById('script-marketing');
-                const personalizationEl = document.getElementById('script-personalization');
-                
-                if (logs.includes('Script necesario ejecutado')) {
-                    necessaryEl.textContent = '✅ Ejecutado';
-                    necessaryEl.style.color = 'green';
-                } else {
-                    necessaryEl.textContent = '❌ No ejecutado';
-                    necessaryEl.style.color = 'red';
-                }
-                
-                if (logs.includes('Script analytics ejecutado')) {
-                    analyticsEl.textContent = '✅ Ejecutado';
-                    analyticsEl.style.color = 'green';
-                } else {
-                    analyticsEl.textContent = '❌ No ejecutado';
-                    analyticsEl.style.color = 'red';
-                }
-                
-                if (logs.includes('Script marketing ejecutado')) {
-                    marketingEl.textContent = '✅ Ejecutado';
-                    marketingEl.style.color = 'green';
-                } else {
-                    marketingEl.textContent = '❌ No ejecutado';
-                    marketingEl.style.color = 'red';
-                }
-                
-                if (logs.includes('Script personalización ejecutado')) {
-                    personalizationEl.textContent = '✅ Ejecutado';
-                    personalizationEl.style.color = 'green';
-                } else {
-                    personalizationEl.textContent = '❌ No ejecutado';
-                    personalizationEl.style.color = 'red';
-                }
-                
-                console.log('Verificación de scripts completada');
-            }, 500);
+        function simulateRejectAll() {
+            alert('Reject All simulation - implementation pending');
         }
-        
-        // Verificaciones iniciales al cargar la página
-        setTimeout(runAllChecks, 1500);
     </script>
-    
-    <!-- Incluir el script validador (opcional) -->
-    <script src="./tfcTest.js"></script>
 </body>
 </html>
