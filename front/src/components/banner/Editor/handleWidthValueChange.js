@@ -11,22 +11,30 @@ const handleWidthValueChange = function(e) {
     if (this.widthUnit === '%') {
       const numValue = parseInt(value);
       
-      if (bannerType === 'modal') {
-        // Limitar entre 40% y 90%
-        const limitedValue = Math.max(40, Math.min(90, numValue || 60));
-        this.setWidthValue(limitedValue.toString());
-        this.handleUpdateLayoutForDevice(this.deviceView, 'width', `${limitedValue}%`);
-        this.handleUpdateLayoutForDevice(this.deviceView, 'data-width', limitedValue.toString());
-      } else if (bannerType === 'floating') {
-        // Limitar entre 40% y 70%
-        const limitedValue = Math.max(40, Math.min(70, numValue || 50));
-        this.setWidthValue(limitedValue.toString());
-        this.handleUpdateLayoutForDevice(this.deviceView, 'width', `${limitedValue}%`);
-        this.handleUpdateLayoutForDevice(this.deviceView, 'data-width', limitedValue.toString());
-      } else { // banner estándar
-        // Para banners normales, siempre 100%
-        this.handleUpdateLayoutForDevice(this.deviceView, 'width', '100%');
-        this.setWidthValue('100');
+      // Permitir campo vacío para edición
+      if (value === '' || value === '0') {
+        this.setWidthValue(value);
+        // No actualizar layout cuando está vacío, mantener estado anterior
+      } else if (!isNaN(numValue)) {
+        if (bannerType === 'modal') {
+          // Limitar entre 40% y 90%
+          const limitedValue = Math.max(40, Math.min(90, numValue));
+          this.setWidthValue(limitedValue.toString());
+          this.handleUpdateLayoutForDevice(this.deviceView, 'width', `${limitedValue}%`);
+          this.handleUpdateLayoutForDevice(this.deviceView, 'data-width', limitedValue.toString());
+        } else if (bannerType === 'floating') {
+          // Limitar entre 40% y 70%
+          const limitedValue = Math.max(40, Math.min(70, numValue));
+          this.setWidthValue(limitedValue.toString());
+          this.handleUpdateLayoutForDevice(this.deviceView, 'width', `${limitedValue}%`);
+          this.handleUpdateLayoutForDevice(this.deviceView, 'data-width', limitedValue.toString());
+        } else { // banner estándar
+          // Para banners normales, limitar al máximo 100%
+          const limitedValue = Math.max(1, Math.min(100, numValue));
+          this.setWidthValue(limitedValue.toString());
+          this.handleUpdateLayoutForDevice(this.deviceView, 'width', `${limitedValue}%`);
+          this.handleUpdateLayoutForDevice(this.deviceView, 'data-width', limitedValue.toString());
+        }
       }
     } else {
       // Para píxeles, permitir valores personalizados

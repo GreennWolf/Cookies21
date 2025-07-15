@@ -1,6 +1,7 @@
 // services/email.service.js
 const nodemailer = require('nodemailer');
 const logger = require('../utils/logger');
+const { getBaseUrl } = require('../config/urls');
 
 /**
  * Servicio para el envío de emails
@@ -108,6 +109,99 @@ class EmailService {
       } else {
         throw error;
       }
+    }
+  }
+
+  /**
+   * Método genérico para enviar emails
+   * @param {Object} options - Opciones del email
+   * @returns {Promise<Object>} - Resultado del envío
+   */
+  async sendEmail(options) {
+    const { to, subject, html, text } = options;
+    
+    console.log('📧 ========== MÉTODO sendEmail ==========');
+    console.log('📧 Destinatario:', to);
+    console.log('📧 Asunto:', subject);
+    
+    try {
+      // Inicializar transporter si no existe
+      if (!this.transporter) {
+        console.log('📧 Inicializando transporter...');
+        await this._initializeTransporter();
+      }
+      
+      if (!this.transporter) {
+        console.log('⚠️ No se pudo inicializar el transporter - modo simulación');
+        return {
+          success: true,
+          simulated: true,
+          message: 'Email simulado (sin transporter)',
+          to,
+          subject
+        };
+      }
+      
+      const mailOptions = {
+        from: process.env.EMAIL_FROM || `"Cookie21" <${process.env.EMAIL_USER}>`,
+        to,
+        subject,
+        html,
+        text: text || 'Email enviado desde Cookie21'
+      };
+      
+      console.log('📧 Enviando email con opciones:', {
+        from: mailOptions.from,
+        to: mailOptions.to,
+        subject: mailOptions.subject
+      });
+      
+      const info = await this.transporter.sendMail(mailOptions);
+      
+      console.log('✅ Email enviado exitosamente');
+      console.log('📧 Message ID:', info.messageId);
+      console.log('📧 Response:', info.response);
+      
+      // Si estamos en desarrollo con Ethereal, obtener URL de preview
+      const previewUrl = this.isDev && process.env.USE_ETHEREAL === 'true' 
+        ? nodemailer.getTestMessageUrl(info) 
+        : null;
+        
+      if (previewUrl) {
+        console.log('📧 Preview URL:', previewUrl);
+      }
+      
+      return {
+        success: true,
+        messageId: info.messageId,
+        response: info.response,
+        previewUrl
+      };
+      
+    } catch (error) {
+      console.error('❌ Error al enviar email:', error);
+      console.error('❌ Detalles del error:', {
+        name: error.name,
+        message: error.message,
+        code: error.code,
+        command: error.command,
+        responseCode: error.responseCode,
+        response: error.response
+      });
+      
+      logger.error(`Error al enviar email: ${error.message}`, error);
+      
+      return {
+        success: false,
+        error: error.message,
+        details: {
+          name: error.name,
+          code: error.code,
+          command: error.command,
+          responseCode: error.responseCode,
+          response: error.response
+        }
+      };
     }
   }
 
@@ -1282,7 +1376,8 @@ class EmailService {
       }
       
       // URL base para imágenes y enlaces
-      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const apiUrl = getBaseUrl();
+      const baseUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://admin.cookie21.com' : 'http://localhost:5173');
       const docsUrl = `${baseUrl}/documentation`;
       
       // Contenido específico para invitación si está incluida
@@ -2236,6 +2331,244 @@ Si estás recibiendo este email, la configuración SMTP está funcionando correc
       subject: `${typeInfo.icon} ${typeInfo.title} - ${clientName}`,
       html
     });
+  }
+
+  /**
+   * Envía notificación por email cuando se crea un nuevo cliente
+   * @param {Object} options - Opciones del email
+   * @param {string} options.ownerName - Nombre del owner
+   * @param {string} options.ownerEmail - Email del owner
+   * @param {Object} options.clientData - Datos del cliente creado
+   * @returns {Promise<Object>} Resultado del envío
+   */
+  async sendClientCreationNotification(options) {
+    const { ownerName, ownerEmail, clientData } = options;
+
+    console.log('📧 ========== SERVICIO EMAIL: NOTIFICACIÓN NUEVO CLIENTE ==========');
+    console.log('📧 Destinatario:', { ownerName, ownerEmail });
+    console.log('📧 Datos del cliente:', clientData);
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Nuevo Cliente Registrado - Cookie21</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8fafc;
+          }
+          .container {
+            background: white;
+            border-radius: 12px;
+            padding: 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+          }
+          .header {
+            background: linear-gradient(135deg, #235C88 0%, #1e4f73 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+          }
+          .content {
+            padding: 30px;
+          }
+          .client-info {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #e5e7eb;
+          }
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+          }
+          .info-row:last-child {
+            border-bottom: none;
+          }
+          .info-label {
+            font-weight: 600;
+            color: #374151;
+            flex: 0 0 140px;
+          }
+          .info-value {
+            color: #6b7280;
+            flex: 1;
+          }
+          .footer {
+            background: #f9fafb;
+            padding: 20px 30px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+          }
+          .badge {
+            display: inline-block;
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+          }
+          .highlight {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <!-- Header -->
+          <div class="header">
+            <h1 style="margin: 0; font-size: 24px; font-weight: 700;">
+              🎉 Nuevo Cliente Registrado
+            </h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 16px;">
+              Cookie21 - Panel de Administración
+            </p>
+          </div>
+
+          <!-- Content -->
+          <div class="content">
+            <p style="font-size: 16px; margin: 0 0 20px 0;">
+              Hola <strong>${ownerName}</strong>,
+            </p>
+
+            <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0;">
+              Se ha registrado un nuevo cliente en la plataforma Cookie21. A continuación tienes los detalles:
+            </p>
+
+            <!-- Client Information -->
+            <div class="client-info">
+              <h3 style="margin: 0 0 16px 0; color: #235C88; font-size: 18px;">
+                📋 Información del Cliente
+              </h3>
+              
+              <div class="info-row">
+                <div class="info-label">🏢 Nombre:</div>
+                <div class="info-value"><strong>${clientData.name}</strong></div>
+              </div>
+              
+              <div class="info-row">
+                <div class="info-label">📧 Email:</div>
+                <div class="info-value">${clientData.contactEmail}</div>
+              </div>
+              
+              <div class="info-row">
+                <div class="info-label">🌐 Dominio:</div>
+                <div class="info-value">${clientData.domain}</div>
+              </div>
+              
+              <div class="info-row">
+                <div class="info-label">📦 Plan:</div>
+                <div class="info-value">
+                  <span class="badge">${clientData.plan.toUpperCase()}</span>
+                </div>
+              </div>
+              
+              <div class="info-row">
+                <div class="info-label">📅 Fecha:</div>
+                <div class="info-value">${clientData.createdAt}</div>
+              </div>
+            </div>
+
+            <!-- Fiscal Information -->
+            <div class="client-info">
+              <h3 style="margin: 0 0 16px 0; color: #235C88; font-size: 18px;">
+                🏛️ Datos Fiscales
+              </h3>
+              
+              <div class="info-row">
+                <div class="info-label">🆔 CIF/NIF:</div>
+                <div class="info-value">${clientData.fiscalInfo.cif}</div>
+              </div>
+              
+              <div class="info-row">
+                <div class="info-label">🏢 Razón Social:</div>
+                <div class="info-value">${clientData.fiscalInfo.razonSocial}</div>
+              </div>
+              
+              <div class="info-row">
+                <div class="info-label">📍 Dirección:</div>
+                <div class="info-value">${clientData.fiscalInfo.direccion}</div>
+              </div>
+            </div>
+
+            <!-- Admin User Information -->
+            <div class="client-info">
+              <h3 style="margin: 0 0 16px 0; color: #235C88; font-size: 18px;">
+                👤 Usuario Administrador
+              </h3>
+              
+              <div class="info-row">
+                <div class="info-label">👤 Nombre:</div>
+                <div class="info-value">${clientData.adminUser.name}</div>
+              </div>
+              
+              <div class="info-row">
+                <div class="info-label">📧 Email:</div>
+                <div class="info-value">${clientData.adminUser.email}</div>
+              </div>
+            </div>
+
+            <div style="background: #dbeafe; border: 1px solid #3b82f6; border-radius: 8px; padding: 16px; margin: 24px 0;">
+              <p style="margin: 0; color: #1e40af; font-size: 14px;">
+                <strong>💡 Información:</strong> El cliente puede comenzar a usar Cookie21 inmediatamente. 
+                Se ha enviado una invitación al administrador para que configure su cuenta.
+              </p>
+            </div>
+
+            <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0;">
+              Puedes revisar todos los detalles del cliente en el panel de administración de Cookie21.
+            </p>
+          </div>
+
+          <!-- Footer -->
+          <div class="footer">
+            <p style="margin: 0; font-size: 14px; color: #6b7280;">
+              Esta es una notificación automática del sistema Cookie21.
+            </p>
+            <p style="margin: 8px 0 0 0; font-size: 14px; color: #6b7280;">
+              <strong>Equipo de Cookie21</strong>
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>`;
+
+    const emailOptions = {
+      to: ownerEmail,
+      subject: `🎉 Nuevo cliente registrado: ${clientData.name} - Cookie21`,
+      html
+    };
+    
+    console.log('📧 Llamando a sendEmail con opciones:', {
+      to: emailOptions.to,
+      subject: emailOptions.subject,
+      htmlLength: emailOptions.html.length
+    });
+    
+    const result = await this.sendEmail(emailOptions);
+    
+    console.log('📧 Resultado de sendEmail:', result);
+    
+    return result;
   }
 }
 

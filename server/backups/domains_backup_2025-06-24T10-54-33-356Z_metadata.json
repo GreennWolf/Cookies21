@@ -1,0 +1,57 @@
+{
+  "timestamp": "2025-06-24T10-54-33-356Z",
+  "totalDomains": 30,
+  "mongoUri": "mongodb://localhost:27017/cookies21",
+  "nodeVersion": "v22.14.0",
+  "backupVersion": "1.0.0",
+  "files": {
+    "json": "domains_backup_2025-06-24T10-54-33-356Z.json",
+    "compressed": "domains_backup_2025-06-24T10-54-33-356Z.json.gz"
+  },
+  "statistics": {
+    "total": 30,
+    "byStatus": {
+      "pending": 26,
+      "active": 4
+    },
+    "byClient": {
+      "6836433a8ccc6e649bc907f3": 1,
+      "683a5475c0a5f7fbaabd66df": 1,
+      "683b9ad2cd151dda1edee49c": 1,
+      "683bdb0013cb60756bbc5cec": 1,
+      "683bdd6003d01cb50eb0c08d": 1,
+      "683be0797321881bf5180d91": 1,
+      "684050eaaa28cd25f0be84c4": 1,
+      "684087a18636d8165a11bd9b": 1,
+      "6841a25ac4353b6431c2bc96": 1,
+      "6844c6de9c3fe205ccc3381d": 3,
+      "6855788788447de63db453af": 1,
+      "685649b858846c3b6fc0a58a": 1,
+      "6857c8065b93c6f0c4c8be87": 1,
+      "68580fddb65f89cf7050b35d": 1,
+      "685811b7b65f89cf7050b4a3": 1,
+      "68581ae527f811f110f243d8": 1,
+      "6858209e27f811f110f245c8": 1,
+      "68582230235e6e5caa08a4b9": 1,
+      "6858544ade796ea36e45cde4": 1,
+      "68585ec34a20af067f5c8904": 1,
+      "6858720ffe3cea91164390c7": 1,
+      "6858732c5f29961f3da0cd75": 1,
+      "685876497352da33e12d547c": 1,
+      "68587e647352da33e12d5b3c": 1,
+      "685886b87352da33e12d6029": 1,
+      "68588c159c5737f570c29e35": 1,
+      "685890b343728409e71ea2c7": 2
+    },
+    "withScanConfig": 3,
+    "withAnalysisSchedule": 28,
+    "withSettings": 30,
+    "oldModelFields": {
+      "design": 29,
+      "scanning": 29,
+      "purposes": 29,
+      "vendors": 29,
+      "banner": 29
+    }
+  }
+}

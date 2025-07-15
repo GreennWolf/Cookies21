@@ -3,7 +3,7 @@ import { toast } from 'react-hot-toast';
 import { getDomains } from '../api/domain';
 import { getCookies, createCookie, updateCookieStatus, deleteCookie, deleteCookies } from '../api/cookie';
 import { getClients } from '../api/client';
-import { startScan, startAsyncAnalysis, getActiveScan, cancelScanInProgress, forceStopAllScans, forceStopAllAnalysis, cancelAnalysis } from '../api/cookieScan';
+import { startScan, startAsyncAnalysis, getActiveScan, cancelScanInProgress, forceStopAllScans, forceStopAllAnalysis, cancelAnalysis, startIntelligentAnalysis, getIntelligentAnalysisResults, generateComplianceReport } from '../api/cookieScan';
 import DomainSelector from '../components/domain/DomainSelector';
 import CookieList from '../components/cookie/CookieList';
 import CookieScanModal from '../components/cookie/CookieScanModal';
@@ -16,6 +16,7 @@ import CookieDetailsModal from '../components/cookie/CookieDetailsModal';
 import CreateCookieModal from '../components/cookie/CreateCookieModal';
 import CookieScanHistoryModal from '../components/cookie/CookieScanHistoryModal';
 import CancelScanConfirmModal from '../components/cookie/CancelScanConfirmModal';
+import IntelligentAnalysisModal from '../components/cookie/IntelligentAnalysisModal';
 import ScanLogsConsole from '../components/debug/ScanLogsConsole';
 import SubscriptionAlert from '../components/common/SubscriptionAlert';
 import { useAuth } from '../contexts/AuthContext';
@@ -49,8 +50,11 @@ const Cookies = () => {
   const [isAdvancedAnalysisModalOpen, setIsAdvancedAnalysisModalOpen] = useState(false);
   const [isAdvancedProgressModalOpen, setIsAdvancedProgressModalOpen] = useState(false);
   const [currentAdvancedAnalysisId, setCurrentAdvancedAnalysisId] = useState(null);
+  const [isIntelligentAnalysisModalOpen, setIsIntelligentAnalysisModalOpen] = useState(false);
+  const [intelligentAnalysisResults, setIntelligentAnalysisResults] = useState(null);
   const [showLogsConsole, setShowLogsConsole] = useState(false);
   const [enableBulkSelection, setEnableBulkSelection] = useState(false);
+  const [showInactiveCookies, setShowInactiveCookies] = useState(false);
   const [scanConfig, setScanConfig] = useState({
     includeSubdomains: true,
     maxUrls: 100,
@@ -144,11 +148,12 @@ const Cookies = () => {
         let res;
         if (selectedDomain) {
           // Si hay un dominio seleccionado, obtener cookies para ese dominio
-          res = await getCookies(selectedDomain._id);
+          const params = showInactiveCookies ? {} : { status: 'active' };
+          res = await getCookies(selectedDomain._id, params);
         } else if (isOwner) {
           // Si es owner y no hay dominio seleccionado, puede obtener todas las cookies
           // con filtro opcional por cliente
-          const params = {};
+          const params = showInactiveCookies ? {} : { status: 'active' };
           if (selectedClientId) {
             params.clientId = selectedClientId;
           } else {
@@ -172,7 +177,47 @@ const Cookies = () => {
     };
     
     fetchCookies();
-  }, [selectedDomain, isOwner, selectedClientId]);
+  }, [selectedDomain, isOwner, selectedClientId, showInactiveCookies]);
+
+  // Función para refrescar cookies manualmente
+  const handleRefreshCookies = async () => {
+    // Si no hay dominio seleccionado y no es owner, no hacer nada
+    if (!selectedDomain && !isOwner) {
+      toast.error('Selecciona un dominio para refrescar las cookies');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      let res;
+      if (selectedDomain) {
+        // Si hay un dominio seleccionado, obtener cookies para ese dominio
+        const params = showInactiveCookies ? {} : { status: 'active' };
+        res = await getCookies(selectedDomain._id, params);
+      } else if (isOwner) {
+        // Si es owner y no hay dominio seleccionado, puede obtener todas las cookies
+        // con filtro opcional por cliente
+        const params = showInactiveCookies ? {} : { status: 'active' };
+        if (selectedClientId) {
+          params.clientId = selectedClientId;
+        } else {
+          // Si es owner pero no ha seleccionado cliente, no mostrar cookies
+          toast.error('Selecciona un cliente para refrescar las cookies');
+          setLoading(false);
+          return;
+        }
+        res = await getCookies(null, params);
+      }
+      
+      setCookies(Array.isArray(res.data.cookies) ? res.data.cookies : []);
+      toast.success('Cookies actualizadas correctamente');
+    } catch (error) {
+      console.error('Error al refrescar cookies:', error);
+      toast.error('Error al refrescar cookies: ' + (error.message || 'Error de servidor'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Verificar si hay escaneos activos para el dominio seleccionado
   useEffect(() => {
@@ -325,6 +370,79 @@ const Cookies = () => {
     setIsAdvancedProgressModalOpen(false);
     setCurrentAdvancedAnalysisId(null);
     toast.info('Análisis avanzado cancelado');
+  };
+
+  // Función para iniciar análisis inteligente
+  const handleIntelligentAnalysis = async () => {
+    if (!selectedDomain) {
+      toast.error('Por favor selecciona un dominio');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await startIntelligentAnalysis(selectedDomain._id, {
+        deepScan: true,
+        includeThirdParty: true,
+        timeout: 30000,
+        generateRecommendations: true
+      });
+
+      toast.success('Análisis inteligente iniciado correctamente');
+      
+      // Esperar un momento y luego obtener resultados
+      setTimeout(async () => {
+        try {
+          const results = await getIntelligentAnalysisResults(selectedDomain._id, {
+            includeDetails: true
+          });
+          
+          setIntelligentAnalysisResults(results.data);
+          setIsIntelligentAnalysisModalOpen(true);
+          toast.success('Análisis inteligente completado');
+        } catch (error) {
+          console.error('Error getting analysis results:', error);
+          toast.error('Error obteniendo resultados del análisis');
+        }
+      }, 60000); // Esperar 1 minuto
+
+    } catch (error) {
+      console.error('Error starting intelligent analysis:', error);
+      toast.error(error.message || 'Error al iniciar análisis inteligente');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para generar reporte de cumplimiento
+  const handleGenerateComplianceReport = async () => {
+    if (!selectedDomain) {
+      toast.error('Por favor selecciona un dominio');
+      return;
+    }
+
+    try {
+      const report = await generateComplianceReport(selectedDomain._id);
+      
+      // Crear un blob con el reporte y descargarlo
+      const blob = new Blob([JSON.stringify(report.data, null, 2)], {
+        type: 'application/json'
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `compliance-report-${selectedDomain.domain}-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast.success('Reporte de cumplimiento generado');
+    } catch (error) {
+      console.error('Error generating compliance report:', error);
+      toast.error(error.message || 'Error al generar reporte de cumplimiento');
+    }
   };
 
   // Función para forzar la limpieza de análisis colgados (solo owners)
@@ -703,6 +821,39 @@ const Cookies = () => {
               </Tooltip>
             </div>
 
+
+
+            {/* Reporte GDPR Button */}
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={handleGenerateComplianceReport} 
+                disabled={loading || subscriptionInfo.subscriptionInactive}
+                className="px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded hover:from-orange-700 hover:to-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                title={subscriptionInfo.subscriptionInactive ? "Suscripción requerida para reporte GDPR" : ""}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>Reporte GDPR</span>
+              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="text-gray-500 hover:text-gray-700 ml-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="bg-white border-gray-200">
+                  <p className="max-w-xs">
+                    <strong>Reporte de Cumplimiento GDPR</strong><br />
+                    Genera un reporte detallado del cumplimiento GDPR basado en el último
+                    análisis inteligente, incluyendo violaciones, recomendaciones y métricas.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
             {/* Crear Cookie Button */}
             <div className="flex items-center gap-1">
               <button 
@@ -730,6 +881,45 @@ const Cookies = () => {
                     Registra manualmente una nueva cookie con su categoría, 
                     propósito y duración. Útil para cookies propias 
                     o que no fueron detectadas automáticamente.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            {/* Refrescar Cookies Button */}
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={handleRefreshCookies}
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Cargando...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Refrescar</span>
+                  </>
+                )}
+              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="text-gray-500 hover:text-gray-700 ml-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="bg-white border-gray-200">
+                  <p className="max-w-xs">
+                    <strong>Refrescar Lista de Cookies</strong><br />
+                    Actualiza la lista de cookies sin recargar toda la página.
+                    Útil para ver cambios después de análisis o modificaciones.
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -845,6 +1035,34 @@ const Cookies = () => {
             </span>
           </div>
           <div className="flex items-center space-x-2">
+            <button
+              onClick={handleRefreshCookies}
+              disabled={loading}
+              className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Cargando...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>Refrescar</span>
+                </>
+              )}
+            </button>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showInactiveCookies}
+                onChange={(e) => setShowInactiveCookies(e.target.checked)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <span className="text-sm text-gray-700">Mostrar cookies inactivas</span>
+            </label>
             <button
               onClick={() => setEnableBulkSelection(!enableBulkSelection)}
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -970,6 +1188,13 @@ const Cookies = () => {
           onAnalysisCancelled={handleAdvancedAnalysisCancelled}
         />
       )}
+
+      {/* Modal de Análisis Inteligente */}
+      <IntelligentAnalysisModal
+        isOpen={isIntelligentAnalysisModalOpen}
+        onClose={() => setIsIntelligentAnalysisModalOpen(false)}
+        results={intelligentAnalysisResults}
+      />
 
       {/* Consola de Logs de Escaneo */}
       <ScanLogsConsole

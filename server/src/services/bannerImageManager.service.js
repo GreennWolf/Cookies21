@@ -7,19 +7,20 @@ const logger = require('../utils/logger');
 class BannerImageManager {
   constructor() {
     this.tempPrefix = 'temp_';
-    // Corregir ruta: desde /server/src subir un nivel a /server
-    this.baseImagesPath = path.join(process.cwd(), '..', 'public', 'templates', 'images');
+    // Ruta correcta: usar ruta absoluta desde la ubicación del servicio
+    this.baseImagesPath = path.join(__dirname, '../../public', 'templates', 'images');
+    // Nueva ruta para archivos temporales
+    this.baseTempPath = path.join(__dirname, '../../public', 'templates', 'temp');
     this.supportedFormats = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico'];
     this.maxFileSize = 10 * 1024 * 1024; // 10MB
   }
 
   /**
-   * NUEVO: Método unificado para procesar imágenes con mejor detección
-   * Maneja tanto creación como actualización con un enfoque más robusto
+   * MÉTODO ORIGINAL RESTAURADO: Para que el editor funcione exactamente igual
    */
   async processImagesUnified({ bannerId, uploadedFiles = [], components = [], isUpdate = false, metadata = {} }) {
     try {
-      logger.info(`🔄 [BannerImageManager] PROCESAMIENTO SIMPLIFICADO - Banner: ${bannerId}, Archivos: ${uploadedFiles.length}, Update: ${isUpdate}`);
+      logger.info(`🔄 [BannerImageManager] PROCESAMIENTO - Banner: ${bannerId}, Archivos: ${uploadedFiles.length}, Update: ${isUpdate}`);
       
       // Validaciones iniciales
       if (!bannerId) {
@@ -34,45 +35,37 @@ class BannerImageManager {
       const bannerDir = path.join(this.baseImagesPath, bannerId);
       await this.ensureDirectory(bannerDir);
 
-      // 2. Encontrar todos los componentes con __IMAGE_REF__
-      const componentsWithImageRef = [];
-      const findImageRefComponents = (comps, parentPath = '') => {
-        comps.forEach((comp, index) => {
-          if (comp.type === 'image' && typeof comp.content === 'string' && comp.content.startsWith('__IMAGE_REF__')) {
-            componentsWithImageRef.push(comp);
-            logger.info(`🔍 [BannerImageManager] Componente con IMAGE_REF encontrado: ${comp.id}`);
-          }
-          if (comp.children && Array.isArray(comp.children)) {
-            findImageRefComponents(comp.children);
-          }
-        });
-      };
-      findImageRefComponents(components);
+      // NUEVO: Detectar si son archivos IMAGE_REF de creación de clientes
+      const hasImageRefFiles = uploadedFiles.some(file => 
+        file.originalname && file.originalname.startsWith('IMAGE_REF_')
+      );
 
-      logger.info(`📊 [BannerImageManager] Componentes con IMAGE_REF: ${componentsWithImageRef.length}, Archivos: ${uploadedFiles.length}`);
-
-      // 3. Procesar archivos simplificado - matching 1:1 por orden
-      let fileIndex = 0;
-      for (const component of componentsWithImageRef) {
-        if (fileIndex < uploadedFiles.length) {
-          const file = uploadedFiles[fileIndex];
-          logger.info(`🎯 [BannerImageManager] Procesando: Componente ${component.id} ← Archivo ${file.originalname}`);
-          
-          try {
-            await this.saveImageFileSimplified(file, component, bannerId);
-            logger.info(`✅ [BannerImageManager] Imagen guardada para ${component.id}`);
-          } catch (error) {
-            logger.error(`❌ [BannerImageManager] Error guardando imagen para ${component.id}:`, error);
-          }
-          
-          fileIndex++;
-        }
+      if (hasImageRefFiles) {
+        // FLUJO ESPECIAL: Para creación de clientes
+        logger.info(`🎯 [BannerImageManager] DETECTADO: Creación de clientes con IMAGE_REF`);
+        return await this.processClientCreationImages(bannerId, uploadedFiles, components, bannerDir);
       }
 
-      // 4. Clonar componentes para devolver
-      const processedComponents = JSON.parse(JSON.stringify(components));
+      // FLUJO ORIGINAL: Para editor (mantener exactamente igual)
+      logger.info(`🎯 [BannerImageManager] DETECTADO: Editor (flujo original)`);
 
-      // 4. DEBUG: Verificar componentes antes de devolver
+      // 2. Analizar archivos subidos para identificar componentes por ID
+      const fileAnalysis = this.analyzeUploadedFiles(uploadedFiles);
+      
+      logger.info(`📊 [BannerImageManager] Análisis de archivos:`);
+      logger.info(`   - Referencias válidas: ${fileAnalysis.validReferences.length}`);
+      logger.info(`   - Archivos huérfanos: ${fileAnalysis.orphanedFiles.length}`);
+      logger.info(`   - Componentes identificados: ${Array.from(fileAnalysis.componentFileMap.keys())}`);
+
+      // 3. Procesar componentes usando análisis por ID
+      const processedComponents = await this.processComponentsUnified(
+        JSON.parse(JSON.stringify(components)), 
+        fileAnalysis, 
+        bannerId, 
+        isUpdate
+      );
+
+      // 4. DEBUG: Verificar componentes después del procesamiento
       const imageRefsAfterProcessing = [];
       const findImageRefsAfter = (comps, parentPath = '') => {
         comps.forEach((comp, index) => {
@@ -85,7 +78,8 @@ class BannerImageManager {
               contentType: typeof comp.content,
               esImageRef: typeof comp.content === 'string' && comp.content.startsWith('__IMAGE_REF__'),
               esRutaServidor: typeof comp.content === 'string' && comp.content.startsWith('/templates/'),
-              parentId: comp.parentId || 'none'
+              parentId: comp.parentId || 'none',
+              previewUrl: comp.style?.desktop?._previewUrl || 'no-preview'
             });
           }
           if (comp.children && Array.isArray(comp.children)) {
@@ -97,25 +91,218 @@ class BannerImageManager {
       
       logger.info(`🔍 [BannerImageManager] COMPONENTES IMAGEN DESPUÉS DEL PROCESAMIENTO:`, JSON.stringify(imageRefsAfterProcessing, null, 2));
 
-      // 5. Estadísticas simplificadas
+      // 5. Calcular estadísticas reales basadas en archivos procesados
+      const processedFiles = uploadedFiles.filter(file => file._processed);
       const stats = {
         total: uploadedFiles.length,
-        successful: Math.min(fileIndex, componentsWithImageRef.length),
-        failed: 0
+        successful: processedFiles.length,
+        failed: uploadedFiles.length - processedFiles.length,
+        validReferences: fileAnalysis.validReferences.length,
+        orphanedFiles: fileAnalysis.orphanedFiles.length
       };
-      logger.info(`📈 [BannerImageManager] ESTADÍSTICAS - Procesadas: ${stats.successful} de ${stats.total}`);
+      logger.info(`📈 [BannerImageManager] ESTADÍSTICAS FINALES:`, stats);
 
       return {
         success: true,
         components: processedComponents,
         stats,
-        bannerDir
+        bannerDir,
+        fileAnalysis
       };
 
     } catch (error) {
       logger.error(`❌ [BannerImageManager] Error en procesamiento unificado:`, error);
       throw error;
     }
+  }
+
+  /**
+   * SOLUCIÓN CORRECTA: Actualizar componentes directamente en BD
+   */
+  async processClientCreationImages(bannerId, uploadedFiles, components, bannerDir) {
+    logger.info(`🔄 [BannerImageManager] PROCESAMIENTO DIRECTO EN BD`);
+    
+    // Importar el modelo BannerTemplate
+    const BannerTemplate = require('../models/BannerTemplate');
+    
+    // 1. Obtener el banner de la BD
+    const bannerInDB = await BannerTemplate.findById(bannerId);
+    if (!bannerInDB) {
+      throw new Error(`Banner ${bannerId} no encontrado en BD`);
+    }
+    
+    logger.info(`🔍 [BannerImageManager] Banner obtenido de BD: ${bannerInDB._id}`);
+    
+    // 2. Buscar TODOS los componentes imagen recursivamente en BD
+    const findAllImageComponents = (comps, path = '') => {
+      const imageComponents = [];
+      
+      comps.forEach((comp, index) => {
+        const currentPath = path ? `${path}[${index}]` : `[${index}]`;
+        
+        if (comp.type === 'image') {
+          imageComponents.push({
+            component: comp, // Referencia directa al componente en BD
+            path: currentPath,
+            parentId: comp.parentId || 'root'
+          });
+        }
+        
+        // Buscar recursivamente en hijos
+        if (comp.children && Array.isArray(comp.children)) {
+          const childImages = findAllImageComponents(comp.children, `${currentPath}.children`);
+          imageComponents.push(...childImages);
+        }
+      });
+      
+      return imageComponents;
+    };
+
+    // 3. Encontrar todos los componentes imagen en BD
+    const allImageComponents = findAllImageComponents(bannerInDB.components);
+    
+    logger.info(`🔍 [BannerImageManager] Componentes imagen encontrados en BD: ${allImageComponents.length}`);
+    allImageComponents.forEach((imgComp, index) => {
+      logger.info(`   ${index}: ${imgComp.component.id} en ${imgComp.path} (parent: ${imgComp.parentId})`);
+    });
+
+    // 4. Mapear archivos por orden: archivo[0] → componente[0], archivo[1] → componente[1], etc.
+    let processedCount = 0;
+    for (let i = 0; i < Math.min(uploadedFiles.length, allImageComponents.length); i++) {
+      const file = uploadedFiles[i];
+      const imageComp = allImageComponents[i];
+      const component = imageComp.component; // Componente directo de BD
+      
+      // Extraer nombre original del archivo
+      const fileName = file.originalname || `file_${Date.now()}`;
+      const originalFilename = fileName.replace(/^IMAGE_REF_[^_]+_/, ''); // Quitar prefijo
+      
+      logger.info(`🎯 [BannerImageManager] Mapeando archivo[${i}] → componente BD[${i}]:`);
+      logger.info(`   Archivo: ${originalFilename}`);
+      logger.info(`   Componente BD: ${component.id} en ${imageComp.path}`);
+      
+      try {
+        // Guardar imagen
+        const result = await this.saveImageSimple(file, component.id, bannerId, originalFilename);
+        
+        // Actualizar el componente DIRECTAMENTE en BD
+        logger.info(`🔄 [BannerImageManager] ANTES de actualizar componente BD ${component.id}:`);
+        logger.info(`   content: ${component.content}`);
+        logger.info(`   _previewUrl desktop: ${component.style?.desktop?._previewUrl}`);
+        
+        component.content = result.imageUrl;
+        
+        // Actualizar _previewUrl para todos los dispositivos
+        if (!component.style) component.style = {};
+        ['desktop', 'tablet', 'mobile'].forEach(device => {
+          if (!component.style[device]) component.style[device] = {};
+          component.style[device]._previewUrl = result.imageUrl;
+        });
+        
+        // CRÍTICO: Marcar el array components como modificado para Mongoose
+        bannerInDB.markModified('components');
+        
+        logger.info(`✅ [BannerImageManager] DESPUÉS de actualizar componente BD ${component.id}:`);
+        logger.info(`   content: ${component.content}`);
+        logger.info(`   _previewUrl desktop: ${component.style?.desktop?._previewUrl}`);
+        logger.info(`   _previewUrl tablet: ${component.style?.tablet?._previewUrl}`);
+        logger.info(`   _previewUrl mobile: ${component.style?.mobile?._previewUrl}`);
+        logger.info(`🔧 [BannerImageManager] Array components marcado como modificado para Mongoose`);
+        processedCount++;
+        
+      } catch (error) {
+        logger.error(`❌ [BannerImageManager] Error procesando ${component.id}:`, error.message);
+      }
+    }
+    
+    // 5. Guardar el banner actualizado en BD
+    logger.info(`💾 [BannerImageManager] Guardando banner actualizado en BD...`);
+    await bannerInDB.save();
+    logger.info(`✅ [BannerImageManager] Banner guardado en BD con componentes actualizados`);
+
+    // Estadísticas simples
+    const stats = {
+      total: uploadedFiles.length,
+      successful: processedCount,
+      failed: uploadedFiles.length - processedCount
+    };
+    
+    logger.info(`📈 [BannerImageManager] ESTADÍSTICAS IMAGE_REF: ${processedCount}/${uploadedFiles.length} imágenes procesadas`);
+
+    return {
+      success: true,
+      components: bannerInDB.components, // Devolver los componentes actualizados de BD
+      stats,
+      bannerDir
+    };
+  }
+
+  /**
+   * FLUJO ORIGINAL: Procesar archivos del editor (mantener lógica existente)
+   */
+  async processEditorFiles(bannerId, uploadedFiles, components, isUpdate, bannerDir) {
+    logger.info(`🔄 [BannerImageManager] PROCESANDO ARCHIVOS EDITOR`);
+    
+    // 2. Analizar archivos subidos para identificar componentes por ID
+    const fileAnalysis = this.analyzeUploadedFiles(uploadedFiles);
+    
+    logger.info(`📊 [BannerImageManager] Análisis de archivos:`);
+    logger.info(`   - Referencias válidas: ${fileAnalysis.validReferences.length}`);
+    logger.info(`   - Archivos huérfanos: ${fileAnalysis.orphanedFiles.length}`);
+    logger.info(`   - Componentes identificados: ${Array.from(fileAnalysis.componentFileMap.keys())}`);
+
+    // 3. Procesar componentes usando análisis por ID
+    const processedComponents = await this.processComponentsUnified(
+      JSON.parse(JSON.stringify(components)), 
+      fileAnalysis, 
+      bannerId, 
+      isUpdate
+    );
+
+    // 4. DEBUG: Verificar componentes después del procesamiento
+    const imageRefsAfterProcessing = [];
+    const findImageRefsAfter = (comps, parentPath = '') => {
+      comps.forEach((comp, index) => {
+        const currentPath = parentPath ? `${parentPath}[${index}]` : `components[${index}]`;
+        if (comp.type === 'image') {
+          imageRefsAfterProcessing.push({
+            path: currentPath,
+            id: comp.id,
+            content: comp.content,
+            contentType: typeof comp.content,
+            esImageRef: typeof comp.content === 'string' && comp.content.startsWith('__IMAGE_REF__'),
+            esRutaServidor: typeof comp.content === 'string' && comp.content.startsWith('/templates/'),
+            parentId: comp.parentId || 'none',
+            previewUrl: comp.style?.desktop?._previewUrl || 'no-preview'
+          });
+        }
+        if (comp.children && Array.isArray(comp.children)) {
+          findImageRefsAfter(comp.children, `${currentPath}.children`);
+        }
+      });
+    };
+    findImageRefsAfter(processedComponents);
+    
+    logger.info(`🔍 [BannerImageManager] COMPONENTES IMAGEN DESPUÉS DEL PROCESAMIENTO:`, JSON.stringify(imageRefsAfterProcessing, null, 2));
+
+    // 5. Calcular estadísticas reales basadas en archivos procesados
+    const processedFiles = uploadedFiles.filter(file => file._processed);
+    const stats = {
+      total: uploadedFiles.length,
+      successful: processedFiles.length,
+      failed: uploadedFiles.length - processedFiles.length,
+      validReferences: fileAnalysis.validReferences.length,
+      orphanedFiles: fileAnalysis.orphanedFiles.length
+    };
+    logger.info(`📈 [BannerImageManager] ESTADÍSTICAS FINALES:`, stats);
+
+    return {
+      success: true,
+      components: processedComponents,
+      stats,
+      bannerDir,
+      fileAnalysis
+    };
   }
 
   /**
@@ -334,6 +521,75 @@ class BannerImageManager {
   }
 
   /**
+   * NUEVO: Método simple para guardar imagen
+   */
+  async saveImageSimple(file, componentId, bannerId, originalFilename) {
+    try {
+      // Validaciones básicas
+      if (!file.path || !fsSync.existsSync(file.path)) {
+        throw new Error(`Archivo temporal no encontrado: ${file.path}`);
+      }
+
+      const stats = await fs.stat(file.path);
+      if (stats.size === 0) {
+        throw new Error('Archivo temporal está vacío');
+      }
+
+      if (stats.size > this.maxFileSize) {
+        throw new Error(`Archivo demasiado grande: ${(stats.size / 1024 / 1024).toFixed(2)}MB`);
+      }
+
+      logger.info(`💾 [BannerImageManager] Guardando imagen para ${componentId}: ${originalFilename}`);
+
+      // Nombre simple: mantener extension, limpiar nombre, agregar timestamp
+      const extension = path.extname(originalFilename) || '.jpg';
+      let baseName = path.basename(originalFilename, extension);
+      
+      // Limpiar caracteres especiales pero mantener el nombre recognizable
+      baseName = baseName.replace(/[^a-zA-Z0-9\-_]/g, '_');
+      if (baseName.length > 30) {
+        baseName = baseName.substring(0, 30);
+      }
+      
+      const timestamp = Date.now();
+      const fileName = `${baseName}_${timestamp}${extension}`;
+      
+      // Rutas
+      const bannerDir = path.join(this.baseImagesPath, bannerId);
+      const destPath = path.join(bannerDir, fileName);
+      
+      // Asegurar directorio existe
+      await this.ensureDirectory(bannerDir);
+      
+      // Copiar archivo
+      await fs.copyFile(file.path, destPath);
+      
+      // Verificar copia
+      if (!fsSync.existsSync(destPath)) {
+        throw new Error(`Error copiando archivo a: ${destPath}`);
+      }
+      
+      // URL final con dominio completo
+      const { getBaseUrl } = require('../config/urls');
+      const baseUrl = getBaseUrl();
+      const imageUrl = `${baseUrl}/templates/images/${bannerId}/${fileName}`;
+      
+      logger.info(`✅ [BannerImageManager] Imagen guardada: ${imageUrl}`);
+      
+      return {
+        success: true,
+        imageUrl,
+        fileName,
+        filePath: destPath
+      };
+      
+    } catch (error) {
+      logger.error(`❌ [BannerImageManager] Error guardando imagen:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * SIMPLIFICADO: Guarda archivo con nombre original
    */
   async saveImageFileSimplified(file, component, bannerId) {
@@ -443,6 +699,12 @@ class BannerImageManager {
         contentDespues: imageUrl
       });
 
+      return {
+        success: true,
+        imageUrl,
+        fileName
+      };
+
     } catch (error) {
       logger.error(`❌ [BannerImageManager] Error guardando imagen:`, error);
       throw error;
@@ -477,16 +739,25 @@ class BannerImageManager {
       component.content = imageUrl;
     }
 
-    // Limpiar referencias temporales en estilos
-    if (component.style) {
-      ['desktop', 'tablet', 'mobile'].forEach(device => {
-        if (component.style[device]) {
-          delete component.style[device]._previewUrl;
-          delete component.style[device]._tempFile;
-          delete component.style[device]._tempFileRef;
-        }
-      });
+    // IMPORTANTE: Actualizar _previewUrl en todos los dispositivos con la URL final
+    if (!component.style) {
+      component.style = {};
     }
+    
+    ['desktop', 'tablet', 'mobile'].forEach(device => {
+      if (!component.style[device]) {
+        component.style[device] = {};
+      }
+      
+      // Establecer _previewUrl con la URL final de la imagen
+      component.style[device]._previewUrl = imageUrl;
+      
+      // Limpiar referencias temporales
+      delete component.style[device]._tempFile;
+      delete component.style[device]._tempFileRef;
+    });
+    
+    logger.info(`🔄 [BannerImageManager] Actualizado content y _previewUrl para ${component.id}: ${imageUrl}`);
   }
 
   /**
@@ -991,18 +1262,34 @@ class BannerImageManager {
    */
   updateImageUrls(components, oldBannerId, newBannerId) {
     const updateComponent = (comp) => {
-      if (comp.type === 'image' && comp.content) {
+      if (comp.type === 'image') {
         const oldPattern = `/templates/images/${oldBannerId}/`;
         const newPattern = `/templates/images/${newBannerId}/`;
         
-        if (typeof comp.content === 'string' && comp.content.includes(oldPattern)) {
-          const oldUrl = comp.content;
-          comp.content = comp.content.replace(oldPattern, newPattern);
-          logger.info(`[ImageManager] URL actualizada: ${oldUrl} -> ${comp.content}`);
-        } else if (comp.content.texts && comp.content.texts.en && comp.content.texts.en.includes(oldPattern)) {
-          const oldUrl = comp.content.texts.en;
-          comp.content.texts.en = comp.content.texts.en.replace(oldPattern, newPattern);
-          logger.info(`[ImageManager] URL actualizada (texts.en): ${oldUrl} -> ${comp.content.texts.en}`);
+        // Actualizar content
+        if (comp.content) {
+          if (typeof comp.content === 'string' && comp.content.includes(oldPattern)) {
+            const oldUrl = comp.content;
+            comp.content = comp.content.replace(oldPattern, newPattern);
+            logger.info(`[ImageManager] Content URL actualizada: ${oldUrl} -> ${comp.content}`);
+          } else if (comp.content.texts && comp.content.texts.en && comp.content.texts.en.includes(oldPattern)) {
+            const oldUrl = comp.content.texts.en;
+            comp.content.texts.en = comp.content.texts.en.replace(oldPattern, newPattern);
+            logger.info(`[ImageManager] Content URL actualizada (texts.en): ${oldUrl} -> ${comp.content.texts.en}`);
+          }
+        }
+        
+        // IMPORTANTE: También actualizar _previewUrl en todos los dispositivos
+        if (comp.style) {
+          ['desktop', 'tablet', 'mobile'].forEach(device => {
+            if (comp.style[device] && comp.style[device]._previewUrl) {
+              if (comp.style[device]._previewUrl.includes(oldPattern)) {
+                const oldPreviewUrl = comp.style[device]._previewUrl;
+                comp.style[device]._previewUrl = comp.style[device]._previewUrl.replace(oldPattern, newPattern);
+                logger.info(`[ImageManager] _previewUrl actualizada (${device}): ${oldPreviewUrl} -> ${comp.style[device]._previewUrl}`);
+              }
+            }
+          });
         }
       }
       
@@ -1093,6 +1380,145 @@ class BannerImageManager {
   generateTempId() {
     return `${this.tempPrefix}${Date.now()}`;
   }
+
+  /**
+   * NUEVO FLUJO: Guarda archivos en temp/TIMESTAMP/ y luego los mueve a images/BANNER_ID/
+   * Paso 1: Guardar en temporal
+   */
+  async saveFilesToTemp(uploadedFiles) {
+    const timestamp = Date.now();
+    const tempDir = path.join(this.baseTempPath, timestamp.toString());
+    
+    try {
+      // Crear carpeta temporal
+      await this.ensureDirectory(tempDir);
+      logger.info(`📁 Carpeta temporal creada: ${tempDir}`);
+      
+      const savedFiles = [];
+      
+      for (const file of uploadedFiles) {
+        try {
+          // Guardar archivo con su nombre original
+          const tempFilePath = path.join(tempDir, file.originalname);
+          await fs.copyFile(file.path, tempFilePath);
+          
+          savedFiles.push({
+            originalFile: file,
+            tempPath: tempFilePath,
+            fileName: file.originalname,
+            componentId: this.extractComponentIdFromFilename(file.originalname)
+          });
+          
+          logger.info(`💾 Archivo guardado en temporal: ${file.originalname}`);
+        } catch (error) {
+          logger.error(`❌ Error guardando archivo ${file.originalname}:`, error);
+        }
+      }
+      
+      return {
+        timestamp,
+        tempDir,
+        savedFiles
+      };
+    } catch (error) {
+      logger.error(`❌ Error creando carpeta temporal:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * NUEVO FLUJO: Paso 2 - Mover archivos de temp/TIMESTAMP/ a images/BANNER_ID/
+   */
+  async moveFilesFromTempToFinal(tempData, finalBannerId) {
+    try {
+      const finalDir = path.join(this.baseImagesPath, finalBannerId);
+      await this.ensureDirectory(finalDir);
+      
+      logger.info(`📁 Moviendo archivos de ${tempData.tempDir} a ${finalDir}`);
+      
+      const movedFiles = [];
+      
+      for (const fileData of tempData.savedFiles) {
+        try {
+          const finalPath = path.join(finalDir, fileData.fileName);
+          await fs.copyFile(fileData.tempPath, finalPath);
+          
+          movedFiles.push({
+            ...fileData,
+            finalPath,
+            finalUrl: `/templates/images/${finalBannerId}/${fileData.fileName}`
+          });
+          
+          logger.info(`✅ Archivo movido: ${fileData.fileName}`);
+        } catch (error) {
+          logger.error(`❌ Error moviendo archivo ${fileData.fileName}:`, error);
+        }
+      }
+      
+      // Eliminar carpeta temporal
+      await this.cleanupTempDirectory(tempData.tempDir);
+      
+      return movedFiles;
+    } catch (error) {
+      logger.error(`❌ Error moviendo archivos a carpeta final:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Eliminar carpeta temporal específica
+   */
+  async cleanupTempDirectory(tempDir) {
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+      logger.info(`🗑️ Carpeta temporal eliminada: ${tempDir}`);
+    } catch (error) {
+      logger.error(`❌ Error eliminando carpeta temporal ${tempDir}:`, error);
+    }
+  }
+
+  /**
+   * Extraer componentId del nombre de archivo (formato: IMAGE_REF_componentId_filename)
+   */
+  extractComponentIdFromFilename(filename) {
+    const match = filename.match(/^IMAGE_REF_([^_]+)_/);
+    return match ? match[1] : null;
+  }
+
+  /**
+   * Actualizar URLs de componentes después de mover archivos
+   */
+  async updateComponentUrlsAfterMove(components, movedFiles) {
+    const updateComponents = (comps) => {
+      comps.forEach(comp => {
+        if (comp.type === 'image' && comp.content && comp.content.startsWith('__IMAGE_REF__')) {
+          // Buscar el archivo correspondiente
+          const componentId = comp.id;
+          const movedFile = movedFiles.find(f => f.componentId === componentId);
+          
+          if (movedFile) {
+            comp.content = movedFile.finalUrl;
+            if (comp.style) {
+              Object.keys(comp.style).forEach(device => {
+                if (comp.style[device]) {
+                  comp.style[device]._previewUrl = movedFile.finalUrl;
+                }
+              });
+            }
+            logger.info(`🔗 URL actualizada para ${componentId}: ${movedFile.finalUrl}`);
+          }
+        }
+        
+        // Procesar hijos recursivamente
+        if (comp.children && Array.isArray(comp.children)) {
+          updateComponents(comp.children);
+        }
+      });
+    };
+    
+    updateComponents(components);
+    return components;
+  }
 }
 
-module.exports = new BannerImageManager();
+module.exports = BannerImageManager;

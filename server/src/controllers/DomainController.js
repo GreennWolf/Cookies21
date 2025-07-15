@@ -53,9 +53,7 @@ class DomainController {
         // Asignar el template ID
         existingDomain.settings.defaultTemplateId = settings.defaultTemplateId;
         
-        // Actualizar cualquier otra configuración proporcionada
-        if (settings.design) existingDomain.settings.design = settings.design;
-        if (settings.scanning) existingDomain.settings.scanning = settings.scanning;
+        // Solo actualizar defaultTemplateId en el modelo simplificado
         
         // Actualizar estado si se proporciona
         if (req.body.status) {
@@ -161,13 +159,7 @@ class DomainController {
       clientId: targetClientId,
       domain: domain.toLowerCase(),
       settings: {
-        ...settings,
-        design: settings?.design || {},
-        scanning: {
-          enabled: true,
-          interval: 24, // Default 24 hours
-          ...settings?.scanning
-        }
+        defaultTemplateId: settings?.defaultTemplateId
       },
       status: 'pending'
     });
@@ -191,7 +183,8 @@ class DomainController {
     console.log('🏠 getDomains controller reached with:', {
       clientId: req.clientId,
       isOwner: req.isOwner,
-      userRole: req.user?.role
+      userRole: req.user?.role,
+      queryParams: req.query
     });
     
     const { clientId } = req;
@@ -203,8 +196,13 @@ class DomainController {
     // Si el usuario es owner 
     if (req.isOwner) {
       // Si se proporciona un ID de cliente específico en la consulta, filtrar por ese cliente
-      if (queryClientId) {
-        query.clientId = queryClientId;
+      if (queryClientId !== undefined) {
+        // Si queryClientId es null o "null", buscar dominios sin cliente
+        if (queryClientId === null || queryClientId === 'null') {
+          query.clientId = null;
+        } else {
+          query.clientId = queryClientId;
+        }
       }
       // Si no se proporciona un cliente, devolver todos los dominios (owner puede ver todos)
     } else {
@@ -213,10 +211,17 @@ class DomainController {
     }
 
     // Aplicar filtros adicionales
-    if (status) query.status = status;
+    if (status) {
+      query.status = status;
+    } else {
+      // Si no se especifica status, excluir solo los inactivos por defecto
+      query.status = { $ne: 'inactive' };
+    }
     if (search) {
       query.domain = { $regex: search, $options: 'i' };
     }
+
+    console.log('🔍 Query final para MongoDB:', query);
 
     // Obtener dominios con información del cliente para los owners
     let domains;
@@ -226,6 +231,13 @@ class DomainController {
       domains = await Domain.find(query)
         .populate('clientId', 'name email')  // Poblar con información del cliente
         .sort('-createdAt');
+        
+      console.log(`📋 Dominios encontrados: ${domains.length}`, domains.map(d => ({
+        id: d._id,
+        domain: d.domain,
+        clientId: d.clientId?._id || 'null',
+        clientName: d.clientId?.name || 'sin cliente'
+      })));
         
       // Si se filtró por un cliente específico, incluir su información
       if (queryClientId) {
@@ -285,16 +297,40 @@ class DomainController {
     const { clientId } = req;
     const updates = req.body;
 
+    console.log('🔄 UpdateDomain - Request info:', {
+      domainId: id,
+      clientId: clientId,
+      isOwner: req.isOwner,
+      userRole: req.user?.role,
+      updates: updates
+    });
+
     // Campos no actualizables
     delete updates.domain;
     delete updates.clientId;
-    delete updates.status;
+    // Los owners pueden actualizar el status
+    if (!req.isOwner) {
+      delete updates.status;
+    }
+
+    // Query diferente según el rol del usuario
+    let query = { _id: id };
+    
+    // Si no es owner, filtrar también por clientId
+    if (!req.isOwner) {
+      query.clientId = clientId;
+    }
+
+    console.log('🔍 UpdateDomain - Query:', query);
+    console.log('🔄 UpdateDomain - Updates to apply:', updates);
 
     const domain = await Domain.findOneAndUpdate(
-      { _id: id, clientId },
+      query,
       { $set: updates },
       { new: true, runValidators: true }
     );
+
+    console.log('✅ UpdateDomain - Result:', domain ? 'Domain found and updated' : 'Domain NOT found');
 
     if (!domain) {
       throw new AppError('Domain not found', 404);
@@ -306,31 +342,31 @@ class DomainController {
     });
   });
 
-  // Actualizar configuración del banner
-  updateBannerConfig = catchAsync(async (req, res) => {
-    const { id } = req.params;
-    const { clientId } = req;
-    const { bannerConfig } = req.body;
+  // Actualizar configuración del banner (eliminado en modelo simplificado)
+  // updateBannerConfig = catchAsync(async (req, res) => {
+  //   const { id } = req.params;
+  //   const { clientId } = req;
+  //   const { bannerConfig } = req.body;
 
-    const domain = await Domain.findOne({ _id: id, clientId });
-    if (!domain) {
-      throw new AppError('Domain not found', 404);
-    }
+  //   const domain = await Domain.findOne({ _id: id, clientId });
+  //   if (!domain) {
+  //     throw new AppError('Domain not found', 404);
+  //   }
 
-    domain.bannerConfig = {
-      ...domain.bannerConfig,
-      ...bannerConfig
-    };
+  //   domain.bannerConfig = {
+  //     ...domain.bannerConfig,
+  //     ...bannerConfig
+  //   };
 
-    await domain.save();
+  //   await domain.save();
 
-    res.status(200).json({
-      status: 'success',
-      data: { 
-        bannerConfig: domain.bannerConfig 
-      }
-    });
-  });
+  //   res.status(200).json({
+  //     status: 'success',
+  //     data: { 
+  //       bannerConfig: domain.bannerConfig 
+  //     }
+  //   });
+  // });
 
   // Actualizar estado del dominio
   updateDomainStatus = catchAsync(async (req, res) => {
@@ -629,10 +665,10 @@ class DomainController {
     });
   });
 
-  // Configurar análisis programado para un dominio
+  // Configurar escaneo automático para un dominio
   configureScheduledAnalysis = catchAsync(async (req, res) => {
     const { domainId } = req.params;
-    const { enabled, frequency, time, daysOfWeek, dayOfMonth, analysisConfig } = req.body;
+    const { enabled, scanInterval, scanType, includeSubdomains, maxDepth } = req.body;
 
     const domain = await Domain.findById(domainId);
     if (!domain) {
@@ -644,50 +680,49 @@ class DomainController {
       throw new AppError('Access denied', 403);
     }
 
-    // Actualizar configuración de análisis programado
-    domain.analysisSchedule = {
-      enabled: enabled || false,
-      frequency: frequency || 'weekly',
-      time: time || '02:00',
-      daysOfWeek: daysOfWeek || [0], // Domingo por defecto
-      dayOfMonth: dayOfMonth || 1,
-      analysisConfig: {
-        scanType: analysisConfig?.scanType || 'full',
-        includeSubdomains: analysisConfig?.includeSubdomains || true,
-        maxUrls: analysisConfig?.maxUrls || 100,
-        depth: analysisConfig?.depth || 5
-      }
+    // Actualizar configuración de escaneo automático
+    domain.scanConfig = {
+      ...domain.scanConfig,
+      autoScanEnabled: enabled || false,
+      scanInterval: scanInterval || 'daily',
+      scanType: scanType || 'smart',
+      includeSubdomains: includeSubdomains || false,
+      maxDepth: maxDepth || 3
     };
 
     await domain.save();
 
     // Reprogramar el dominio con la nueva configuración
-    await domainAnalysisScheduler.rescheduleDomain(domainId);
+    if (enabled) {
+      await domainAnalysisScheduler.rescheduleDomain(domainId);
+    } else {
+      await domainAnalysisScheduler.unscheduleDomain(domainId);
+    }
 
     await auditService.logAction('DOMAIN_SCHEDULE_UPDATED', {
       domainId,
       userId: req.user.id,
-      changes: { analysisSchedule: domain.analysisSchedule }
+      changes: { scanConfig: domain.scanConfig }
     });
 
     res.status(200).json({
       status: 'success',
-      message: 'Scheduled analysis configured successfully',
+      message: 'Automatic scanning configured successfully',
       data: {
         domain: {
           _id: domain._id,
           domain: domain.domain,
-          analysisSchedule: domain.analysisSchedule
+          scanConfig: domain.scanConfig
         }
       }
     });
   });
 
-  // Obtener configuración de análisis programado
+  // Obtener configuración de escaneo automático
   getScheduledAnalysisConfig = catchAsync(async (req, res) => {
     const { domainId } = req.params;
 
-    const domain = await Domain.findById(domainId).select('domain analysisSchedule status');
+    const domain = await Domain.findById(domainId).select('domain scanConfig status');
     if (!domain) {
       throw new AppError('Domain not found', 404);
     }
@@ -703,18 +738,12 @@ class DomainController {
         domain: {
           _id: domain._id,
           domain: domain.domain,
-          analysisSchedule: domain.analysisSchedule || {
-            enabled: false,
-            frequency: 'weekly',
-            time: '02:00',
-            daysOfWeek: [0],
-            dayOfMonth: 1,
-            analysisConfig: {
-              scanType: 'full',
-              includeSubdomains: true,
-              maxUrls: 100,
-              depth: 5
-            }
+          scanConfig: domain.scanConfig || {
+            autoScanEnabled: false,
+            scanInterval: 'daily',
+            scanType: 'smart',
+            includeSubdomains: false,
+            maxDepth: 3
           }
         }
       }
@@ -733,15 +762,15 @@ class DomainController {
     // Obtener información adicional de los dominios
     const domainsInfo = await Domain.find({
       _id: { $in: scheduledStatus.map(s => s.domainId) }
-    }).select('domain analysisSchedule.lastRun analysisSchedule.nextRun status');
+    }).select('domain scanConfig.lastScheduledScan scanConfig.nextScheduledScan status');
 
     const statusWithInfo = scheduledStatus.map(status => {
       const domainInfo = domainsInfo.find(d => d._id.toString() === status.domainId);
       return {
         ...status,
         domain: domainInfo?.domain || 'Unknown',
-        lastRun: domainInfo?.analysisSchedule?.lastRun,
-        nextRun: domainInfo?.analysisSchedule?.nextRun,
+        lastRun: domainInfo?.scanConfig?.lastScheduledScan,
+        nextRun: domainInfo?.scanConfig?.nextScheduledScan,
         status: domainInfo?.status || 'unknown'
       };
     });

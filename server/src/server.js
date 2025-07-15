@@ -135,6 +135,12 @@ const startServer = async () => {
     setupScheduledJobs();
     logger.info('Scheduled jobs started successfully');
 
+    // Iniciar el programador de escaneos automáticos
+    logger.info('Starting automatic scan scheduler...');
+    const automaticScanScheduler = require('./services/automaticScanScheduler.service');
+    await automaticScanScheduler.initialize();
+    logger.info('Automatic scan scheduler started successfully');
+
     const port = process.env.PORT || 3000;
     const host = process.env.HOST || 'localhost';
 
@@ -187,6 +193,13 @@ process.on('unhandledRejection', (error) => {
 process.on('SIGTERM', () => {
   logger.info('👋 SIGTERM RECEIVED. Shutting down gracefully');
   cookieAnalysisWorker.stop();
+  
+  // Detener el programador de escaneos automáticos
+  const automaticScanScheduler = require('./services/automaticScanScheduler.service');
+  automaticScanScheduler.shutdown().catch(error => {
+    logger.error('Error shutting down automatic scan scheduler:', error);
+  });
+  
   if (server) {
     server.close(() => {
       logger.info('💥 Process terminated!');
@@ -197,6 +210,12 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
   logger.info('👋 SIGINT RECEIVED. Shutting down gracefully');
   cookieAnalysisWorker.stop();
+  
+  // Detener el programador de escaneos automáticos
+  const automaticScanScheduler = require('./services/automaticScanScheduler.service');
+  automaticScanScheduler.shutdown().catch(error => {
+    logger.error('Error shutting down automatic scan scheduler:', error);
+  });
   if (server) {
     server.close(() => {
       logger.info('💥 Process terminated!');

@@ -63,7 +63,7 @@ const cookieSchema = new mongoose.Schema({
   detection: {
     method: {
       type: String,
-      enum: ['scan', 'manual', 'import'],
+      enum: ['scan', 'manual', 'import', 'embed'],
       default: 'scan'
     },
     firstDetected: {
@@ -114,7 +114,7 @@ const cookieSchema = new mongoose.Schema({
   metadata: {
     createdBy: {
       type: String,
-      enum: ['system', 'user', 'scan'],
+      enum: ['system', 'user', 'scan', 'embed-detection'],
       default: 'system'
     },
     lastModifiedBy: String,
@@ -122,6 +122,20 @@ const cookieSchema = new mongoose.Schema({
       type: Number,
       default: 1
     },
+    detectedByEmbed: {
+      type: Boolean,
+      default: false
+    },
+    embedDetectionVersion: String,
+    lastEmbedDetection: Date,
+    deactivatedBy: String,
+    deactivatedAt: Date,
+    deactivationReason: String,
+    lastCleanupSession: String,
+    sessionId: String,
+    sourceUrl: String,
+    stackTrace: String,
+    cookieSize: Number,
     notes: String
   }
 }, { 

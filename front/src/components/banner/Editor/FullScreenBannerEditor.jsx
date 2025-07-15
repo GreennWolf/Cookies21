@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useBannerEditor } from './hooks/useBannerEditor';
 import { useAuth } from '../../../contexts/AuthContext';
+import { DimensionProvider } from '../../../contexts/DimensionContext.jsx';
 import { Save, Eye, Undo, Redo, Monitor, Smartphone, Tablet, ChevronLeft, X, Trash2, Layers, Settings, Globe } from 'lucide-react';
 // import { cleanupUnusedImages } from '../../../api/bannerTemplate'; // ELIMINADO
+import { getClient } from '../../../api/client';
+import useTemplateVariables from '../../../hooks/useTemplateVariables';
 
 // Importamos los componentes existentes que reutilizaremos
 import BannerCanvas from './BannerCanvas';
@@ -16,6 +19,8 @@ import TranslationConfigPanel from './TranslationConfigPanel';
 // Importamos nuestros nuevos componentes
 import CollapsiblePanel from './CollapsiblePanel';
 import PanelConfigModal from './PanelConfigModal';
+import FloatingIconConfigModal from './FloatingIconConfigModal';
+import GeneralSettingsModal from './GeneralSettingsModal';
 
 // Importamos el helper para la selección de componentes
 import { ensureComponentsPanelOpen, applyComponentSelectionStyles, initializeComponentStyles } from './componentSelectionHelper';
@@ -88,6 +93,9 @@ const loadPanelsConfig = () => {
 };
 
 const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
+  // Estado para la información del cliente
+  const [clientInfo, setClientInfo] = useState(null);
+  
   // Estado para los paneles con carga desde localStorage
   const [panelsConfig, setPanelsConfig] = useState(() => {
     // Forzar configuración por defecto para asegurar que todos los paneles sean visibles
@@ -99,19 +107,21 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
     return config;
   });
   
-  // Estado para el modal de configuración
+  // Estados para modales de configuración
   const [isPanelConfigOpen, setPanelConfigOpen] = useState(false);
+  const [isGeneralSettingsOpen, setGeneralSettingsOpen] = useState(false);
   
   // Estados para guardar/restaurar configuración de paneles en vista previa
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const panelsBeforePreview = useRef(null);
   
   // Recuperamos la funcionalidad del editor actual
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
   const isOwner = hasRole('owner');
   
   const {
     bannerConfig,
+    setBannerConfig,
     setInitialConfig,
     selectedComponent,
     setSelectedComponent,
@@ -171,6 +181,16 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
   const [showLayersPanel, setShowLayersPanel] = useState(true);
   const [isCleaningImages, setIsCleaningImages] = useState(false);
   const [cleanupResult, setCleanupResult] = useState(null);
+  
+  // Estados para configuración del icono flotante
+  const [floatingIconEnabled, setFloatingIconEnabled] = useState(true);
+  const [floatingIconPosition, setFloatingIconPosition] = useState('bottom-right');
+  const [floatingIconColor, setFloatingIconColor] = useState('#007bff');
+  const [floatingIconBackgroundColor, setFloatingIconBackgroundColor] = useState('transparent');
+  const [floatingIconSize, setFloatingIconSize] = useState(40);
+  
+  // Estado para el modal de configuración del icono flotante
+  const [showFloatingIconModal, setShowFloatingIconModal] = useState(false);
   
   // Nuevos estados para pasos de movimiento y redimensión
   const [moveStep, setMoveStep] = useState(1);
@@ -251,14 +271,108 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
       dimensionsInitializedRef.current = true;
       
       setTimeout(() => {
-        handleUpdateLayoutForDevice(deviceView, 'floatingCorner', cornerValue);
-        handleUpdateLayoutForDevice(deviceView, 'data-floating-corner', cornerValue);
-        handleUpdateLayoutForDevice(deviceView, 'position', cornerValue);
-        handleUpdateLayoutForDevice(deviceView, 'floatingMargin', currentFloatingMargin);
-        handleUpdateLayoutForDevice(deviceView, 'data-floating-margin', currentFloatingMargin);
+        handleBatchUpdateLayoutForDevice(deviceView, {
+          'floatingCorner': cornerValue,
+          'data-floating-corner': cornerValue,
+          'position': cornerValue,
+          'floatingMargin': currentFloatingMargin,
+          'data-floating-margin': currentFloatingMargin
+        });
       }, 0);
     }
-  }, [bannerConfig.layout, deviceView, handleUpdateLayoutForDevice]);
+  }, [bannerConfig.layout, deviceView]);
+
+  // Cargar información del cliente cuando tenemos el initialConfig
+  useEffect(() => {
+    async function loadClientInfo() {
+      if (initialConfig && initialConfig.clientId) {
+        try {
+          // Asegurar que clientId es un string
+          let clientId = initialConfig.clientId;
+          if (typeof clientId === 'object' && clientId !== null) {
+            clientId = clientId._id || clientId.toString();
+            console.log('⚠️ ClientId era un objeto, convertido a string:', clientId);
+          }
+          
+          console.log('🏢 Cargando información del cliente:', clientId);
+          
+          // Primero verificar si el usuario autenticado es el mismo cliente
+          if (user && user.clientInfo && user.clientInfo._id === clientId) {
+            console.log('✅ Usando información del usuario autenticado (cliente)');
+            const clientInfoForPreview = {
+              name: user.clientInfo.name,
+              fiscalInfo: user.clientInfo.fiscalInfo,
+              companyName: user.clientInfo.name,
+              businessName: user.clientInfo.fiscalInfo?.razonSocial || user.clientInfo.name,
+              razonSocial: user.clientInfo.fiscalInfo?.razonSocial || user.clientInfo.name,
+              nombreComercial: user.clientInfo.fiscalInfo?.nombreComercial || user.clientInfo.name,
+              cif: user.clientInfo.fiscalInfo?.cif || '',
+              email: user.clientInfo.email
+            };
+            
+            setClientInfo(clientInfoForPreview);
+            console.log('✅ Información del cliente cargada desde usuario autenticado:', clientInfoForPreview);
+            return;
+          }
+          
+          // Si no es el mismo cliente, intentar con la API (para owners/admins)
+          const response = await getClient(clientId);
+          const client = response.data.client;
+          
+          const clientInfoForPreview = {
+            name: client.name,
+            fiscalInfo: client.fiscalInfo,
+            companyName: client.name,
+            businessName: client.fiscalInfo?.razonSocial || client.name,
+            razonSocial: client.fiscalInfo?.razonSocial || client.name,
+            nombreComercial: client.fiscalInfo?.nombreComercial || client.name,
+            cif: client.fiscalInfo?.cif || '',
+            email: client.email
+          };
+          
+          setClientInfo(clientInfoForPreview);
+          console.log('✅ Información del cliente cargada desde API:', clientInfoForPreview);
+        } catch (error) {
+          console.warn('⚠️ No se pudo cargar la información del cliente:', error.message);
+          
+          // Fallback: usar información básica del usuario si está disponible
+          if (user && user.clientInfo) {
+            console.log('🔄 Usando fallback: información básica del usuario');
+            const clientInfoForPreview = {
+              name: user.clientInfo.name || user.name,
+              fiscalInfo: user.clientInfo.fiscalInfo,
+              companyName: user.clientInfo.name || user.name,
+              businessName: user.clientInfo.fiscalInfo?.razonSocial || user.clientInfo.name || user.name,
+              razonSocial: user.clientInfo.fiscalInfo?.razonSocial || user.clientInfo.name || user.name,
+              nombreComercial: user.clientInfo.fiscalInfo?.nombreComercial || user.clientInfo.name || user.name,
+              cif: user.clientInfo.fiscalInfo?.cif || '',
+              email: user.clientInfo.email || user.email
+            };
+            
+            setClientInfo(clientInfoForPreview);
+            console.log('✅ Información del cliente cargada desde fallback:', clientInfoForPreview);
+          }
+        }
+      } else {
+        console.log('ℹ️ Template sin clientId - no se cargarán variables del cliente');
+        setClientInfo(null);
+      }
+    }
+    
+    loadClientInfo();
+  }, [initialConfig, user]);
+  
+  // Este efecto inicializa los estados del icono flotante
+  useEffect(() => {
+    if (bannerConfig?.settings?.floatingIcon) {
+      const { enabled, position, color, backgroundColor, size } = bannerConfig.settings.floatingIcon;
+      setFloatingIconEnabled(enabled !== false);
+      setFloatingIconPosition(position || 'bottom-right');
+      setFloatingIconColor(color || '#007bff');
+      setFloatingIconBackgroundColor(backgroundColor || 'transparent');
+      setFloatingIconSize(size || 40);
+    }
+  }, [bannerConfig?.settings?.floatingIcon]);
   
 
   // Efecto para asegurar que el panel de componentes esté abierto cuando se selecciona un componente
@@ -864,7 +978,8 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
       } else if (bannerType === 'floating') {
         fixedWidthPercent = 40;
       } else { // banner estándar
-        fixedWidthPercent = 100;
+        // Para banners estándar, mantener el valor actual o usar 100% como predeterminado solo si no hay valor
+        fixedWidthPercent = widthValue && !isNaN(parseFloat(widthValue)) ? parseFloat(widthValue) : 100;
       }
       
       setWidthValue(fixedWidthPercent.toString());
@@ -916,10 +1031,12 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
           handleUpdateLayoutForDevice(deviceView, 'width', `${limitedValue}%`);
           handleUpdateLayoutForDevice(deviceView, 'data-width', limitedValue.toString());
         } else { // Banner estándar
-          // Mantener a 100% para banners estándar
-          setWidthValue('100');
-          handleUpdateLayoutForDevice(deviceView, 'width', '100%');
-          handleUpdateLayoutForDevice(deviceView, 'data-width', '100');
+          // Permitir cualquier porcentaje para banners estándar
+          if (!isNaN(numValue) && numValue > 0) {
+            setWidthValue(numValue.toString());
+            handleUpdateLayoutForDevice(deviceView, 'width', `${numValue}%`);
+            handleUpdateLayoutForDevice(deviceView, 'data-width', numValue.toString());
+          }
         }
       } else {
         // Para píxeles, validar que sea un número positivo
@@ -1098,6 +1215,111 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
     
     // 3. En formato position para compatibilidad
     handleUpdateLayoutForDevice(deviceView, 'position', value);
+  };
+
+  // Funciones para manejar la configuración del icono flotante
+  const handleFloatingIconEnabledChange = (enabled) => {
+    setFloatingIconEnabled(enabled);
+    updateBannerSettings('floatingIcon', {
+      ...bannerConfig.settings?.floatingIcon,
+      enabled
+    });
+  };
+
+  const handleFloatingIconPositionChange = (position) => {
+    setFloatingIconPosition(position);
+    updateBannerSettings('floatingIcon', {
+      ...bannerConfig.settings?.floatingIcon,
+      position
+    });
+  };
+
+  const handleFloatingIconColorChange = (color) => {
+    setFloatingIconColor(color);
+    updateBannerSettings('floatingIcon', {
+      ...bannerConfig.settings?.floatingIcon,
+      color
+    });
+  };
+
+  const handleFloatingIconBackgroundColorChange = (backgroundColor) => {
+    setFloatingIconBackgroundColor(backgroundColor);
+    updateBannerSettings('floatingIcon', {
+      ...bannerConfig.settings?.floatingIcon,
+      backgroundColor
+    });
+  };
+
+  const handleFloatingIconSizeChange = (size) => {
+    setFloatingIconSize(size);
+    updateBannerSettings('floatingIcon', {
+      ...bannerConfig.settings?.floatingIcon,
+      size
+    });
+  };
+
+  // Función para actualizar toda la configuración del icono flotante de una vez
+  const handleFloatingIconChange = (config) => {
+    console.log('🎯 [FullScreenBannerEditor] handleFloatingIconChange recibió:', config);
+    console.log('🎯 [FullScreenBannerEditor] floatingIconEnabled actual:', floatingIconEnabled);
+    
+    // Actualizar todos los estados locales
+    if (config.position !== undefined) setFloatingIconPosition(config.position);
+    if (config.color !== undefined) setFloatingIconColor(config.color);
+    if (config.backgroundColor !== undefined) setFloatingIconBackgroundColor(config.backgroundColor);
+    if (config.size !== undefined) setFloatingIconSize(config.size);
+    
+    // Crear la configuración completa
+    const fullConfig = {
+      enabled: floatingIconEnabled,
+      ...bannerConfig.settings?.floatingIcon,
+      ...config
+    };
+    
+    console.log('🎯 [FullScreenBannerEditor] Configuración completa a guardar:', fullConfig);
+    
+    // Actualizar la configuración del banner
+    updateBannerSettings('floatingIcon', fullConfig);
+  };
+
+  const updateBannerSettings = (key, value) => {
+    console.log('🎯 [FullScreenBannerEditor] updateBannerSettings:', { key, value });
+    
+    setBannerConfig(prev => {
+      const newConfig = {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          [key]: value
+        }
+      };
+      
+      console.log('🎯 [FullScreenBannerEditor] bannerConfig actualizado:', {
+        oldSettings: prev.settings,
+        newSettings: newConfig.settings
+      });
+      
+      return newConfig;
+    });
+  };
+
+  const handleGeneralSettingsUpdate = (settings, showBranding) => {
+    console.log('🎯 [FullScreenBannerEditor] handleGeneralSettingsUpdate:', { settings, showBranding });
+    
+    setBannerConfig(prev => {
+      const newConfig = {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          ...settings
+        },
+        showBranding
+      };
+      
+      console.log('🎯 [FullScreenBannerEditor] bannerConfig actualizado con configuraciones generales');
+      
+      return newConfig;
+    });
   };
 
   // Handler para cambiar paso de movimiento
@@ -1407,8 +1629,12 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
     };
   };
 
+  // Procesar el banner config con las variables del cliente
+  const processedBannerConfig = useTemplateVariables(bannerConfig, clientInfo);
+
   return (
-    <div className={`fullscreen-editor ${isPreviewMode ? 'editor-preview-mode' : ''}`} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', zIndex: 9999, backgroundColor: '#f0f0f0' }}>
+    <DimensionProvider options={{ debug: true, enableValidation: false }}>
+      <div className={`fullscreen-editor ${isPreviewMode ? 'editor-preview-mode' : ''}`} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', zIndex: 9999, backgroundColor: '#f0f0f0' }}>
       {/* Panel 1: Barra de herramientas superior */}
       {panelsConfig.tools.visible && !isPreviewMode && (
         <div className="editor-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 1rem', backgroundColor: '#ffffff', borderBottom: '1px solid #e0e0e0', height: '60px' }}>
@@ -1462,6 +1688,15 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
             >
               <Settings size={18} />
               <span>Paneles</span>
+            </button>
+            
+            <button 
+              onClick={() => setGeneralSettingsOpen(true)}
+              className="toolbar-button"
+              title="Configuración General"
+            >
+              <Settings size={18} />
+              <span>General</span>
             </button>
           </div>
           
@@ -1661,9 +1896,11 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
                       handleUpdateLayoutForDevice(deviceView, 'floatingMargin', floatingMargin);
                       handleUpdateLayoutForDevice(deviceView, 'data-floating-margin', floatingMargin);
                     } else { // banner estándar
+                      // Para banners estándar, mantener valores existentes o usar 100% como predeterminado
+                      const currentWidthValue = widthValue && !isNaN(parseFloat(widthValue)) ? widthValue : '100';
                       setWidthUnit('%');
-                      setWidthValue('100');
-                      handleUpdateLayoutForDevice(deviceView, 'width', '100%');
+                      setWidthValue(currentWidthValue);
+                      handleUpdateLayoutForDevice(deviceView, 'width', `${currentWidthValue}%`);
                     }
                   }}
                   className="property-select"
@@ -1773,8 +2010,6 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
                       className="dimension-input"
                       placeholder="ej: 500"
                       min={bannerConfig.layout[deviceView]?.type === 'modal' || bannerConfig.layout[deviceView]?.type === 'floating' ? 40 : 1}
-                      max={bannerConfig.layout[deviceView]?.type === 'modal' ? 90 : 
-                           bannerConfig.layout[deviceView]?.type === 'floating' ? 70 : 100}
                     />
                   )}
                 </div>
@@ -1824,6 +2059,44 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
                 </div>
               )}
               
+              {/* Configuraciones del icono flotante */}
+              {/* Configuración del icono flotante - Solo botón */}
+              <div className="property-group">
+                <label>Icono Flotante:</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="checkbox"
+                    checked={floatingIconEnabled}
+                    onChange={(e) => handleFloatingIconEnabledChange(e.target.checked)}
+                    className="checkbox-input"
+                  />
+                  <button
+                    onClick={() => setShowFloatingIconModal(true)}
+                    className="property-button"
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      backgroundColor: '#f3f4f6',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    disabled={!floatingIconEnabled}
+                  >
+                    <Settings size={14} />
+                    Configurar
+                  </button>
+                  {floatingIconEnabled && (
+                    <span style={{ fontSize: '11px', color: '#666' }}>
+                      {floatingIconPosition} • {floatingIconSize}px
+                    </span>
+                  )}
+                </div>
+              </div>
+              
               {/* Controles para paso de movimiento y redimensión movidos a un panel específico 
                   para evitar duplicación con los controles del componente seleccionado */}
             </div>
@@ -1832,10 +2105,11 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
           {/* Canvas del editor */}
           {isPreviewMode ? (
             <FullScreenPreview 
-              bannerConfig={bannerConfig}
+              bannerConfig={processedBannerConfig}
               deviceView={deviceView}
               onClose={togglePreviewMode}
               onDeviceChange={setDeviceView}
+              clientInfo={clientInfo}
             />
           ) : (
             <div 
@@ -1856,7 +2130,7 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
               }}
             >
               <BannerCanvas
-                bannerConfig={bannerConfig}
+                bannerConfig={processedBannerConfig}
                 deviceView={deviceView}
                 selectedComponent={selectedComponent}
                 setSelectedComponent={setSelectedComponent}
@@ -1874,6 +2148,7 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
                 onUnattachFromContainer={unattachFromContainer}
                 moveStep={moveStep}
                 resizeStep={resizeStep}
+                clientInfo={clientInfo}
               />
             </div>
           )}
@@ -1923,6 +2198,31 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
         onResetPanels={handleResetPanelsConfig}
       />
       
+      {/* Modal para configuración de icono flotante */}
+      <FloatingIconConfigModal
+        isOpen={showFloatingIconModal}
+        onClose={() => setShowFloatingIconModal(false)}
+        position={floatingIconPosition}
+        onPositionChange={setFloatingIconPosition}
+        color={floatingIconColor}
+        onColorChange={setFloatingIconColor}
+        backgroundColor={floatingIconBackgroundColor}
+        onBackgroundColorChange={setFloatingIconBackgroundColor}
+        size={floatingIconSize}
+        onSizeChange={setFloatingIconSize}
+        onSave={(newConfig) => {
+          handleFloatingIconChange(newConfig);
+        }}
+      />
+      
+      {/* Modal de configuración general */}
+      <GeneralSettingsModal
+        isOpen={isGeneralSettingsOpen}
+        onClose={() => setGeneralSettingsOpen(false)}
+        bannerConfig={bannerConfig}
+        onUpdateSettings={handleGeneralSettingsUpdate}
+        isOwner={isOwner}
+      />
       
       {/* Estilos CSS para el editor a pantalla completa */}
       <style>{`
@@ -2030,6 +2330,69 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
           background-color: #059669;
         }
         
+        /* Nuevo selector de dispositivos mejorado */
+        .device-selector-enhanced {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          background-color: #f8f9fa;
+          padding: 0.5rem 0.75rem;
+          border-radius: 8px;
+          border: 1px solid #e9ecef;
+        }
+        
+        .device-label {
+          font-weight: 500;
+          font-size: 0.875rem;
+          color: #495057;
+          white-space: nowrap;
+        }
+        
+        .device-buttons {
+          display: flex;
+          gap: 0.25rem;
+        }
+        
+        .device-button.enhanced {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.25rem;
+          padding: 0.5rem 0.75rem;
+          background-color: #ffffff;
+          border: 1px solid #dee2e6;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          min-width: 70px;
+        }
+        
+        .device-button.enhanced:hover {
+          background-color: #f8f9fa;
+          border-color: #adb5bd;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .device-button.enhanced.active {
+          background-color: #4a6cf7;
+          border-color: #4a6cf7;
+          color: white;
+          box-shadow: 0 2px 8px rgba(74, 108, 247, 0.3);
+        }
+        
+        .device-name {
+          font-size: 0.75rem;
+          font-weight: 500;
+          text-align: center;
+          line-height: 1;
+        }
+        
+        .device-button.enhanced.active .device-name {
+          color: white;
+        }
+        
+        /* Fallback para el selector antiguo */
         .device-selector {
           display: flex;
           border: 1px solid #e0e0e0;
@@ -2037,7 +2400,7 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
           overflow: hidden;
         }
         
-        .device-button {
+        .device-button:not(.enhanced) {
           padding: 0.5rem;
           background-color: #ffffff;
           border: none;
@@ -2045,9 +2408,180 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
           transition: all 0.2s;
         }
         
-        .device-button.active {
+        .device-button:not(.enhanced).active {
           background-color: #f0f0f0;
           color: #4a6cf7;
+        }
+        
+        /* Estilos para selector de dispositivos pequeño (BannerEditor normal) */
+        .device-selector-enhanced-small {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background-color: #f8f9fa;
+          padding: 0.375rem 0.5rem;
+          border-radius: 6px;
+          border: 1px solid #e9ecef;
+        }
+        
+        .device-label-small {
+          font-weight: 500;
+          font-size: 0.75rem;
+          color: #495057;
+          white-space: nowrap;
+        }
+        
+        .device-buttons-small {
+          display: flex;
+          gap: 0.125rem;
+        }
+        
+        .device-button-small {
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+          padding: 0.25rem 0.5rem;
+          background-color: #ffffff;
+          border: 1px solid #dee2e6;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-size: 0.75rem;
+          font-weight: 500;
+        }
+        
+        .device-button-small:hover {
+          background-color: #f8f9fa;
+          border-color: #adb5bd;
+          transform: translateY(-1px);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .device-button-small.active {
+          background-color: #4a6cf7;
+          border-color: #4a6cf7;
+          color: white;
+          box-shadow: 0 1px 6px rgba(74, 108, 247, 0.3);
+        }
+        
+        /* Estilos para mejorar la edición en móvil y tablet */
+        .banner-container {
+          margin: 0 auto;
+        }
+        
+        /* Contenedor especializado para móvil y tablet */
+        .mobile-tablet-container {
+          overflow-x: hidden !important;
+          overflow-y: auto !important;
+          display: flex !important;
+          justify-content: center !important;
+          align-items: flex-start !important;
+          padding: 2rem !important;
+          flex: 1 !important;
+        }
+        
+        /* Zoom automático para móvil y tablet - SOLO VISUAL */
+        .device-mobile .banner-container {
+          transform: scale(1.0) !important;
+          transform-origin: top center !important;
+          margin-bottom: 0.5rem !important; /* REDUCIDO de 2rem a 0.5rem */
+        }
+        
+        .device-tablet .banner-container {
+          transform: scale(1.0) !important;
+          transform-origin: top center !important;
+          margin-bottom: 0.5rem !important; /* REDUCIDO de 2rem a 0.5rem */
+        }
+        
+        /* Ajustar el contenedor padre - PADDING REDUCIDO para permitir componentes cerca del borde */
+        .device-mobile .mobile-tablet-container,
+        .device-tablet .mobile-tablet-container {
+          padding-top: 1rem !important;
+          padding-bottom: 1rem !important; /* REDUCIDO de 3rem a 1rem */
+          align-items: flex-start !important;
+        }
+        
+        /* Asegurar que el indicador no interfiera */
+        .device-indicator {
+          position: fixed !important;
+          top: 120px !important;
+          right: 2rem !important;
+          z-index: 9998 !important;
+        }
+        
+        /* Indicador visual del dispositivo actual */
+        .banner-container::before {
+          content: '';
+          position: absolute;
+          top: -2px;
+          left: -2px;
+          right: -2px;
+          bottom: -2px;
+          border-radius: 10px;
+          z-index: -1;
+        }
+        
+        /* Estilos específicos por dispositivo */
+        .device-mobile .banner-container::before {
+          background: linear-gradient(45deg, #10b981, #059669);
+          opacity: 0.1;
+        }
+        
+        .device-tablet .banner-container::before {
+          background: linear-gradient(45deg, #8b5cf6, #7c3aed);
+          opacity: 0.1;
+        }
+        
+        .device-desktop .banner-container::before {
+          background: linear-gradient(45deg, #3b82f6, #2563eb);
+          opacity: 0.1;
+        }
+        
+        /* Indicador de dispositivo */
+        .device-indicator {
+          position: absolute;
+          top: 1rem;
+          right: 1rem;
+          z-index: 1000;
+        }
+        
+        .device-info {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(0, 0, 0, 0.1);
+          border-radius: 8px;
+          padding: 0.5rem 0.75rem;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .device-name {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #374151;
+          margin-bottom: 0.125rem;
+        }
+        
+        .device-dimensions {
+          font-size: 0.625rem;
+          color: #6b7280;
+          font-family: monospace;
+        }
+        
+        .device-scroll-info {
+          font-size: 0.625rem;
+          color: #9ca3af;
+          font-style: italic;
+          margin-top: 0.125rem;
+        }
+        
+        .device-zoom-info {
+          font-size: 0.625rem;
+          color: #059669;
+          font-weight: 600;
+          margin-top: 0.125rem;
         }
         
         .controls-container {
@@ -2218,10 +2752,28 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
         }
         
         .color-input {
+          width: 2rem;
+          height: 2rem;
+          border: 1px solid #e0e0e0;
+          border-radius: 0.25rem;
+          cursor: pointer;
           transition: border-color 0.2s;
         }
         
         .color-input:focus {
+          outline: none;
+          border-color: #4a6cf7;
+        }
+        
+        .checkbox-input {
+          width: 1rem;
+          height: 1rem;
+          border-radius: 0.25rem;
+          border: 1px solid #e0e0e0;
+          accent-color: #3b82f6;
+        }
+        
+        .checkbox-input:focus {
           outline: none;
           border-color: #4a6cf7;
         }
@@ -2352,7 +2904,8 @@ const FullScreenBannerEditor = ({ initialConfig, onSave, onBack }) => {
         
         /* Estilos para el canvas */
       `}</style>
-    </div>
+      </div>
+    </DimensionProvider>
   );
 }
 

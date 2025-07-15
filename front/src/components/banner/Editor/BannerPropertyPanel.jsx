@@ -149,15 +149,29 @@ function BannerPropertyPanel({
         minWidth: componentEl.style.minWidth
       };
       
-      // Obtener dimensiones reales
+      // Obtener dimensiones reales compensando ZOOM
       const compRect = componentEl.getBoundingClientRect();
-      const containerRect = containerEl.getBoundingClientRect();
+      let containerRect = containerEl.getBoundingClientRect();
       
-      // Calcular dimensiones con precisión
+      // DESACTIVADO: Corrección de zoom que causaba doble aplicación y limitaba a 64%
+      console.log(`🎨 BannerPropertyPanel: Usando dimensiones sin corrección de zoom`);
+      console.log(`🎨 Container width: ${containerRect.width}px`);
+      
+      // NO aplicar ninguna corrección de zoom - usar dimensiones directas
+      
+      // FORZAR containerRect con valores altos para evitar limitaciones por zoom
+      const forcedContainerRect = {
+        width: 2000,
+        height: 1500
+      };
+      
+      console.log(`🎨 BannerPropertyPanel: Forzando container a ${forcedContainerRect.width}px`);
+      
+      // Calcular dimensiones con valores forzados
       const widthPx = compRect.width;
       const heightPx = compRect.height;
-      const widthPercent = PositionUtils.pixelsToPercent(widthPx, containerRect.width);
-      const heightPercent = PositionUtils.pixelsToPercent(heightPx, containerRect.height);
+      const widthPercent = PositionUtils.pixelsToPercent(widthPx, forcedContainerRect.width);
+      const heightPercent = PositionUtils.pixelsToPercent(heightPx, forcedContainerRect.height);
       
       // Restaurar estilos originales
       Object.entries(originalStyles).forEach(([prop, value]) => {
@@ -168,7 +182,7 @@ function BannerPropertyPanel({
         componentEl,
         containerEl,
         compRect,
-        containerRect,
+        containerRect: forcedContainerRect, // USAR valores forzados
         width: widthPx,       // Renombrado para compatibilidad con handleAutocompleteSize
         height: heightPx,     // Renombrado para compatibilidad con handleAutocompleteSize
         widthPx,
@@ -190,16 +204,13 @@ function BannerPropertyPanel({
     // Obtener estilo actual para el dispositivo seleccionado
     const currentStyle = component.style?.[deviceView] || {};
     
-    // CORRECCION: Sincronizar _previewUrl con content si es una imagen con URL final
-    if (component.type === 'image' && 
-        typeof component.content === 'string' && 
-        !component.content.startsWith('__IMAGE_REF__') &&
-        (component.content.startsWith('http') || component.content.startsWith('/') || component.content.startsWith('data:image'))) {
-      // Si content tiene una URL final y _previewUrl es diferente, sincronizar
-      if (currentStyle._previewUrl !== component.content) {
-        currentStyle._previewUrl = component.content;
-      }
-    }
+    console.log(`🚨 BannerPropertyPanel useEffect: ${component.id} ${deviceView}`);
+    console.log(`🚨 currentStyle.width:`, currentStyle.width);
+    console.log(`🚨 component.style:`, component.style);
+    
+    // DESACTIVADO: Sincronización que causaba bucle infinito por mutación directa
+    // No mutar directamente currentStyle ya que está vinculado al objeto component
+    // que está en las dependencias del useEffect, lo que causa bucle infinito
     
     // NUEVA LÓGICA SIMPLE: Solo preservar _previewUrl si existe y es diferente del content
     setLocalStyle(prevLocalStyle => {
@@ -237,7 +248,7 @@ function BannerPropertyPanel({
     // Reset de estados de imagen
     setImageError(false);
     setImageLoaded(false);
-  }, [component, deviceView]);
+  }, [component.id, deviceView]); // OPTIMIZADO: Solo reaccionar cuando cambia el ID o dispositivo
   
   // Efecto mejorado para controlar el indicador de scroll
   useEffect(() => {
@@ -453,19 +464,23 @@ function BannerPropertyPanel({
 
   // Manejador de cambios de estilo optimizado
   const handleStyleChange = (property, value) => {
+    console.log(`🚨 RECIBIDO EN PANEL: ${property}=${value}`);
+    
     // Actualizar estado local
     const newStyle = { ...localStyle, [property]: value };
     setLocalStyle(newStyle);
     
-    // Enviar cambios al componente padre - solamente para el dispositivo actual
+    console.log(`🚨 ENVIANDO A useBannerEditor:`, newStyle);
+    
+    // Enviar cambios al componente padre
     updateStyleFn(component.id, newStyle);
     
-    // Si el cambio es de dimensiones (width/height), verificar y ajustar posición automáticamente
-    if (property === 'width' || property === 'height') {
-      setTimeout(() => {
-        adjustPositionIfOverflowing(property, value);
-      }, 100); // Pequeño delay para que se aplique el estilo primero
-    }
+    // DESACTIVAR ajuste de posición que puede estar modificando valores
+    // if (property === 'width' || property === 'height') {
+    //   setTimeout(() => {
+    //     adjustPositionIfOverflowing(property, value);
+    //   }, 100);
+    // }
   };
 
   // NUEVO: Manejador de cambios de configuración de contenedor - FASE 2
@@ -1531,17 +1546,10 @@ function BannerPropertyPanel({
                         getDimensions
                       );
                       
-                      // Obtener dimensiones para ancho máximo
-                      const idealMaxWidth = handleAutocompleteSize(
-                        component.type,
-                        deviceView,
-                        'maxWidth',
-                        'px',
-                        getDimensions
-                      );
+                      // ELIMINADO: Ancho máximo que interfiere con configuración del usuario
+                      // const idealMaxWidth = handleAutocompleteSize(...);
                       
-                      // Aplicar cambios si tenemos valores válidos - ORDEN IMPORTANTE
-                      // Primero maxWidth, luego width, y finalmente height para evitar conflictos
+                      // Aplicar cambios si tenemos valores válidos
                       
                       // Obtener dimensiones originales antes de aplicar cambios
                       const originalDims = getDimensions();
@@ -1550,9 +1558,7 @@ function BannerPropertyPanel({
                       // Guardar posición original para reposicionar si es necesario
                       let needsRepositioning = false;
                       
-                      if (idealMaxWidth) {
-                        handleStyleChange('maxWidth', `${Math.round(idealMaxWidth)}px`);
-                      }
+                      // ELIMINADO: if (idealMaxWidth) { handleStyleChange('maxWidth', ...) }
                       
                       if (idealWidth) {
                         // Si el nuevo ancho es mayor que el contenedor, marcar para reposicionamiento
@@ -1621,38 +1627,34 @@ function BannerPropertyPanel({
                 <DimensionControl
                   label="Ancho"
                   property="width"
-                  value={localStyle.width}
+                  value={component.style?.[deviceView]?.width || ''}
                   onChange={handleStyleChange}
-                  containerSize={getDimensions()?.containerRect?.width || 0}
+                  containerSize={getDimensions()?.containerRect?.width || 800}
                   min={0}
                   max={2000}
                   componentType={component.type}
-                  componentId={component.id} // Pasar el ID para obtener dimensiones reales
+                  componentId={component.id}
+                  device={deviceView}
                 />
+                {/* DEBUG: Mostrar valores actuales */}
+                <div style={{fontSize: '10px', color: 'red'}}>
+                  DEBUG: localStyle.width = {localStyle.width} | component.style?.[deviceView]?.width = {component.style?.[deviceView]?.width}
+                </div>
                 
                 <DimensionControl
                   label="Alto"
                   property="height"
-                  value={localStyle.height}
+                  value={component.style?.[deviceView]?.height || ''}
                   onChange={handleStyleChange}
-                  containerSize={getDimensions()?.containerRect?.height || 0}
+                  containerSize={getDimensions()?.containerRect?.height || 600}
                   min={0}
                   max={2000}
                   componentType={component.type}
-                  componentId={component.id} // Pasar el ID para obtener dimensiones reales
+                  componentId={component.id}
+                  device={deviceView}
                 />
                 
-                <DimensionControl
-                  label="Ancho Máximo"
-                  property="maxWidth"
-                  value={localStyle.maxWidth}
-                  onChange={handleStyleChange}
-                  containerSize={getDimensions()?.containerRect?.width || 0}
-                  min={0}
-                  max={2000}
-                  componentType={component.type}
-                  componentId={component.id} // Pasar el ID para obtener dimensiones reales
-                />
+                {/* ELIMINADO: Ancho máximo por solicitud del usuario - NO debe existir esta opción */}
               </div>
 
               {/* Sección específica para Contenedores - FASE 3: Componente especializado */}
@@ -1663,6 +1665,7 @@ function BannerPropertyPanel({
                   onContainerConfigChange={handleContainerConfigChange}
                 />
               )}
+
 
               {/* Sección de Colores */}
               <div className="space-y-3">
@@ -1856,6 +1859,40 @@ function BannerPropertyPanel({
                   >
                     Negrita
                   </button>
+                </div>
+                
+                {/* Alineación de texto */}
+                <div className="space-y-2">
+                  <label className="block text-xs">Alineación</label>
+                  <div className="grid grid-cols-3 gap-1">
+                    <button
+                      onClick={() => handleStyleChange('textAlign', 'left')}
+                      className={`p-2 border rounded text-xs flex items-center justify-center ${localStyle.textAlign === 'left' || !localStyle.textAlign ? 'bg-blue-50 border-blue-200' : ''}`}
+                      title="Izquierda"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 4h18v2H3V4zm0 4h12v2H3V8zm0 4h18v2H3v-2zm0 4h12v2H3v-2z"/>
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleStyleChange('textAlign', 'center')}
+                      className={`p-2 border rounded text-xs flex items-center justify-center ${localStyle.textAlign === 'center' ? 'bg-blue-50 border-blue-200' : ''}`}
+                      title="Centro"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 4h18v2H3V4zm3 4h12v2H6V8zm-3 4h18v2H3v-2zm3 4h12v2H6v-2z"/>
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleStyleChange('textAlign', 'right')}
+                      className={`p-2 border rounded text-xs flex items-center justify-center ${localStyle.textAlign === 'right' ? 'bg-blue-50 border-blue-200' : ''}`}
+                      title="Derecha"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 4h18v2H3V4zm6 4h12v2H9V8zm-6 4h18v2H3v-2zm6 4h12v2H9v-2z"/>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
               
@@ -2352,14 +2389,8 @@ function BannerPropertyPanel({
                       getDimensions
                     );
                     
-                    // Obtener dimensiones para ancho máximo
-                    const idealMaxWidth = handleAutocompleteSize(
-                      component.type,
-                      deviceView,
-                      'maxWidth',
-                      'px',
-                      getDimensions
-                    );
+                    // ELIMINADO: Ancho máximo que interfiere con configuración del usuario
+                    // const idealMaxWidth = handleAutocompleteSize(...);
                     
                     // Aplicar cambios si tenemos valores válidos
                     if (idealWidth) {
@@ -2370,9 +2401,7 @@ function BannerPropertyPanel({
                       handleStyleChange('height', `${Math.round(idealHeight)}px`);
                     }
                     
-                    if (idealMaxWidth) {
-                      handleStyleChange('maxWidth', `${Math.round(idealMaxWidth)}px`);
-                    }
+                    // ELIMINADO: if (idealMaxWidth) { handleStyleChange('maxWidth', ...) }
                     
                     // Notificar al usuario
                   }}
@@ -2392,11 +2421,12 @@ function BannerPropertyPanel({
                 property="width"
                 value={localStyle.width}
                 onChange={handleStyleChange}
-                containerSize={getDimensions()?.containerRect?.width || 0}
+                containerSize={getDimensions()?.containerRect?.width || 800}
                 min={0}
                 max={2000}
                 componentType={component.type} // Pasar el tipo de componente
                 componentId={component.id} // Pasar el ID para obtener dimensiones reales
+                device={deviceView}
               />
               
               {/* Control de relación de aspecto - solo para imágenes */}
@@ -2453,35 +2483,27 @@ function BannerPropertyPanel({
                 property="height"
                 value={localStyle.height}
                 onChange={handleStyleChange}
-                containerSize={getDimensions()?.containerRect?.height || 0}
+                containerSize={getDimensions()?.containerRect?.height || 600}
                 min={0}
                 max={2000}
                 componentType={component.type} // Pasar el tipo de componente
                 componentId={component.id} // Pasar el ID para obtener dimensiones reales
+                device={deviceView}
               />
               
-              <DimensionControl
-                label="Ancho Máximo"
-                property="maxWidth"
-                value={localStyle.maxWidth}
-                onChange={handleStyleChange}
-                containerSize={getDimensions()?.containerRect?.width || 0}
-                min={0}
-                max={2000}
-                componentType={component.type} // Pasar el tipo de componente
-                componentId={component.id} // Pasar el ID para obtener dimensiones reales
-              />
+              {/* ELIMINADO: Ancho máximo por solicitud del usuario - NO debe existir esta opción */}
               
               <DimensionControl
                 label="Alto Máximo"
                 property="maxHeight"
                 value={localStyle.maxHeight}
                 onChange={handleStyleChange}
-                containerSize={getDimensions()?.containerRect?.height || 0}
+                containerSize={getDimensions()?.containerRect?.height || 600}
                 min={0}
                 max={2000}
                 componentType={component.type} // Pasar el tipo de componente
                 componentId={component.id} // Pasar el ID para obtener dimensiones reales
+                device={deviceView}
               />
               
               <DimensionControl
@@ -2489,11 +2511,12 @@ function BannerPropertyPanel({
                 property="minWidth"
                 value={localStyle.minWidth}
                 onChange={handleStyleChange}
-                containerSize={getDimensions()?.containerRect?.width || 0}
+                containerSize={getDimensions()?.containerRect?.width || 800}
                 min={0}
                 max={2000}
                 componentType={component.type} // Pasar el tipo de componente
                 componentId={component.id} // Pasar el ID para obtener dimensiones reales
+                device={deviceView}
               />
             </div>
 

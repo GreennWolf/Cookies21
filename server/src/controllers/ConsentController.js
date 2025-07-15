@@ -535,8 +535,9 @@ updateConsent = catchAsync(async (req, res) => {
     // Generar TC String (con manejo de errores mejorado)
     let tcString;
     try {
-      tcString = await tcfService.generateTCString(tcStringOptions);
-      console.log('TC String generado exitosamente');
+      // Usar el nuevo método que integra tcStringGenerator oficial
+      tcString = await tcfService.generateValidTCString(tcStringOptions);
+      logger.info('✅ TC String generado exitosamente usando servicio oficial IAB');
     } catch (error) {
       logger.error('Error generando TC String:', error);
       // Usar un string dummy para no bloquear el flujo

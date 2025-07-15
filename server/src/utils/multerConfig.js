@@ -16,8 +16,8 @@ const ensureDirectoryExists = async (directory) => {
   }
 };
 
-// Asegurar que exista la carpeta temporal
-const TEMP_UPLOAD_DIR = path.join(process.cwd(), 'public', 'templates', 'temp');
+// Asegurar que exista la carpeta temporal - usar ruta absoluta desde ubicación del módulo
+const TEMP_UPLOAD_DIR = path.join(__dirname, '../../public', 'templates', 'temp');
 (async () => {
   try {
     await ensureDirectoryExists(TEMP_UPLOAD_DIR);

@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import styleUtils from '../../../utils/styleUtils';
 import handleAutocompleteSize from './handleAutocompleteSize';
+import { useDimensionSync } from '../../../hooks/useDimensionSync.js';
 
 /**
  * Componente para controlar las dimensiones (ancho, alto, etc.)
@@ -15,7 +16,8 @@ const DimensionControl = ({
   min = 0,
   max = 1000,
   componentType = 'default', // Tipo de componente
-  componentId = null // ID opcional del componente para obtener dimensiones reales
+  componentId = null, // ID del componente para obtener dimensiones reales
+  device = 'desktop' // Device view ('desktop', 'tablet', 'mobile')
 }) => {
   // Valores mínimos específicos para botones y otros elementos (en píxeles)
   const MIN_SIZES = {
@@ -25,9 +27,15 @@ const DimensionControl = ({
     'default': { width: 30, height: 30 }
   };
   
-  // Referencias para detectar cambios iniciales
-  const isFirstRender = useRef(true);
-  const previousComponentId = useRef(null);
+  // Integrar con el nuevo sistema de sincronización de dimensiones
+  const {
+    dimensions,
+    updateDimension,
+    convertToUnit,
+    isConnected
+  } = useDimensionSync(componentId, device, { 
+    debug: typeof process !== 'undefined' && process.env?.NODE_ENV === 'development' 
+  });
   
   // Obtener mínimos según propiedad y tipo de componente
   const getMinSize = () => {
@@ -52,363 +60,380 @@ const DimensionControl = ({
     return min;
   };
   
-  // Calcular el máximo en la unidad actual
+  // Calcular el máximo basado en el contexto real - MEJORADO con límites del canvas
   const getMaxForCurrentUnit = (currentUnit) => {
-    if (currentUnit === 'px') return containerSize || max;
-    if (currentUnit === '%') return 100; // Máximo de 100% para ocupar todo el canvas
-    return max;
+    if (currentUnit === '%') {
+      return 100; // Máximo lógico para porcentajes - NUNCA más de 100%
+    }
+    
+    // Para px, usar las dimensiones reales del canvas/contenedor
+    if (updateDimension && typeof updateDimension === 'function') {
+      try {
+        // Obtener el tamaño real del canvas usando DimensionManager
+        const canvasElement = document.querySelector('.banner-container');
+        if (canvasElement) {
+          const canvasSize = property === 'width' || property.includes('width') 
+            ? canvasElement.clientWidth 
+            : canvasElement.clientHeight;
+          
+          if (canvasSize > 0) {
+            console.log(`📏 Límite máximo para ${property}: ${canvasSize}px (tamaño real del canvas)`);
+            return canvasSize; // Máximo es el tamaño REAL del canvas
+          }
+        }
+      } catch (error) {
+        console.warn('Error obteniendo tamaño del canvas:', error);
+      }
+    }
+    
+    // Fallback: usar tamaño del contenedor padre si está disponible
+    if (containerSize > 0) {
+      return containerSize;
+    }
+    
+    // Último fallback con límites razonables por dispositivo
+    const deviceLimits = {
+      'mobile': property.includes('width') ? 375 : 667,
+      'tablet': property.includes('width') ? 768 : 1024,
+      'desktop': property.includes('width') ? 1200 : 800
+    };
+    
+    return deviceLimits[device] || 1920;
   };
   
-  // Parseamos el valor inicial para obtener el valor numérico y la unidad
-  const initialParsed = styleUtils.parseStyleValue(value || '');
+  // Parseamos el valor inicial
+  const parsed = styleUtils.parseStyleValue(value || '');
   
-  // Estados locales
-  const [numValue, setNumValue] = useState(initialParsed.value || '');
-  const [unit, setUnit] = useState(initialParsed.unit || 'px');
+  // Estados locales - CON MENSAJE DE ERROR Y VALOR APLICADO
+  const [numValue, setNumValue] = useState(parsed.value || '');
+  const [unit, setUnit] = useState(parsed.unit || 'px');
   const [isInvalid, setIsInvalid] = useState(false);
-  const [actualDimension, setActualDimension] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [lastAppliedValue, setLastAppliedValue] = useState(parsed.value || '');
   
-  // Actualizar estado local cuando cambia el prop value
+  // NUEVO: Referencia para trackear la fuente del cambio
+  const changeSourceRef = useRef(null);
+  
+  // SIMPLIFICADO: Actualizar cuando el value prop cambia (desde drag o externo)
   useEffect(() => {
-    const parsed = styleUtils.parseStyleValue(value || '');
-    setNumValue(parsed.value || '');
-    setUnit(parsed.unit || 'px');
+    // Si el cambio viene de nosotros mismos, ignorar
+    if (changeSourceRef.current === 'input') {
+      changeSourceRef.current = null;
+      return;
+    }
+    
+    const newParsed = styleUtils.parseStyleValue(value || '');
+    const newParsedValue = newParsed.value || '';
+    
+    setNumValue(newParsedValue);
+    setUnit(newParsed.unit || 'px');
+    setLastAppliedValue(newParsedValue); // Actualizar valor aplicado
+    
+    // Limpiar errores cuando el valor viene de fuera (drag, etc.)
+    setIsInvalid(false);
+    setErrorMessage('');
   }, [value]);
   
-  // Efecto para detectar cambio de componente y actualizar automáticamente
+  // NUEVO: Aplicar cambio SOLO si el valor es válido - CON AUTO-AJUSTE 100%
+  const applyChange = useCallback(() => {
+    // NO aplicar si el valor es inválido o está vacío
+    if (!numValue || isInvalid || !componentId) {
+      if (isInvalid) {
+        console.log(`❌ No se puede aplicar valor inválido: ${numValue}${unit} para ${property}`);
+      }
+      return;
+    }
+    
+    let finalValue = numValue;
+    
+    // AUTO-AJUSTE: Si se configura exactamente 100%, asegurar que quede dentro del canvas
+    if (unit === '%' && parseFloat(numValue) === 100) {
+      console.log(`🎯 Auto-ajuste activado: ${property} configurado al 100% - ajustando para que quepa perfectamente`);
+      
+      // Para 100%, usar 99.9% para evitar scroll y que quede perfectamente dentro
+      finalValue = '99.9';
+      setNumValue('99.9');
+    }
+    
+    const formattedValue = styleUtils.formatStyleValue(finalValue, unit);
+    
+    // Marcar que el cambio viene de nosotros
+    changeSourceRef.current = 'input';
+    
+    console.log(`✅ Aplicando valor válido: ${finalValue}${unit} para ${property}`);
+    
+    // Actualizar via DimensionManager
+    updateDimension(property, formattedValue, 'input');
+    
+    // También notificar via onChange
+    onChange?.(property, formattedValue);
+    
+    // Actualizar el último valor aplicado para las conversiones
+    setLastAppliedValue(finalValue);
+  }, [numValue, unit, isInvalid, componentId, property, updateDimension, onChange]);
+
+  // Listener global para aplicar cambios al hacer click fuera del canvas
   useEffect(() => {
-    // Solo ejecutar cuando cambia el componente o en el primer render
-    if (componentId !== previousComponentId.current || isFirstRender.current) {
-      // Actualizar referencia
-      previousComponentId.current = componentId;
-      isFirstRender.current = false;
+    const handleGlobalClick = (event) => {
+      // Verificar si el click es fuera del canvas/editor
+      const isOutsideCanvas = !event.target.closest('.banner-container') && 
+                             !event.target.closest('.banner-editor') &&
+                             !event.target.closest('.banner-property-panel');
       
-      // Obtener dimensiones reales y actualizar los inputs
-      if (componentId) {
-        setTimeout(() => {
-          const dimensions = getComponentDimensions();
-          if (dimensions && dimensions.compRect) {
-            // Guardar dimensión actual según propiedad
-            let actualValue;
-            if (property === 'width' || property === 'maxWidth') {
-              actualValue = dimensions.compRect.width;
-              setActualDimension(actualValue);
-            } else if (property === 'height' || property === 'maxHeight') {
-              actualValue = dimensions.compRect.height;
-              setActualDimension(actualValue);
-            }
-            
-            if (actualValue) {
-              
-              // Si la unidad actual es porcentaje, convertir
-              if (unit === '%' && dimensions.containerRect) {
-                const containerDimension = property.includes('width') 
-                  ? dimensions.containerRect.width 
-                  : dimensions.containerRect.height;
-                
-                if (containerDimension > 0) {
-                  const percentValue = (actualValue / containerDimension) * 100;
-                  setNumValue(percentValue.toFixed(1));
-                }
-              } else {
-                // Si es px, usar directamente
-                setNumValue(Math.round(actualValue));
-              }
-            }
-          }
-        }, 100); // Pequeño retraso para asegurar que el DOM está actualizado
+      if (isOutsideCanvas) {
+        console.log(`🌍 Click fuera del canvas detectado, aplicando cambios pendientes`);
+        applyChange();
+      }
+    };
+    
+    // Agregar listener
+    document.addEventListener('click', handleGlobalClick);
+    
+    // Cleanup
+    return () => {
+      document.removeEventListener('click', handleGlobalClick);
+    };
+  }, [applyChange]); // Dependencias completas
+  
+  // DESACTIVADO: Efecto que causaba bucles infinitos al obtener dimensiones constantemente
+  // useEffect(() => {
+  //   // Solo ejecutar cuando cambia el componente o en el primer render
+  //   if (componentId !== previousComponentId.current || isFirstRender.current) {
+  //     // Actualizar referencia
+  //     previousComponentId.current = componentId;
+  //     isFirstRender.current = false;
+  //     
+  //     // Obtener dimensiones reales y actualizar los inputs
+  //     if (componentId) {
+  //       setTimeout(() => {
+  //         const dimensions = getComponentDimensions();
+  //         if (dimensions && dimensions.compRect) {
+  //           // Guardar dimensión actual según propiedad
+  //           let actualValue;
+  //           if (property === 'width' || property === 'maxWidth') {
+  //             actualValue = dimensions.compRect.width;
+  //             setActualDimension(actualValue);
+  //           } else if (property === 'height' || property === 'maxHeight') {
+  //             actualValue = dimensions.compRect.height;
+  //             setActualDimension(actualValue);
+  //           }
+  //           
+  //           if (actualValue) {
+  //             
+  //             // Si la unidad actual es porcentaje, convertir
+  //             if (unit === '%' && dimensions.containerRect) {
+  //               const containerDimension = property.includes('width') 
+  //                 ? dimensions.containerRect.width 
+  //                 : dimensions.containerRect.height;
+  //               
+  //               if (containerDimension > 0) {
+  //                 const percentValue = (actualValue / containerDimension) * 100;
+  //                 setNumValue(percentValue.toFixed(1));
+  //               }
+  //             } else {
+  //               // Si es px, usar directamente
+  //               setNumValue(Math.round(actualValue));
+  //             }
+  //           }
+  //         }
+  //       }, 100); // Pequeño retraso para asegurar que el DOM está actualizado
+  //     }
+  //   }
+  // }, [componentId, property, unit]);
+  
+  // ELIMINADO: validateValue y tryRepositionComponent - funcionalidad manejada por DimensionManager
+  
+  // Manejar cambio de valor numérico - PERMITIR CUALQUIER VALOR, VALIDAR SIN CAMBIAR
+  const handleValueChange = useCallback((e) => {
+    const newValue = e.target.value;
+    
+    // PERMITIR cualquier valor en el input, incluso inválidos
+    setNumValue(newValue);
+    
+    // Validar si el valor está en el rango válido
+    let isValidValue = true;
+    let currentErrorMessage = '';
+    
+    if (newValue === '' || isNaN(parseFloat(newValue))) {
+      isValidValue = false;
+      currentErrorMessage = 'Valor numérico requerido';
+    } else {
+      const numericValue = parseFloat(newValue);
+      const maxLimit = getMaxForCurrentUnit(unit);
+      const minLimit = getMinForCurrentUnit(unit);
+      
+      if (numericValue < minLimit) {
+        isValidValue = false;
+        currentErrorMessage = `Mínimo permitido: ${minLimit.toFixed(1)}${unit}`;
+      } else if (numericValue > maxLimit) {
+        isValidValue = false;
+        currentErrorMessage = `Máximo permitido: ${maxLimit.toFixed(1)}${unit}`;
       }
     }
-  }, [componentId, property, unit]);
-  
-  // Validar y aplicar límites al valor (versión mejorada - ahora muestra advertencia pero permite valores menores)
-  const validateValue = (value, valueUnit) => {
-    let numVal = parseFloat(value);
-    if (isNaN(numVal)) return '';
     
-    // Aplicar límites específicos según unidad
-    const minLimit = getMinForCurrentUnit(valueUnit);
-    const maxLimit = getMaxForCurrentUnit(valueUnit);
+    // Actualizar estado de validación y mensaje
+    setIsInvalid(!isValidValue);
+    setErrorMessage(currentErrorMessage);
     
-    // Marcamos el campo como inválido si es menor que el mínimo
-    setIsInvalid(numVal < minLimit);
-    
-    // Si es mayor que el máximo, limitarlo
-    if (numVal > maxLimit) {
-      numVal = maxLimit;
-      
-      // Para valores que exceden el máximo, intentar reposicionar el componente
-      if (componentId && valueUnit === 'px') {
-        tryRepositionComponent(numVal, property);
-      }
+    // Log para debugging
+    if (!isValidValue) {
+      console.log(`❌ Valor inválido en ${property}: ${newValue}${unit} - ${currentErrorMessage}`);
     }
     
-    return numVal;
-  };
+  }, [unit, getMaxForCurrentUnit, getMinForCurrentUnit, property]);
   
-  // Intentar reposicionar componente si excede los límites
-  const tryRepositionComponent = (newSize, sizeProp) => {
-    try {
-      if (!componentId) return;
-      
-      const componentEl = document.querySelector(`[data-id="${componentId}"]`);
-      if (!componentEl) return;
-      
-      const containerEl = componentEl.closest('.banner-container');
-      if (!containerEl) return;
-      
-      // Obtener la posición actual
-      const compRect = componentEl.getBoundingClientRect();
-      const containerRect = containerEl.getBoundingClientRect();
-      
-      const isWidthProperty = sizeProp.includes('width');
-      
-      // Calcular si se sale del canvas
-      if (isWidthProperty) {
-        const right = compRect.left - containerRect.left + newSize;
-        if (right > containerRect.width) {
-          // Calcular nueva posición left
-          const currentLeft = parseFloat(componentEl.style.left) || 0;
-          const overflow = right - containerRect.width;
-          const newLeft = Math.max(0, currentLeft - overflow);
-          
-          // Convertir a porcentaje
-          const leftPercent = (newLeft / containerRect.width) * 100;
-          
-          // Aplicar nueva posición
-          componentEl.style.left = `${leftPercent}%`;
-          
-          // Disparar evento de posición actualizada
-          setTimeout(() => {
-            const event = new CustomEvent('component:position', {
-              detail: {
-                id: componentId,
-                position: { left: `${leftPercent}%` }
-              }
-            });
-            containerEl.dispatchEvent(event);
-          }, 50);
-          
-        }
-      } else {
-        // Para propiedad de altura
-        const bottom = compRect.top - containerRect.top + newSize;
-        if (bottom > containerRect.height) {
-          // Calcular nueva posición top
-          const currentTop = parseFloat(componentEl.style.top) || 0;
-          const overflow = bottom - containerRect.height;
-          const newTop = Math.max(0, currentTop - overflow);
-          
-          // Convertir a porcentaje
-          const topPercent = (newTop / containerRect.height) * 100;
-          
-          // Aplicar nueva posición
-          componentEl.style.top = `${topPercent}%`;
-          
-          // Disparar evento de posición actualizada
-          setTimeout(() => {
-            const event = new CustomEvent('component:position', {
-              detail: {
-                id: componentId,
-                position: { top: `${topPercent}%` }
-              }
-            });
-            containerEl.dispatchEvent(event);
-          }, 50);
-          
-        }
-      }
-    } catch (error) {
-      console.error('Error al reposicionar componente:', error);
-    }
-  };
-  
-  // Manejar cambio de valor numérico
-  const handleValueChange = (e) => {
-    const newRawValue = e.target.value;
-    setNumValue(newRawValue); // Actualizar el input para UX fluida
-    
-    // Solo notificar cambio si es un número válido
-    if (!isNaN(parseFloat(newRawValue)) || newRawValue === '') {
-      // Si el campo está vacío, mantenerlo así para UX
-      if (newRawValue === '') {
-        onChange(property, '');
-        setIsInvalid(false);
-        return;
-      }
-      
-      // Validar y aplicar límites, pero PERMITIR valores inválidos con advertencia
-      const validatedValue = validateValue(newRawValue, unit);
-      
-      // Formatear y notificar el cambio
-      const formattedValue = styleUtils.formatStyleValue(validatedValue, unit);
-      onChange(property, formattedValue);
-    }
-  };
-  
-  // Manejar cambio de unidad - versión mejorada
-  const handleUnitChange = (e) => {
+  // Manejar cambio de unidad - MEJORADO CON PRECISIÓN
+  const handleUnitChange = useCallback((e) => {
     const newUnit = e.target.value;
     const oldUnit = unit;
     
-    // Convertir valor solo si es un número válido
-    if (numValue === '' || isNaN(parseFloat(numValue))) {
+    if (!numValue || oldUnit === newUnit) {
+      setUnit(newUnit);
+      // Limpiar errores al cambiar unidad sin valor
+      setIsInvalid(false);
+      setErrorMessage('');
+      return;
+    }
+    
+    // No convertir si el valor actual es inválido
+    if (isInvalid) {
+      console.log(`⚠️ No se puede convertir valor inválido: ${numValue}${oldUnit} → ${newUnit}`);
       setUnit(newUnit);
       return;
     }
     
-    // CORRECCIÓN: Obtener las dimensiones reales para determinar el contenedor de referencia
-    const dimensions = getComponentDimensions();
-    const referenceSize = dimensions.isChildComponent && dimensions.containerRect
-      ? dimensions.containerRect.width // Usar contenedor padre para hijos
-      : containerSize; // Usar canvas para componentes principales
-    
-    if (dimensions.isChildComponent) {
-      console.log(`🔄 Conversión de unidades para hijo ${componentId}: usando contenedor padre (${Math.round(referenceSize)}px)`);
-    }
-    
-    // Realizar la conversión entre unidades usando la referencia correcta
-    let convertedValue;
-    if (referenceSize > 0) {
-      // De px a %
-      if (oldUnit === 'px' && newUnit === '%') {
-        // Porcentaje relativo al contenedor de referencia
-        convertedValue = (parseFloat(numValue) / referenceSize) * 100;
-      } 
-      // De % a px
-      else if (oldUnit === '%' && newUnit === 'px') {
-        // Píxeles basados en % del contenedor de referencia
-        convertedValue = (parseFloat(numValue) * referenceSize) / 100;
-      }
-      else {
-        convertedValue = parseFloat(numValue);
-      }
-    } else {
-      convertedValue = parseFloat(numValue);
-      console.warn('⚠️ No se pudo convertir correctamente: tamaño del contenedor desconocido');
-    }
-    
-    
-    // Validar y aplicar límites a la conversión
-    const validatedValue = validateValue(convertedValue, newUnit);
-    
-    // Actualizar estado local
-    setUnit(newUnit);
-    setNumValue(validatedValue);
-    
-    // Notificar cambio
-    const formattedValue = styleUtils.formatStyleValue(validatedValue, newUnit);
-    
-    onChange(property, formattedValue);
-  };
-  
-  // Función mejorada para obtener dimensiones del componente
-  const getComponentDimensions = () => {
     try {
-      // Si no tenemos ID de componente, devolver información básica
-      if (!componentId) {
-        return {
-          containerRect: { width: containerSize, height: containerSize * 0.75 }
-        };
-      }
+      const numericValue = parseFloat(numValue);
+      const convertedValue = convertToUnit(numericValue, oldUnit, newUnit, property);
       
-      // Buscar el elemento del componente
-      const componentEl = document.querySelector(`[data-id="${componentId}"]`);
-      if (!componentEl) {
-        return {
-          containerRect: { width: containerSize, height: containerSize * 0.75 }
-        };
-      }
-      
-      // CORRECCIÓN: Detectar si es un componente hijo y buscar su contenedor padre
-      let referenceContainer = null;
-      let isChildComponent = false;
-      
-      // Buscar el contenedor padre inmediato (si es un hijo)
-      let parentContainer = componentEl.parentElement;
-      while (parentContainer && parentContainer.getAttribute('data-component-type') !== 'container') {
-        parentContainer = parentContainer.parentElement;
-      }
-      
-      if (parentContainer && parentContainer.getAttribute('data-component-type') === 'container') {
-        // Es un componente hijo, usar el contenedor padre como referencia
-        referenceContainer = parentContainer;
-        isChildComponent = true;
-        console.log(`📐 DimensionControl: Usando contenedor padre para ${componentId}`);
+      if (convertedValue !== null && convertedValue !== undefined && !isNaN(convertedValue)) {
+        const roundedValue = newUnit === '%' ? convertedValue.toFixed(1) : Math.round(convertedValue);
+        
+        console.log(`🔄 Conversión de unidad: ${numericValue}${oldUnit} → ${roundedValue}${newUnit}`);
+        
+        // Actualizar estados
+        setUnit(newUnit);
+        setNumValue(roundedValue.toString());
+        setLastAppliedValue(roundedValue.toString()); // Actualizar valor aplicado
+        
+        // Limpiar errores ya que la conversión fue exitosa
+        setIsInvalid(false);
+        setErrorMessage('');
+        
+        // Aplicar cambio inmediatamente si es válido
+        const formattedValue = styleUtils.formatStyleValue(roundedValue, newUnit);
+        changeSourceRef.current = 'input';
+        updateDimension(property, formattedValue, 'unit-change');
+        onChange?.(property, formattedValue);
       } else {
-        // Es un componente principal, usar el banner container
-        referenceContainer = componentEl.closest('.banner-container');
+        console.warn(`❌ Error en conversión: ${numericValue}${oldUnit} → ${newUnit}`);
+        setUnit(newUnit);
       }
-      
-      if (!referenceContainer) {
-        return {
-          containerRect: { width: containerSize, height: containerSize * 0.75 }
-        };
-      }
-      
-      // Obtener dimensiones reales
-      const compRect = componentEl.getBoundingClientRect();
-      const containerRect = referenceContainer.getBoundingClientRect();
-      
-      return {
-        compRect,
-        containerRect,
-        componentEl,
-        width: compRect.width,
-        height: compRect.height,
-        // Calcular porcentajes respecto al contenedor correcto
-        widthPercent: (compRect.width / containerRect.width) * 100,
-        heightPercent: (compRect.height / containerRect.height) * 100,
-        isChildComponent,
-        referenceContainer
-      };
     } catch (error) {
-      console.error('Error al obtener dimensiones:', error);
-      return {
-        containerRect: { width: containerSize, height: containerSize * 0.75 }
-      };
+      console.warn('Error en conversión de unidad:', error);
+      setUnit(newUnit);
     }
-  };
+  }, [unit, numValue, property, convertToUnit, updateDimension, onChange, isInvalid]);
   
-  // Función mejorada para autocompletar según el tipo de componente
-  const handleAutoComplete = () => {
-    // Obtener dimensiones reales usando la nueva función
-    const dimensions = getComponentDimensions();
+  // Handlers simples para eventos
+  const handleBlur = useCallback(() => {
+    applyChange();
+  }, [applyChange]);
+  
+  const handleKeyPress = useCallback((e) => {
+    if (e.key === 'Enter') {
+      applyChange();
+    }
+  }, [applyChange]);
+  
+  // ELIMINADO: getComponentDimensions - ahora se maneja via DimensionManager/ReferenceResolver
+  
+  // Función para autocompletar - SIMPLIFICADA
+  const handleAutoComplete = useCallback(() => {
+    const idealValue = handleAutocompleteSize(componentType, device, property, unit, null);
     
-    // Usar nuestra función mejorada para autocompletar
-    const deviceView = 'desktop'; // Vista actual por defecto
-    const idealValue = handleAutocompleteSize(
-      componentType,
-      deviceView,
-      property,
-      unit,
-      () => dimensions
-    );
-    
-    // Aplicar si tenemos un valor válido
     if (idealValue !== null && idealValue !== undefined) {
-      // Actualizar estado local
       setNumValue(idealValue);
+      setLastAppliedValue(idealValue); // Actualizar valor aplicado
+      setIsInvalid(false);
+      setErrorMessage(''); // Limpiar errores
       
-      // Comprobar si es menor que el mínimo (solo para mostrar advertencia)
-      const minLimit = getMinForCurrentUnit(unit);
-      setIsInvalid(idealValue < minLimit);
-      
-      // Formatear y notificar cambio
+      // Aplicar cambio inmediatamente
       const formattedValue = styleUtils.formatStyleValue(idealValue, unit);
-      onChange(property, formattedValue);
-      
+      changeSourceRef.current = 'input';
+      updateDimension(property, formattedValue, 'autocomplete');
+      onChange?.(property, formattedValue);
     }
-  };
+  }, [device, componentType, property, unit, updateDimension, onChange]);
   
-  // Calcular y mostrar límites para mejor UX
-  const currentMinLimit = getMinForCurrentUnit(unit);
-  const currentMaxLimit = getMaxForCurrentUnit(unit);
+  // Calcular y mostrar límites para mejor UX - OPTIMIZADO con useMemo
+  const currentMinLimit = useMemo(() => getMinForCurrentUnit(unit), [unit, containerSize, componentType, property]);
+  const currentMaxLimit = useMemo(() => getMaxForCurrentUnit(unit), [unit]);
+  
+  // NUEVO: Memoizar equivalencias usando el ÚLTIMO VALOR APLICADO
+  const equivalentValue = useMemo(() => {
+    // Usar lastAppliedValue para conversiones, que es el valor realmente aplicado al componente
+    const valueToConvert = isInvalid ? lastAppliedValue : numValue;
+    
+    // No mostrar equivalencia si no hay valor aplicado válido
+    if (!valueToConvert || isNaN(parseFloat(valueToConvert)) || !componentId) {
+      return null;
+    }
+    
+    try {
+      const numericValue = parseFloat(valueToConvert);
+      
+      if (unit === '%') {
+        const pxEquivalent = convertToUnit(numericValue, '%', 'px', property);
+        if (pxEquivalent && !isNaN(pxEquivalent)) {
+          console.log(`🔄 Conversión %→px: ${numericValue}% = ${pxEquivalent}px (usando valor ${isInvalid ? 'aplicado' : 'actual'})`);
+          return `≈ ${Math.round(pxEquivalent)}px`;
+        }
+      } else if (unit === 'px') {
+        const percentEquivalent = convertToUnit(numericValue, 'px', '%', property);
+        if (percentEquivalent && !isNaN(percentEquivalent)) {
+          console.log(`🔄 Conversión px→%: ${numericValue}px = ${percentEquivalent.toFixed(1)}% (usando valor ${isInvalid ? 'aplicado' : 'actual'})`);
+          return `≈ ${percentEquivalent.toFixed(1)}%`;
+        }
+      }
+    } catch (error) {
+      console.warn('Error en conversión de equivalencia:', error);
+    }
+    
+    return null;
+  }, [numValue, lastAppliedValue, unit, property, componentId, convertToUnit, isInvalid]);
   
   return (
     <div className="space-y-1">
       <div className="flex justify-between items-center">
-        <label className="block text-xs font-medium">{label}</label>
+        <label className="block text-xs font-medium flex items-center gap-1">
+          {label}
+          {/* Indicadores visuales mejorados */}
+          {componentId && (
+            <div className="flex items-center gap-1">
+              {/* Indicador de conexión */}
+              <div 
+                className={`w-2 h-2 rounded-full transition-colors duration-200 ${
+                  isConnected 
+                    ? 'bg-green-400 animate-pulse' 
+                    : 'bg-red-400'
+                }`} 
+                title={isConnected ? "Sincronizado con DimensionManager" : "Desconectado del sistema"}
+              />
+              {/* Indicador de estado de validación */}
+              {isInvalid && (
+                <div 
+                  className="w-2 h-2 bg-yellow-400 rounded-full animate-bounce" 
+                  title="Valor fuera del rango recomendado"
+                />
+              )}
+              {/* Indicador de device específico */}
+              <span className="text-[9px] text-gray-400 uppercase tracking-wider">
+                {device}
+              </span>
+            </div>
+          )}
+        </label>
         {/* Mostrar límites actuales */}
         <span className="text-[10px] text-gray-500">
           {currentMinLimit.toFixed(1)} - {currentMaxLimit.toFixed(1)} {unit}
@@ -419,28 +444,42 @@ const DimensionControl = ({
           type="number"
           value={numValue}
           onChange={handleValueChange}
-          className={`flex-1 p-1 text-xs border rounded ${
-            isInvalid ? 'border-red-400 bg-red-50' : ''
+          onBlur={handleBlur}
+          onKeyPress={handleKeyPress}
+          className={`flex-1 p-1 text-xs border rounded transition-all duration-200 ${
+            isInvalid 
+              ? 'border-red-400 bg-red-50 shadow-red-100 shadow-sm' 
+              : isConnected 
+                ? 'border-blue-300 bg-blue-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-200' 
+                : 'border-gray-300 focus:border-gray-500'
           }`}
-          min={0} // Permitir cualquier valor para flexibilidad
-          max={unit === '%' ? 100 : 9999} // Máximos razonables
-          step={unit === '%' ? 0.1 : 1} // Paso más fino para porcentajes
+          min={currentMinLimit}
+          max={currentMaxLimit}
+          step={unit === '%' ? 0.1 : 1}
         />
         <select
           value={unit}
           onChange={handleUnitChange}
-          className="p-1 text-xs border rounded"
+          className={`p-1 text-xs border rounded transition-all duration-200 ${
+            isConnected 
+              ? 'border-blue-300 bg-blue-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-200' 
+              : 'border-gray-300 focus:border-gray-500'
+          }`}
         >
           <option value="px">px</option>
           <option value="%">%</option>
         </select>
         
-        {/* Botón para autocompletar tamaño */}
+        {/* Botón para autocompletar tamaño - con indicadores visuales */}
         <button
           type="button"
           onClick={handleAutoComplete}
-          className="p-1 border rounded text-xs bg-gray-50 hover:bg-blue-50 flex-shrink-0"
-          title="Autocompletar con tamaño ideal"
+          className={`p-1 border rounded text-xs flex-shrink-0 transition-all duration-200 ${
+            isConnected 
+              ? 'bg-blue-50 hover:bg-blue-100 border-blue-300 text-blue-600 hover:scale-105' 
+              : 'bg-gray-50 hover:bg-gray-100 border-gray-300 text-gray-600'
+          }`}
+          title={`Autocompletar con tamaño ideal${isConnected ? ' (Sincronizado)' : ' (Desconectado)'}`}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 5v14m0-9-9-5v10l9-5Z"/>
@@ -450,51 +489,35 @@ const DimensionControl = ({
       
       {/* Mensajes informativos */}
       <div className="text-[10px] space-y-1">
-        {/* Mensaje de aviso si el valor está por debajo del mínimo */}
-        {isInvalid && (
-          <p className="text-red-600 font-medium">
-            Valor menor que el mínimo recomendado de {currentMinLimit.toFixed(0)}{unit}
-          </p>
-        )}
-        
-        {/* Mostrar dimensión actual si tenemos el dato */}
-        {actualDimension && !numValue && (
-          <div className="text-blue-500 font-medium">
-            Dimensión actual: {Math.round(actualDimension)}px
+        {/* Mensaje de error para valores inválidos */}
+        {isInvalid && errorMessage && (
+          <div className="flex items-center gap-1 text-red-600 font-medium animate-fadeIn bg-red-50 px-2 py-1 rounded border border-red-200">
+            <svg className="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <span>{errorMessage}</span>
           </div>
         )}
         
-        {/* En caso de porcentaje, mostrar equivalente en px para mejor contexto */}
-        {unit === '%' && numValue !== '' && !isNaN(parseFloat(numValue)) && (
-          <div className="text-gray-500">
-            {(() => {
-              const dimensions = getComponentDimensions();
-              const referenceSize = dimensions.isChildComponent && dimensions.containerRect
-                ? dimensions.containerRect.width
-                : containerSize;
-              const referenceName = dimensions.isChildComponent ? 'contenedor' : 'canvas';
-              if (referenceSize > 0) {
-                return `≈ ${Math.round((parseFloat(numValue) * referenceSize) / 100)}px de ${Math.round(referenceSize)}px del ${referenceName}`;
-              }
-              return null;
-            })()}
+        {/* ELIMINADO: actualDimension - información manejada por DimensionManager */}
+        
+        {/* Mostrar equivalencia memoizada si existe - MEJORADO */}
+        {equivalentValue && !isInvalid && (
+          <div className="flex items-center gap-1 text-gray-500 bg-gray-50 px-2 py-1 rounded border">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+            </svg>
+            <span className="font-medium">{equivalentValue}</span>
+            <span className="text-xs text-gray-400">
+              {unit === '%' ? '(píxeles reales)' : '(porcentaje del canvas)'}
+            </span>
           </div>
         )}
         
-        {/* En caso de píxeles, mostrar equivalente en % */}
-        {unit === 'px' && numValue !== '' && !isNaN(parseFloat(numValue)) && (
-          <div className="text-gray-500">
-            {(() => {
-              const dimensions = getComponentDimensions();
-              const referenceSize = dimensions.isChildComponent && dimensions.containerRect
-                ? dimensions.containerRect.width
-                : containerSize;
-              const referenceName = dimensions.isChildComponent ? 'contenedor' : 'canvas';
-              if (referenceSize > 0) {
-                return `≈ ${((parseFloat(numValue) / referenceSize) * 100).toFixed(1)}% del ${referenceName}`;
-              }
-              return null;
-            })()}
+        {/* Información de canvas para conversiones */}
+        {isConnected && !isInvalid && (
+          <div className="text-xs text-blue-500">
+            Canvas: {unit === '%' ? 'Base para conversión' : 'Referencia actual'}
           </div>
         )}
       </div>

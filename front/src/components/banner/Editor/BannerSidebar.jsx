@@ -148,7 +148,19 @@ function BannerSidebar({ bannerConfig }) {
           label: 'Imagen',
           icon: <Image size={16} />,
           preview: 'Añade una imagen'
-        }
+        },
+      ]
+    },
+    presets: {
+      title: 'Presets',
+      icon: <Grid size={16} className="text-purple-600" />,
+      components: [
+        {
+          type: 'preset-texto-legal',
+          label: 'Texto Legal',
+          icon: <Box size={16} className="text-purple-600" />,
+          preview: 'Contenedor legal con información de cookies y razón social dinámica (100% x 100%, flex column)'
+        },
       ]
     },
     containers: {

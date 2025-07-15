@@ -90,6 +90,46 @@ The frontend is a React SPA with:
 - Nodemailer for email services
 - Winston for logging
 
+## Sistema de Configuración CMP Unificado
+
+### Configuración Centralizada
+El sistema utiliza una configuración centralizada en `/server/src/config/cmp.config.js` que actúa como **PUNTO ÚNICO DE VERDAD** para todos los valores del CMP:
+
+```javascript
+// IMPORTANTE: Solo editar estos valores en cmp.config.js para cambiar en todo el sistema
+const cmpConfig = createCMPConfig();
+
+// Valores principales que se propagan automáticamente:
+- cmpId: ID del CMP (por defecto 300 para testing)
+- cmpVersion: Versión del CMP
+- tcfVersion: Versión TCF (2.2)
+- tcfPolicyVersion: Versión de política TCF (5)
+- vendorListVersion: Versión del GVL (110)
+- gvlBaseUrl: URL base del Global Vendor List
+- publisherCC: Código de país del publisher (ES)
+```
+
+### Métodos de Configuración Específicos
+```javascript
+// Configuración para GVL/IAB Service
+const gvlConfig = cmpConfig.getGVLConfig();
+
+// Configuración para TC String Generator  
+const tcStringConfig = cmpConfig.getTCStringConfig();
+
+// Configuración para API TCF
+const tcfApiConfig = cmpConfig.getTCFAPIConfig();
+
+// Configuración para cliente/frontend
+const clientConfig = cmpConfig.getClientConfig(options);
+```
+
+### Servicios que Usan la Configuración Unificada
+- `IABService` - Para GVL y vendor management
+- `TCStringGeneratorService` - Para generación de TC Strings
+- `StandaloneScriptGenerator` - Para scripts de validación
+- `ConsentScriptGenerator` - Para scripts de cliente
+
 ## Banner Editor System
 
 The banner editor is a complex drag-and-drop system with:

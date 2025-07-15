@@ -161,6 +161,8 @@ const bannerTemplateValidation = {
     query: Joi.object({
       status: Joi.string().optional().valid('draft', 'active', 'archived'),
       search: Joi.string().optional().allow('').max(100),
+      type: Joi.string().optional().valid('system', 'custom'),
+      clientId: Joi.string().optional(), // Para owners
       page: Joi.number().optional().integer().min(1),
       limit: Joi.number().optional().integer().min(1).max(100)
     })
@@ -590,6 +592,46 @@ const bannerTemplateValidation = {
     }),
     query: Joi.object({
       permanentDelete: Joi.boolean().optional().default(true)
+    })
+  },
+
+  // Validación para assignTemplateToClient
+  assignTemplateToClient: {
+    params: Joi.object({
+      id: Joi.string().required().regex(/^[0-9a-fA-F]{24}$/) // Template ID
+    }),
+    body: Joi.object({
+      clientId: Joi.string().required().regex(/^[0-9a-fA-F]{24}$/)
+    })
+  },
+
+  // Validación para getClientAssignments
+  getClientAssignments: {
+    params: Joi.object({
+      id: Joi.string().required().regex(/^[0-9a-fA-F]{24}$/) // Template ID
+    }),
+    query: Joi.object({
+      page: Joi.number().optional().integer().min(1).default(1),
+      limit: Joi.number().optional().integer().min(1).max(100).default(10),
+      search: Joi.string().optional().allow('').max(100)
+    })
+  },
+
+  // Validación para removeClientAssignment
+  removeClientAssignment: {
+    params: Joi.object({
+      id: Joi.string().required().regex(/^[0-9a-fA-F]{24}$/), // Template ID
+      clientId: Joi.string().required().regex(/^[0-9a-fA-F]{24}$/) // Client ID
+    })
+  },
+
+  // Validación para asignar banner a cliente
+  assignBannerToClient: {
+    params: Joi.object({
+      id: Joi.string().required().regex(/^[0-9a-fA-F]{24}$/) // Banner Template ID
+    }),
+    body: Joi.object({
+      clientId: Joi.string().required().regex(/^[0-9a-fA-F]{24}$/) // Client ID al que asignar
     })
   }
 };

@@ -1,5 +1,5 @@
 /* LanguageSelector.css */
-
+@import "tailwindcss";
 /* Base styles */
 .language-selector {
   position: relative;

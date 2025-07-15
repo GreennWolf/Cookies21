@@ -19,8 +19,8 @@ router.get('/vendor/list', ConsentScriptController.getVendorList);
 
 router.get(
   '/script/:domainId/embed.js',
-  checkSubscriptionForScript,
-  cacheControl('1 hour'),
+  // checkSubscriptionForScript, // Temporalmente deshabilitado para testing
+  // cacheControl('1 hour'), // DESHABILITADO TEMPORALMENTE PARA DEBUG
   ConsentScriptController.serveEmbedScript
 );
 

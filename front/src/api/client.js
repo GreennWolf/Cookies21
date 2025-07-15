@@ -3,14 +3,50 @@ import apiClient from '../utils/apiClient';
 
 /**
  * Crea un nuevo cliente (solo usuarios owner pueden hacerlo).
- * @param {object} clientData - Datos del cliente a crear
+ * @param {object|FormData} clientData - Datos del cliente a crear
  * @returns {object} Datos del cliente creado y su administrador inicial
  */
 export const createClient = async (clientData) => {
   try {
-    const response = await apiClient.post('/api/v1/clients', clientData);
+    // Detectar si es FormData para ajustar headers
+    const isFormData = clientData instanceof FormData;
+    
+    console.log('📤 API CLIENT: Enviando petición createClient:', {
+      isFormData,
+      dataType: typeof clientData,
+      isFile: clientData instanceof FormData
+    });
+    
+    if (isFormData) {
+      console.log('📋 API CLIENT: Contenido del FormData a enviar:');
+      for (let pair of clientData.entries()) {
+        if (pair[1] instanceof File) {
+          console.log(`  - ${pair[0]}: [FILE] ${pair[1].name} (${pair[1].size} bytes)`);
+        } else {
+          console.log(`  - ${pair[0]}: ${typeof pair[1] === 'string' && pair[1].length > 100 ? '[LARGE_STRING]' : pair[1]}`);
+        }
+      }
+    }
+    
+    const config = isFormData ? {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    } : {};
+    
+    console.log('🚀 API CLIENT: Haciendo petición POST a /api/v1/clients');
+    const response = await apiClient.post('/api/v1/clients', clientData, config);
+    console.log('✅ API CLIENT: Respuesta recibida:', response.status, response.statusText);
+    
     return response.data;
   } catch (error) {
+    console.error('❌ API CLIENT: Error en createClient:', error);
+    console.error('📝 API CLIENT: Error details:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data
+    });
+    
     throw new Error(
       error.response?.data?.message || 'Error al crear el cliente'
     );

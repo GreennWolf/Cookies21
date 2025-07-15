@@ -191,10 +191,10 @@ const handleAutocompleteSize = (
         idealValue = minWidth;
       }
       
-      // Evitar superar el ancho del canvas
-      if (idealValue > canvasWidth) {
-        idealValue = canvasWidth;
-      }
+      // DESACTIVADO: Límite de ancho que causaba problemas con zoom
+      // if (idealValue > canvasWidth) {
+      //   idealValue = canvasWidth;
+      // }
     }
     // Si es height o maxHeight
     else if (propertyName === 'height' || propertyName === 'maxHeight') {
@@ -231,10 +231,10 @@ const handleAutocompleteSize = (
         idealValue = minHeight;
       }
       
-      // Evitar superar la altura del canvas
-      if (idealValue > canvasHeight) {
-        idealValue = canvasHeight;
-      }
+      // DESACTIVADO: Límite de altura que causaba problemas con zoom
+      // if (idealValue > canvasHeight) {
+      //   idealValue = canvasHeight;
+      // }
     }
     // Si es minWidth
     else if (propertyName === 'minWidth') {

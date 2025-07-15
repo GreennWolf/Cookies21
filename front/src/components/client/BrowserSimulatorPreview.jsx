@@ -19,13 +19,13 @@ const BrowserSimulatorPreview = ({
     }
   }, [deviceView]);
   
-  // Simulador de navegador con el banner en su posición correcta
+  // Simulador de navegador con el banner en su posición correcta - mejorado para mejor adaptabilidad
   const getDeviceClass = () => {
     switch (currentDevice) {
       case 'mobile':
-        return 'w-[375px] h-[600px]';
+        return 'w-[375px] h-[667px]'; // iPhone SE/8 más realista
       case 'tablet':
-        return 'w-[768px] h-[500px]';
+        return 'w-[768px] h-[600px]'; // iPad más realista
       default:
         return 'w-full h-[500px] max-w-[1200px]';
     }
@@ -430,15 +430,19 @@ const BrowserSimulatorPreview = ({
 
     switch (component.type) {
       case 'text': {
-        // Aplicar límites manualmente si es hijo de contenedor
+        // Aplicar límites manualmente si es hijo de contenedor - mejorado para diferentes dispositivos
         let finalTextStyle = { ...convertedProcessedStyle };
         
         if (parentContainerRef?.current) {
           const containerRect = parentContainerRef.current.getBoundingClientRect();
           
           if (containerRect.width > 0 && containerRect.height > 0) {
-            const maxWidth = containerRect.width * 0.95;
-            const maxHeight = containerRect.height * 0.95;
+            // Ajustar porcentajes según dispositivo para mejor legibilidad
+            const widthPercentage = currentDevice === 'mobile' ? 0.90 : 0.95;
+            const heightPercentage = currentDevice === 'mobile' ? 0.85 : 0.95;
+            
+            const maxWidth = containerRect.width * widthPercentage;
+            const maxHeight = containerRect.height * heightPercentage;
             
             const currentWidth = parseFloat(finalTextStyle.width) || 150;
             const currentHeight = parseFloat(finalTextStyle.height) || 40;
@@ -454,14 +458,14 @@ const BrowserSimulatorPreview = ({
         
         const textStyle = {
           ...finalTextStyle,
-          width: finalTextStyle.width || '150px',
+          width: finalTextStyle.width || (currentDevice === 'mobile' ? '120px' : '150px'),
           height: finalTextStyle.height || 'auto', // Permitir altura automática
-          minHeight: finalTextStyle.height || '40px', // Mantener altura mínima
+          minHeight: finalTextStyle.height || (currentDevice === 'mobile' ? '32px' : '40px'), // Altura mínima adaptada
           boxSizing: 'border-box',
           borderWidth: finalTextStyle.borderWidth || '0px',
           borderStyle: finalTextStyle.borderStyle || 'solid',
           borderColor: finalTextStyle.borderColor || 'transparent',
-          padding: finalTextStyle.padding || '8px', // Padding más pequeño
+          padding: finalTextStyle.padding || (currentDevice === 'mobile' ? '6px' : '8px'), // Padding adaptado
           overflow: 'visible', // Permitir que el contenido sea visible
           wordWrap: 'break-word',
           wordBreak: 'break-word',
@@ -471,7 +475,9 @@ const BrowserSimulatorPreview = ({
           justifyContent: finalTextStyle.textAlign === 'center' ? 'center' : 
                          finalTextStyle.textAlign === 'right' ? 'flex-end' : 'flex-start',
           flexShrink: 0,
-          flexGrow: 0
+          flexGrow: 0,
+          // NUEVO: Ajustar tamaño de fuente según dispositivo para mejor legibilidad
+          fontSize: currentDevice === 'mobile' && !finalTextStyle.fontSize ? '13px' : finalTextStyle.fontSize
         };
         
         return (
@@ -487,7 +493,8 @@ const BrowserSimulatorPreview = ({
               overflow: 'visible', // Permitir contenido visible
               whiteSpace: 'normal',
               overflowWrap: 'break-word',
-              lineHeight: '1.4' // Mejor espaciado de líneas
+              lineHeight: currentDevice === 'mobile' ? '1.3' : '1.4', // Espaciado adaptado por dispositivo
+              fontSize: 'inherit' // Heredar del contenedor padre
             }}>
               {displayContent || 'Texto'}
             </div>
@@ -496,14 +503,17 @@ const BrowserSimulatorPreview = ({
       }
       
       case 'button': {
-        // Calcular dimensiones con límites si es hijo
-        let finalWidth = baseStyles.width || '150px';
-        let finalHeight = baseStyles.height || '40px';
+        // Calcular dimensiones con límites si es hijo - adaptado por dispositivo
+        let finalWidth = baseStyles.width || (currentDevice === 'mobile' ? '120px' : '150px');
+        let finalHeight = baseStyles.height || (currentDevice === 'mobile' ? '32px' : '40px');
         
         if (component.parentId && parentContainerRef?.current) {
           const containerRect = parentContainerRef.current.getBoundingClientRect();
-          const maxWidth = containerRect.width * 0.95;
-          const maxHeight = containerRect.height * 0.95;
+          const widthPercentage = currentDevice === 'mobile' ? 0.90 : 0.95;
+          const heightPercentage = currentDevice === 'mobile' ? 0.85 : 0.95;
+          
+          const maxWidth = containerRect.width * widthPercentage;
+          const maxHeight = containerRect.height * heightPercentage;
           
           const currentWidth = typeof finalWidth === 'string' ? parseFloat(finalWidth) : finalWidth;
           const currentHeight = typeof finalHeight === 'string' ? parseFloat(finalHeight) : finalHeight;
@@ -539,9 +549,9 @@ const BrowserSimulatorPreview = ({
                 color: baseStyles.color,
                 border: baseStyles.border || 'none',
                 borderRadius: baseStyles.borderRadius,
-                fontSize: baseStyles.fontSize,
+                fontSize: baseStyles.fontSize || (currentDevice === 'mobile' ? '13px' : baseStyles.fontSize),
                 fontWeight: baseStyles.fontWeight,
-                padding: baseStyles.padding,
+                padding: baseStyles.padding || (currentDevice === 'mobile' ? '6px 12px' : baseStyles.padding),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
@@ -582,8 +592,10 @@ const BrowserSimulatorPreview = ({
               }}
             >
               <div className="flex flex-col items-center p-2">
-                <ImageOff size={24} className="text-gray-400 mb-1" />
-                <span className="text-xs text-center">Error al cargar imagen</span>
+                <ImageOff size={currentDevice === 'mobile' ? 16 : 24} className="text-gray-400 mb-1" />
+                <span className={`text-center ${
+                  currentDevice === 'mobile' ? 'text-xs' : 'text-xs'
+                }`}>Error al cargar imagen</span>
               </div>
             </div>
           );
@@ -600,12 +612,12 @@ const BrowserSimulatorPreview = ({
               opacity: 1,
               transform: 'translateZ(0)',
               willChange: 'opacity, transform',
-              // CRÍTICO: Asegurar que la imagen se ajuste al contenedor en BrowserSimulator
+              // CRÍTICO: Asegurar que la imagen se ajuste al contenedor en BrowserSimulator - mejorado por dispositivo
               maxWidth: '100%',
               maxHeight: '100%',
-              width: 'auto',
-              height: 'auto',
-              objectFit: 'contain',
+              width: currentDevice === 'mobile' ? baseStyles.width || 'auto' : 'auto',
+              height: currentDevice === 'mobile' ? baseStyles.height || 'auto' : 'auto',
+              objectFit: currentDevice === 'mobile' ? 'cover' : 'contain',
               objectPosition: 'center'
             }}
             crossOrigin="anonymous"
@@ -651,6 +663,25 @@ const BrowserSimulatorPreview = ({
           bannerContainerRef.current,
           false // Los contenedores no son hijos, no aplicar límites del 95%
         );
+        
+        // NUEVO: Ajustar dimensiones del contenedor según dispositivo para mejor adaptabilidad
+        if (convertedProcessedStyle.width) {
+          const currentWidth = parseFloat(convertedProcessedStyle.width);
+          if (currentDevice === 'mobile' && currentWidth > 350) {
+            convertedProcessedStyle.width = '350px';
+          } else if (currentDevice === 'tablet' && currentWidth > 720) {
+            convertedProcessedStyle.width = '720px';
+          }
+        }
+        
+        if (convertedProcessedStyle.height) {
+          const currentHeight = parseFloat(convertedProcessedStyle.height);
+          if (currentDevice === 'mobile' && currentHeight > 600) {
+            convertedProcessedStyle.height = '600px';
+          } else if (currentDevice === 'tablet' && currentHeight > 550) {
+            convertedProcessedStyle.height = '550px';
+          }
+        }
         
         // Estilos del contenedor EXTERNO (posicionamiento en canvas)
         const containerOuterStyles = {
@@ -750,7 +781,7 @@ const BrowserSimulatorPreview = ({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      minHeight: '80px' // Mínimo para que las imágenes se vean
+                      minHeight: currentDevice === 'mobile' ? '60px' : '80px' // Mínimo adaptado por dispositivo
                     })
                   };
                 }
@@ -770,7 +801,7 @@ const BrowserSimulatorPreview = ({
                   left: '50%',
                   transform: 'translate(-50%, -50%)',
                   color: '#999',
-                  fontSize: '14px',
+                  fontSize: currentDevice === 'mobile' ? '12px' : '14px',
                   textAlign: 'center',
                   pointerEvents: 'none'
                 }}>
@@ -821,37 +852,71 @@ const BrowserSimulatorPreview = ({
         </button>
       </div>
 
-      {/* Browser simulator */}
-      <div className="mx-auto bg-gray-800 rounded-t-lg overflow-hidden" style={{ maxWidth: '1200px' }}>
-        {/* Browser header */}
-        <div className="bg-gray-700 px-4 py-2 flex items-center gap-2">
+      {/* Browser simulator - mejorado para mejor adaptabilidad */}
+      <div className="mx-auto bg-gray-800 rounded-t-lg overflow-hidden" style={{ 
+        maxWidth: currentDevice === 'mobile' ? '375px' : 
+                   currentDevice === 'tablet' ? '768px' : '1200px'
+      }}>
+        {/* Browser header - adaptado por dispositivo */}
+        <div className={`bg-gray-700 flex items-center gap-2 ${
+          currentDevice === 'mobile' ? 'px-2 py-1.5' : 'px-4 py-2'
+        }`}>
           <div className="flex gap-1">
-            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+            <div className={`bg-red-500 rounded-full ${
+              currentDevice === 'mobile' ? 'w-2 h-2' : 'w-3 h-3'
+            }`}></div>
+            <div className={`bg-yellow-500 rounded-full ${
+              currentDevice === 'mobile' ? 'w-2 h-2' : 'w-3 h-3'
+            }`}></div>
+            <div className={`bg-green-500 rounded-full ${
+              currentDevice === 'mobile' ? 'w-2 h-2' : 'w-3 h-3'
+            }`}></div>
           </div>
-          <div className="flex-1 bg-gray-600 rounded px-3 py-1 text-gray-300 text-sm ml-4">
-            https://ejemplo.com
+          <div className={`flex-1 bg-gray-600 rounded text-gray-300 ${
+            currentDevice === 'mobile' ? 
+              'px-2 py-0.5 text-xs ml-2' : 
+              'px-3 py-1 text-sm ml-4'
+          }`}>
+            {currentDevice === 'mobile' ? 'ejemplo.com' : 'https://ejemplo.com'}
           </div>
         </div>
         
         {/* Browser content area */}
         <div className={`bg-white mx-auto relative overflow-hidden ${getDeviceClass()}`} style={{ minHeight: height }}>
-          {/* Fake website content */}
-          <div className="p-6 text-gray-600">
-            <div className="h-8 bg-gray-200 rounded mb-4 w-1/3"></div>
-            <div className="space-y-2 mb-6">
+          {/* Fake website content - adaptado por dispositivo */}
+          <div className={`text-gray-600 ${
+            currentDevice === 'mobile' ? 'p-3' : 
+            currentDevice === 'tablet' ? 'p-4' : 'p-6'
+          }`}>
+            <div className={`bg-gray-200 rounded mb-4 ${
+              currentDevice === 'mobile' ? 'h-6 w-1/2' : 
+              currentDevice === 'tablet' ? 'h-7 w-2/5' : 'h-8 w-1/3'
+            }`}></div>
+            <div className={`space-y-2 mb-4 ${
+              currentDevice === 'mobile' ? 'mb-3' : 'mb-6'
+            }`}>
               <div className="h-4 bg-gray-100 rounded w-full"></div>
               <div className="h-4 bg-gray-100 rounded w-5/6"></div>
-              <div className="h-4 bg-gray-100 rounded w-4/6"></div>
+              {currentDevice !== 'mobile' && (
+                <div className="h-4 bg-gray-100 rounded w-4/6"></div>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="h-24 bg-gray-100 rounded"></div>
-              <div className="h-24 bg-gray-100 rounded"></div>
-            </div>
+            {currentDevice !== 'mobile' && (
+              <div className={`grid gap-4 mb-6 ${
+                currentDevice === 'tablet' ? 'grid-cols-1' : 'grid-cols-2'
+              }`}>
+                <div className="h-24 bg-gray-100 rounded"></div>
+                {currentDevice === 'desktop' && (
+                  <div className="h-24 bg-gray-100 rounded"></div>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <div className="h-4 bg-gray-100 rounded w-full"></div>
               <div className="h-4 bg-gray-100 rounded w-3/4"></div>
+              {currentDevice === 'desktop' && (
+                <div className="h-4 bg-gray-100 rounded w-2/3"></div>
+              )}
             </div>
           </div>
           
@@ -860,11 +925,15 @@ const BrowserSimulatorPreview = ({
             {renderBannerComponents()}
           </div>
           
-          {/* Modal overlay si es modal */}
+          {/* Modal overlay si es modal - mejorado para diferentes dispositivos */}
           {bannerConfig?.layout?.[currentDevice]?.type === 'modal' && (
             <div 
-              className="absolute inset-0 bg-black bg-opacity-50 pointer-events-none"
-              style={{ zIndex: 999 }}
+              className="absolute inset-0 pointer-events-none"
+              style={{ 
+                zIndex: 999,
+                backgroundColor: currentDevice === 'mobile' ? 
+                  'rgba(0, 0, 0, 0.6)' : 'rgba(0, 0, 0, 0.5)'
+              }}
             />
           )}
         </div>

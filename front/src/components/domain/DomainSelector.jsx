@@ -12,7 +12,7 @@ const DomainSelector = ({ domains, selectedDomain, onSelect }) => {
           const selected = domains.find((domain) => domain._id === e.target.value);
           onSelect(selected);
         }}
-        className="w-full px-3 py-2 border rounded"
+        className="w-full px-3 py-2 border rounded border-gray-300 focus:border-blue-500 focus:outline-none"
       >
         <option value="">-- Selecciona un dominio --</option>
         {domains.map((domain) => (

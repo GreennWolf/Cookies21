@@ -147,7 +147,7 @@ const SubscriptionPlanDetailsModal = ({ plan, onClose, onUpdate, onClone }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex justify-center items-center">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 flex justify-center items-center">
       <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full m-4 max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white z-10 border-b p-4 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-800">

@@ -1,13 +1,15 @@
 // /src/pages/BannerPage.jsx
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getClientTemplates, archiveTemplate, unarchiveTemplate, deleteTemplate } from '../api/bannerTemplate';
+import { getClientTemplates, archiveTemplate, unarchiveTemplate, deleteTemplate, cloneTemplate, assignBannerToClient, unassignBannerFromClient } from '../api/bannerTemplate';
 import { getClients } from '../api/client';
 import { getDomains } from '../api/domain';
 import { useAuth } from '../contexts/AuthContext';
-import { AlertCircle, Search, Edit, Archive, Clock, Monitor, Tablet, Smartphone, Code, Users, Maximize2, RefreshCw, Trash2, Globe } from 'lucide-react';
+import { AlertCircle, Search, Edit, Archive, Clock, Monitor, Tablet, Smartphone, Code, Users, Maximize2, RefreshCw, Trash2, Globe, Copy, UserPlus, MoreVertical, ChevronDown, Mail } from 'lucide-react';
 import BannerThumbnail from '../components/banner/BannerThumbnail';
 import DeleteTemplateConfirmModal from '../components/banner/DeleteTemplateConfirmModal';
+import BannerAssignmentModal from '../components/banner/BannerAssignmentModal';
+import SendScriptEmailModal from '../components/banner/SendScriptEmailModal';
 import SubscriptionAlert from '../components/common/SubscriptionAlert';
 
 function BannerPage() {
@@ -24,6 +26,13 @@ function BannerPage() {
   const [thumbnailDevice, setThumbnailDevice] = useState('desktop');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState(null);
+  const [cloningTemplateId, setCloningTemplateId] = useState(null);
+  const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
+  const [templateToAssign, setTemplateToAssign] = useState(null);
+  const [assignmentMessage, setAssignmentMessage] = useState(null);
+  const [openDropdowns, setOpenDropdowns] = useState({});
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [templateToEmail, setTemplateToEmail] = useState(null);
   
   // Verificar si el usuario es owner
   const isOwner = hasRole('owner');
@@ -121,6 +130,20 @@ function BannerPage() {
     }
   }, [isOwner]);
 
+  // Cerrar dropdowns al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.relative')) {
+        closeAllDropdowns();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   // Función para archivar una plantilla
   const handleArchive = async (templateId) => {
     try {
@@ -204,12 +227,134 @@ function BannerPage() {
       closeDeleteModal();
     }
   };
+
+  // Función para clonar una plantilla
+  const handleClone = async (template) => {
+    try {
+      setCloningTemplateId(template._id);
+      
+      // Crear el nombre para la copia
+      const cloneName = `${template.name} - Copia`;
+      
+      // Datos para la clonación
+      const cloneData = {
+        name: cloneName
+      };
+      
+      await cloneTemplate(template._id, cloneData);
+      
+      // Construir parámetros para refrescar la lista
+      const params = {};
+      if (searchTerm.trim()) params.search = searchTerm.trim();
+      if (statusFilter) params.status = statusFilter;
+      
+      // Si es owner y hay un cliente seleccionado, aplicar el filtro
+      if (isOwner && selectedClientId) {
+        params.clientId = selectedClientId;
+      }
+      
+      // Refrescar la lista después de clonar
+      fetchTemplates(params);
+      
+    } catch (err) {
+      setError(err.message || 'Error al copiar la plantilla');
+    } finally {
+      setCloningTemplateId(null);
+    }
+  };
+
+  // Función para abrir el modal de asignación de banner
+  const openAssignmentModal = (template) => {
+    setTemplateToAssign({
+      id: template._id,
+      name: template.name,
+      type: template.type,
+      clientId: template.clientId?._id || template.clientId,
+      clientName: template.clientId?.name
+    });
+    setAssignmentModalOpen(true);
+  };
+
+  // Función para cerrar el modal de asignación
+  const closeAssignmentModal = () => {
+    setTemplateToAssign(null);
+    setAssignmentModalOpen(false);
+  };
+
+  // Función para manejar la asignación completada
+  const handleAssignmentComplete = async (result) => {
+    if (result.type === 'error') {
+      setError(result.message);
+    } else {
+      setAssignmentMessage({
+        type: 'success',
+        text: result.message
+      });
+      
+      // Refrescar la lista de plantillas
+      const params = {};
+      if (searchTerm) params.search = searchTerm;
+      if (statusFilter) params.status = statusFilter;
+      if (isOwner && selectedClientId) params.clientId = selectedClientId;
+      
+      await fetchTemplates(params);
+      
+      // Limpiar mensaje después de 5 segundos
+      setTimeout(() => setAssignmentMessage(null), 5000);
+    }
+  };
+
+  // Función para abrir el modal de envío por email
+  const openEmailModal = (template) => {
+    setTemplateToEmail({
+      id: template._id,
+      name: template.name,
+      type: template.type,
+      clientId: template.clientId?._id || template.clientId,
+      clientName: template.clientId?.name
+    });
+    setEmailModalOpen(true);
+  };
+
+  // Función para cerrar el modal de envío por email
+  const closeEmailModal = () => {
+    setTemplateToEmail(null);
+    setEmailModalOpen(false);
+  };
+
+  // Función para manejar el envío de email completado
+  const handleEmailSentComplete = (result) => {
+    if (result.type === 'error') {
+      setError(result.message);
+    } else {
+      setAssignmentMessage({
+        type: 'success',
+        text: result.message || 'Email enviado correctamente'
+      });
+      
+      // Limpiar mensaje después de 5 segundos
+      setTimeout(() => setAssignmentMessage(null), 5000);
+    }
+  };
   
   // Función para verificar si un template está asociado a algún dominio
   const isTemplateAssociatedWithDomain = (templateId) => {
     return domains.some(domain => 
       domain.settings?.defaultTemplateId === templateId
     );
+  };
+
+  // Función para toggle del dropdown
+  const toggleDropdown = (templateId) => {
+    setOpenDropdowns(prev => ({
+      ...prev,
+      [templateId]: !prev[templateId]
+    }));
+  };
+
+  // Función para cerrar todos los dropdowns
+  const closeAllDropdowns = () => {
+    setOpenDropdowns({});
   };
 
   // Renderizar spinner de carga si es la primera carga
@@ -263,6 +408,20 @@ function BannerPage() {
           <div className="flex items-center">
             <AlertCircle size={20} className="mr-2" />
             <span>{error}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Mensaje de asignación completada */}
+      {assignmentMessage && (
+        <div className={`mb-4 p-4 rounded-md ${
+          assignmentMessage.type === 'success' 
+            ? 'bg-green-50 text-green-700' 
+            : 'bg-red-50 text-red-700'
+        }`}>
+          <div className="flex items-center">
+            <AlertCircle size={20} className="mr-2" />
+            <span>{assignmentMessage.text}</span>
           </div>
         </div>
       )}
@@ -385,10 +544,10 @@ function BannerPage() {
           {templates.map((template) => (
             <div 
               key={template._id}
-              className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+              className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow relative"
             >
               {/* Miniatura del banner - estilo más simple */}
-              <div className="h-40 border-b relative bg-white">
+              <div className="h-40 border-b relative bg-white overflow-hidden rounded-t-lg">
                 {/* Simulación de barra de navegador */}
                 <div className="bg-gray-800 h-6 w-full flex items-center px-2">
                   <div className="flex gap-1">
@@ -435,104 +594,221 @@ function BannerPage() {
                   <span>Última modificación: {formatDate(template.updatedAt)}</span>
                 </div>
                 
-                <div className="flex flex-wrap gap-2">
-                  {/* Mostrar botón Editar solo para owners o para plantillas de tipo custom */}
-                  {(isOwner || template.type !== 'system') && (
-                    !subscriptionInfo.subscriptionInactive ? (
+                <div className="flex justify-between items-center">
+                  {/* Botones principales: Editar y Generar Script */}
+                  <div className="flex gap-2">
+                    {/* Mostrar botón Editar solo para owners o para plantillas de tipo custom */}
+                    {(isOwner || template.type !== 'system') && (
+                      !subscriptionInfo.subscriptionInactive ? (
+                        <Link 
+                          to={`/dashboard/banner-editor-fullscreen/${template._id}`}
+                          className="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center px-3 py-1 rounded-md hover:bg-blue-50"
+                        >
+                          <Edit size={16} className="mr-1" /> Editar
+                        </Link>
+                      ) : (
+                        <button 
+                          disabled
+                          className="text-gray-400 font-medium inline-flex items-center cursor-not-allowed px-3 py-1 rounded-md"
+                          title="Suscripción requerida para editar"
+                        >
+                          <Edit size={16} className="mr-1" /> Editar
+                        </button>
+                      )
+                    )}
+                    
+                    {/* Botón para generar script siempre visible */}
+                    {!subscriptionInfo.subscriptionInactive ? (
                       <Link 
-                        to={`/dashboard/banner-editor-fullscreen/${template._id}`}
-                        className="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center"
+                        to={`/dashboard/generate-script/${template._id}`}
+                        className="text-green-600 hover:text-green-800 font-medium inline-flex items-center px-3 py-1 rounded-md hover:bg-green-50"
                       >
-                        <Edit size={16} className="mr-1" /> Editar
+                        <Code size={16} className="mr-1" /> Generar Script
                       </Link>
                     ) : (
                       <button 
                         disabled
-                        className="text-gray-400 font-medium inline-flex items-center cursor-not-allowed"
-                        title="Suscripción requerida para editar"
+                        className="text-gray-400 font-medium inline-flex items-center cursor-not-allowed px-3 py-1 rounded-md"
+                        title="Suscripción requerida para generar scripts"
                       >
-                        <Edit size={16} className="mr-1" /> Editar
+                        <Code size={16} className="mr-1" /> Generar Script
                       </button>
-                    )
-                  )}
-                  
-                  {/* Botón para generar script siempre visible */}
-                  {!subscriptionInfo.subscriptionInactive ? (
-                    <Link 
-                      to={`/dashboard/generate-script/${template._id}`}
-                      className="text-green-600 hover:text-green-800 font-medium inline-flex items-center"
+                    )}
+                  </div>
+
+                  {/* Dropdown de opciones adicionales */}
+                  <div className="relative">
+                    <button
+                      onClick={() => toggleDropdown(template._id)}
+                      className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all duration-200 hover:shadow-md border border-gray-200 hover:border-gray-300 bg-white"
+                      title="Más opciones"
                     >
-                      <Code size={16} className="mr-1" /> Generar Script
-                    </Link>
-                  ) : (
-                    <button 
-                      disabled
-                      className="text-gray-400 font-medium inline-flex items-center cursor-not-allowed"
-                      title="Suscripción requerida para generar scripts"
-                    >
-                      <Code size={16} className="mr-1" /> Generar Script
+                      <MoreVertical size={18} />
                     </button>
-                  )}
-                  
-                  {/* Mostrar botón Archivar solo para owners o para plantillas de tipo custom que no estén archivadas */}
-                  {template.status !== 'archived' && (isOwner || template.type !== 'system') && (
-                    !subscriptionInfo.subscriptionInactive ? (
-                      <button
-                        onClick={() => handleArchive(template._id)}
-                        className="text-red-600 hover:text-red-800 font-medium inline-flex items-center"
+
+                    {/* Dropdown menu */}
+                    {openDropdowns[template._id] && (
+                      <div 
+                        className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-xl border border-gray-200 z-50 animate-in slide-in-from-top-2 duration-200"
+                        style={{ zIndex: 1000 }}
+                        onMouseLeave={() => toggleDropdown(template._id)}
                       >
-                        <Archive size={16} className="mr-1" /> Archivar
-                      </button>
-                    ) : (
-                      <button
-                        disabled
-                        className="text-gray-400 font-medium inline-flex items-center cursor-not-allowed"
-                        title="Suscripción requerida para archivar"
-                      >
-                        <Archive size={16} className="mr-1" /> Archivar
-                      </button>
-                    )
-                  )}
-                  
-                  {/* Mostrar botón Desarchivar solo para plantillas archivadas */}
-                  {template.status === 'archived' && (isOwner || template.type !== 'system') && (
-                    !subscriptionInfo.subscriptionInactive ? (
-                      <button
-                        onClick={() => handleUnarchive(template._id)}
-                        className="text-green-600 hover:text-green-800 font-medium inline-flex items-center"
-                      >
-                        <RefreshCw size={16} className="mr-1" /> Desarchivar
-                      </button>
-                    ) : (
-                      <button
-                        disabled
-                        className="text-gray-400 font-medium inline-flex items-center cursor-not-allowed"
-                        title="Suscripción requerida para desarchivar"
-                      >
-                        <RefreshCw size={16} className="mr-1" /> Desarchivar
-                      </button>
-                    )
-                  )}
-                  
-                  {/* Mostrar botón Eliminar solo para owners o para plantillas de tipo custom */}
-                  {(isOwner || template.type !== 'system') && (
-                    !subscriptionInfo.subscriptionInactive ? (
-                      <button
-                        onClick={() => openDeleteModal(template)}
-                        className="text-red-600 hover:text-red-800 font-medium inline-flex items-center"
-                      >
-                        <Trash2 size={16} className="mr-1" /> Eliminar
-                      </button>
-                    ) : (
-                      <button
-                        disabled
-                        className="text-gray-400 font-medium inline-flex items-center cursor-not-allowed"
-                        title="Suscripción requerida para eliminar"
-                      >
-                        <Trash2 size={16} className="mr-1" /> Eliminar
-                      </button>
-                    )
-                  )}
+                        <div className="py-2">
+                          {/* Copiar plantilla */}
+                          {!subscriptionInfo.subscriptionInactive ? (
+                            <button
+                              onClick={() => {
+                                handleClone(template);
+                                closeAllDropdowns();
+                              }}
+                              disabled={cloningTemplateId === template._id}
+                              className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 flex items-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
+                            >
+                              {cloningTemplateId === template._id ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600 mr-2"></div>
+                                  Copiando...
+                                </>
+                              ) : (
+                                <>
+                                  <Copy size={16} className="mr-2" /> Copiar
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <button
+                              disabled
+                              className="w-full text-left px-4 py-3 text-sm text-gray-400 cursor-not-allowed flex items-center"
+                              title="Suscripción requerida para copiar plantillas"
+                            >
+                              <Copy size={16} className="mr-2" /> Copiar
+                            </button>
+                          )}
+
+                          {/* Asignar Cliente - solo para owners */}
+                          {isOwner && (
+                            !subscriptionInfo.subscriptionInactive ? (
+                              <button
+                                onClick={() => {
+                                  openAssignmentModal(template);
+                                  closeAllDropdowns();
+                                }}
+                                className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 flex items-center transition-colors duration-150"
+                              >
+                                <UserPlus size={16} className="mr-2" /> Asignar Cliente
+                              </button>
+                            ) : (
+                              <button
+                                disabled
+                                className="w-full text-left px-4 py-3 text-sm text-gray-400 cursor-not-allowed flex items-center"
+                                title="Suscripción requerida para asignar clientes"
+                              >
+                                <UserPlus size={16} className="mr-2" /> Asignar Cliente
+                              </button>
+                            )
+                          )}
+
+                          {/* Enviar por email */}
+                          {!subscriptionInfo.subscriptionInactive ? (
+                            <button
+                              onClick={() => {
+                                openEmailModal(template);
+                                closeAllDropdowns();
+                              }}
+                              className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 flex items-center transition-colors duration-150"
+                            >
+                              <Mail size={16} className="mr-2" /> Enviar por email
+                            </button>
+                          ) : (
+                            <button
+                              disabled
+                              className="w-full text-left px-4 py-3 text-sm text-gray-400 cursor-not-allowed flex items-center"
+                              title="Suscripción requerida para enviar por email"
+                            >
+                              <Mail size={16} className="mr-2" /> Enviar por email
+                            </button>
+                          )}
+
+                          {/* Separador */}
+                          {((isOwner || template.type !== 'system') && template.status !== 'archived') && (
+                            <div className="border-t border-gray-100 my-1"></div>
+                          )}
+
+                          {/* Archivar - solo para owners o plantillas custom que no estén archivadas */}
+                          {template.status !== 'archived' && (isOwner || template.type !== 'system') && (
+                            !subscriptionInfo.subscriptionInactive ? (
+                              <button
+                                onClick={() => {
+                                  handleArchive(template._id);
+                                  closeAllDropdowns();
+                                }}
+                                className="w-full text-left px-4 py-3 text-sm text-orange-600 hover:bg-orange-50 hover:text-orange-700 flex items-center transition-colors duration-150"
+                              >
+                                <Archive size={16} className="mr-2" /> Archivar
+                              </button>
+                            ) : (
+                              <button
+                                disabled
+                                className="w-full text-left px-4 py-3 text-sm text-gray-400 cursor-not-allowed flex items-center"
+                                title="Suscripción requerida para archivar"
+                              >
+                                <Archive size={16} className="mr-2" /> Archivar
+                              </button>
+                            )
+                          )}
+
+                          {/* Desarchivar - solo para plantillas archivadas */}
+                          {template.status === 'archived' && (isOwner || template.type !== 'system') && (
+                            !subscriptionInfo.subscriptionInactive ? (
+                              <button
+                                onClick={() => {
+                                  handleUnarchive(template._id);
+                                  closeAllDropdowns();
+                                }}
+                                className="w-full text-left px-4 py-3 text-sm text-green-600 hover:bg-green-50 hover:text-green-700 flex items-center transition-colors duration-150"
+                              >
+                                <RefreshCw size={16} className="mr-2" /> Desarchivar
+                              </button>
+                            ) : (
+                              <button
+                                disabled
+                                className="w-full text-left px-4 py-3 text-sm text-gray-400 cursor-not-allowed flex items-center"
+                                title="Suscripción requerida para desarchivar"
+                              >
+                                <RefreshCw size={16} className="mr-2" /> Desarchivar
+                              </button>
+                            )
+                          )}
+
+                          {/* Eliminar - solo para owners o plantillas custom */}
+                          {(isOwner || template.type !== 'system') && (
+                            <>
+                              <div className="border-t border-gray-100 my-1"></div>
+                              {!subscriptionInfo.subscriptionInactive ? (
+                                <button
+                                  onClick={() => {
+                                    openDeleteModal(template);
+                                    closeAllDropdowns();
+                                  }}
+                                  className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 flex items-center transition-colors duration-150"
+                                >
+                                  <Trash2 size={16} className="mr-2" /> Eliminar
+                                </button>
+                              ) : (
+                                <button
+                                  disabled
+                                  className="w-full text-left px-4 py-3 text-sm text-gray-400 cursor-not-allowed flex items-center"
+                                  title="Suscripción requerida para eliminar"
+                                >
+                                  <Trash2 size={16} className="mr-2" /> Eliminar
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -554,6 +830,24 @@ function BannerPage() {
         onClose={closeDeleteModal}
         onConfirm={handleDelete}
         templateName={templateToDelete?.name || ''}
+      />
+      
+      {/* Modal de asignación de banner a cliente */}
+      {isOwner && (
+        <BannerAssignmentModal
+          isOpen={assignmentModalOpen}
+          onClose={closeAssignmentModal}
+          banner={templateToAssign}
+          onAssignmentComplete={handleAssignmentComplete}
+        />
+      )}
+      
+      {/* Modal de envío de script por email */}
+      <SendScriptEmailModal
+        isOpen={emailModalOpen}
+        onClose={closeEmailModal}
+        banner={templateToEmail}
+        onEmailSent={handleEmailSentComplete}
       />
     </div>
   );

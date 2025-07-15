@@ -2,7 +2,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 
-const DomainCard = ({ domain, onViewDetails, onDelete, subscriptionInactive = false }) => {
+const DomainCard = ({ domain, onViewDetails, onEdit, onDelete, subscriptionInactive = false }) => {
   // Verificar si tenemos información del cliente (solo para usuarios owner)
   const hasClientInfo = domain.clientId && typeof domain.clientId === 'object';
 
@@ -23,13 +23,29 @@ const DomainCard = ({ domain, onViewDetails, onDelete, subscriptionInactive = fa
         </div>
       )}
 
-      <div className="flex space-x-2">
+      <div className="flex flex-wrap gap-2">
         <button
           onClick={() => onViewDetails(domain)}
           className="px-3 py-1 bg-[#235C88] text-white rounded hover:bg-[#1e4a6b] transition"
         >
           Ver Detalles
         </button>
+        {!subscriptionInactive ? (
+          <button
+            onClick={() => onEdit(domain)}
+            className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+          >
+            Editar
+          </button>
+        ) : (
+          <button
+            disabled
+            className="px-3 py-1 bg-gray-400 text-white rounded cursor-not-allowed opacity-50"
+            title="Suscripción requerida para editar dominios"
+          >
+            Editar
+          </button>
+        )}
         {!subscriptionInactive ? (
           <button
             onClick={() => onDelete(domain._id)}
@@ -54,6 +70,7 @@ const DomainCard = ({ domain, onViewDetails, onDelete, subscriptionInactive = fa
 DomainCard.propTypes = {
   domain: PropTypes.object.isRequired,
   onViewDetails: PropTypes.func.isRequired,
+  onEdit: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
   subscriptionInactive: PropTypes.bool,
 };

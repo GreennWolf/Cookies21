@@ -55,4 +55,11 @@ router.get(
   VendorListController.getVersionChanges
 );
 
+// COMPLIANCE POINT 7: Debug endpoint para verificar datos GVL v3
+router.get(
+  '/debug-gvl',
+  restrictTo('admin'),
+  VendorListController.debugGVLData
+);
+
 module.exports = router;

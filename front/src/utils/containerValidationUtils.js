@@ -8,6 +8,7 @@
  */
 export const MAX_NESTING_DEPTH = 5;
 
+
 /**
  * Calcula la profundidad de anidamiento actual de un componente
  * @param {Object} component - El componente a analizar
@@ -404,6 +405,7 @@ export function validateDragOperation(draggedComponent, targetContainer, allComp
     }
   };
 }
+
 
 /**
  * Utilidad para debug: muestra la estructura completa de anidamiento

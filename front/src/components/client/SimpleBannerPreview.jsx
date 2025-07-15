@@ -61,28 +61,44 @@ function SimpleBannerPreview({
     try {
       const cacheBuster = `?cb=${Date.now()}`;
       
-      // Check for preview URL in styles
-      if (component.style?.desktop?._previewUrl) {
-        return component.style.desktop._previewUrl;
-      }
-      
-      // Handle data URIs and blob URLs
-      if (typeof component.content === 'string') {
-        if (component.content.startsWith('data:') || 
-            component.content.startsWith('blob:')) {
-          return component.content;
-        }
+      // PRIORIDAD 1: Usar content directo (URL del servidor - más confiable)
+      if (typeof component.content === 'string' && component.content.trim() !== '') {
+        const contentUrl = component.content;
         
-        // Handle relative URLs
-        if (component.content.startsWith('/')) {
-          return `${window.location.origin}${component.content}${cacheBuster}`;
+        // Handle data URIs and blob URLs
+        if (contentUrl.startsWith('data:') || contentUrl.startsWith('blob:')) {
+          return contentUrl;
         }
         
         // Handle HTTP/HTTPS URLs
-        if (component.content.startsWith('http://') || 
-            component.content.startsWith('https://')) {
-          return component.content;
+        if (contentUrl.startsWith('http://') || contentUrl.startsWith('https://')) {
+          console.log('✅ [SimpleBannerPreview] Usando content URL del servidor:', contentUrl);
+          return contentUrl;
         }
+        
+        // Handle relative URLs del servidor
+        if (contentUrl.startsWith('/templates/images/')) {
+          const fullUrl = `${window.location.origin}${contentUrl}${cacheBuster}`;
+          console.log('✅ [SimpleBannerPreview] Construyendo URL desde content:', fullUrl);
+          return fullUrl;
+        }
+        
+        // Handle otras rutas relativas
+        if (contentUrl.startsWith('/')) {
+          return `${window.location.origin}${contentUrl}${cacheBuster}`;
+        }
+        
+        // Si content no es __IMAGE_REF__ pero es una string válida
+        if (!contentUrl.startsWith('__IMAGE_REF__') && contentUrl.length > 3) {
+          console.log('⚠️ [SimpleBannerPreview] Content no reconocido, intentando URL directa:', contentUrl);
+          return contentUrl;
+        }
+      }
+      
+      // PRIORIDAD 2: Usar _previewUrl como fallback
+      if (component.style?.desktop?._previewUrl) {
+        console.log('⚠️ [SimpleBannerPreview] Usando _previewUrl como fallback:', component.style.desktop._previewUrl);
+        return component.style.desktop._previewUrl;
       }
       
       // Fallback placeholder

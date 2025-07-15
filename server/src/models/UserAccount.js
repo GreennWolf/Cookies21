@@ -99,11 +99,31 @@ const userAccountSchema = new mongoose.Schema({
       push: {
         type: Boolean,
         default: true
+      },
+      clientCreation: {
+        enabled: {
+          type: Boolean,
+          default: false
+        },
+        emailAddress: {
+          type: String,
+          // Por defecto será el email del usuario, pero puede ser personalizado
+          validate: {
+            validator: function(v) {
+              // Solo validar si está presente
+              if (!v) return true;
+              return /^\S+@\S+\.\S+$/.test(v);
+            },
+            message: 'Por favor ingresa un email válido para notificaciones'
+          }
+        }
       }
     }
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  // Asegurar que los subdocumentos se guarden correctamente
+  minimize: false
 });
 
 // Middleware para hashear la contraseña antes de guardar

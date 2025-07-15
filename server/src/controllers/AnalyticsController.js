@@ -869,6 +869,58 @@ class AnalyticsController {
     }
   });
 
+  // Método público para trackear visitas de página (sin autenticación)
+  trackPageVisit = catchAsync(async (req, res) => {
+    try {
+      console.log('📊 [AnalyticsController] Tracking page visit:', req.body);
+      
+      const { domainId, metadata } = req.body;
+      
+      if (!domainId) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'domainId is required'
+        });
+      }
+      
+      // Verificar que el dominio existe
+      const domain = await Domain.findById(domainId);
+      if (!domain) {
+        return res.status(404).json({
+          status: 'error',
+          message: 'Domain not found'
+        });
+      }
+      
+      // Llamar al servicio de analytics para trackear la visita
+      const result = await analyticsService.trackPageVisit({
+        domainId,
+        metadata
+      });
+      
+      if (result) {
+        console.log('✅ [AnalyticsController] Page visit tracked successfully');
+        res.status(200).json({
+          status: 'success',
+          message: 'Page visit tracked'
+        });
+      } else {
+        console.log('❌ [AnalyticsController] Failed to track page visit');
+        res.status(500).json({
+          status: 'error',
+          message: 'Failed to track page visit'
+        });
+      }
+      
+    } catch (error) {
+      console.error('❌ [AnalyticsController] Error tracking page visit:', error);
+      res.status(500).json({
+        status: 'error',
+        message: 'Internal server error'
+      });
+    }
+  });
+
   // Métodos privados
   _getPeriodStartDate(period) {
     const now = new Date();

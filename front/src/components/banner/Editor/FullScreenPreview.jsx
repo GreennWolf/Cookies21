@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Monitor, Smartphone, Tablet, ImageOff } from 'lucide-react';
 import { getImageUrl, handleImageError, processImageStyles } from '../../../utils/imageProcessing';
+import { useImageManager } from '../../../hooks/useImageManager';
 import LanguageButton from '../LanguageButton';
 
 /**
@@ -13,12 +14,14 @@ import LanguageButton from '../LanguageButton';
  * @param {Function} props.onClose - Función para cerrar la vista previa
  * @param {string} props.deviceView - Dispositivo actual (desktop, tablet, mobile)
  * @param {Function} props.onDeviceChange - Función para cambiar el dispositivo
+ * @param {Object} props.clientInfo - Información del cliente para reemplazo de variables
  */
 const FullScreenPreview = ({ 
   bannerConfig, 
   onClose, 
   deviceView = 'desktop', 
-  onDeviceChange
+  onDeviceChange,
+  clientInfo = null
 }) => {
   const [currentDevice, setCurrentDevice] = useState(deviceView);
   const [showBanner, setShowBanner] = useState(true);
@@ -197,134 +200,51 @@ const FullScreenPreview = ({
     return baseStyles;
   };
 
-  // Extract image URL from component content (copied from BannerPreview)
-  const extractImageUrl = (component) => {
-    try {
-      const cacheBuster = `?t=${Date.now()}`;
+  // Usar el sistema unificado de imágenes (igual que ComponentRenderer)
+  const imageManager = useImageManager();
+
+  // Función para procesar variables del cliente en el contenido
+  const processClientVariables = (content, clientInfo) => {
+    if (!content || !clientInfo) return content;
+    
+    let processedContent = content;
+    
+    // Reemplazar variable de nombre de la empresa
+    // Priorizar razón social sobre otros nombres
+    const companyName = clientInfo.fiscalInfo?.razonSocial || 
+                       clientInfo.companyName || 
+                       clientInfo.businessName || 
+                       clientInfo.name;
+    
+    if (companyName) {
+      // Variable principal para razón social
+      processedContent = processedContent.replace(/\{razonSocial\}/g, companyName);
       
-      // CASO 1: Si hay una URL de previsualización en el estilo, usar esa directamente
-      const deviceStyle = component.style?.[currentDevice];
-      if (deviceStyle?._previewUrl) {
-        if (deviceStyle._previewUrl.startsWith('blob:')) {
-          return deviceStyle._previewUrl;
-        }
-        const url = deviceStyle._previewUrl + (deviceStyle._previewUrl.includes('?') ? '&cb=' + Date.now() : cacheBuster);
-        return url;
-      }
-      
-      // CASO 2: Si es una referencia temporal
-      if (typeof component.content === 'string' && component.content.startsWith('__IMAGE_REF__')) {
-        if (window._imageFiles && window._imageFiles[component.content]) {
-          const file = window._imageFiles[component.content];
-          if (typeof URL !== 'undefined' && URL.createObjectURL) {
-            try {
-              const objectUrl = URL.createObjectURL(file);
-              if (!window._objectUrls) window._objectUrls = [];
-              window._objectUrls.push(objectUrl);
-              if (window._objectUrls.length > 20) {
-                const oldUrl = window._objectUrls.shift();
-                try { URL.revokeObjectURL(oldUrl); } catch (e) {}
-              }
-              return objectUrl;
-            } catch (err) {}
-          }
-        }
-        return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNlMGUwZTAiLz48dGV4dCB4PSI1MCIgeT0iNTAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzc3NyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkNhcmdhbmRvPC90ZXh0Pjwvc3ZnPg==';
-      }
-      
-      // CASO 3: Imágenes Data URI
-      if (typeof component.content === 'string' && component.content.startsWith('data:')) {
-        return component.content;
-      }
-      
-      // CASO 4: Imágenes Blob URL
-      if (typeof component.content === 'string' && component.content.startsWith('blob:')) {
-        return component.content;
-      }
-      
-      // CASO 5: Rutas /direct-image/
-      if (typeof component.content === 'string' && component.content.includes('/direct-image/')) {
-        const parts = component.content.split('/direct-image/');
-        if (parts.length === 2) {
-          const relativePath = parts[1].split('?')[0]; // Eliminar parámetros de consulta
-          const baseUrl = window.location.origin;
-          const fullUrl = `${baseUrl}/direct-image/${relativePath}${cacheBuster}`;
-          return fullUrl;
-        }
-      }
-      
-      // CASO 6: Rutas /templates/images/
-      if (typeof component.content === 'string' && component.content.includes('/templates/images/')) {
-        const parts = component.content.split('/templates/images/');
-        if (parts.length === 2) {
-          const relativePath = parts[1].split('?')[0]; // Eliminar parámetros de consulta
-          const baseUrl = window.location.origin;
-          const fullUrl = `${baseUrl}/templates/images/${relativePath}${cacheBuster}`;
-          return fullUrl;
-        }
-      }
-      
-      // CASO 7: Otras rutas relativas
-      if (typeof component.content === 'string' && component.content.startsWith('/')) {
-        const fullUrl = `${window.location.origin}${component.content}${component.content.includes('?') ? '&cb=' + Date.now() : cacheBuster}`;
-        return fullUrl;
-      }
-      
-      // CASO 8: URLs http/https
-      if (typeof component.content === 'string' && 
-          (component.content.startsWith('http://') || component.content.startsWith('https://'))) {
-        return component.content;
-      }
-      
-      // CASO 9: Objeto con URL o texto
-      if (component.content && typeof component.content === 'object') {
-        // Objeto con propiedad URL
-        if (component.content.url) {
-          if (component.content.url.startsWith('/')) {
-            const serverUrl = window.location.origin;
-            return `${serverUrl}${component.content.url}${cacheBuster}`;
-          }
-          return component.content.url;
-        }
-        
-        // Objeto con textos multilingual
-        if (component.content.texts && typeof component.content.texts === 'object') {
-          if (component.content.texts.en) {
-            const enText = component.content.texts.en;
-            if (typeof enText === 'string') {
-              if (enText.startsWith('/')) {
-                const serverUrl = window.location.origin;
-                return `${serverUrl}${enText}${cacheBuster}`;
-              }
-              if (enText.startsWith('http') || enText.startsWith('data:') || enText.startsWith('blob:')) {
-                return enText;
-              }
-            }
-          }
-          
-          for (const lang in component.content.texts) {
-            if (lang === 'en') continue;
-            
-            const text = component.content.texts[lang];
-            if (typeof text === 'string') {
-              if (text.startsWith('/')) {
-                const serverUrl = window.location.origin;
-                return `${serverUrl}${text}${cacheBuster}`;
-              }
-              if (text.startsWith('http') || text.startsWith('data:') || text.startsWith('blob:')) {
-                return text;
-              }
-            }
-          }
-        }
-      }
-      
-      // CASO 10: Fallback - usar placeholder
-      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCIgeT0iNTAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlbjwvdGV4dD48L3N2Zz4=';
-    } catch (error) {
-      console.error(`❌ Error al procesar URL de imagen:`, error);
-      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNmZmNjY2MiLz48dGV4dCB4PSI1MCIgeT0iNTAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iI2ZmMDAwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkVycm9yPC90ZXh0Pjwvc3ZnPg==';
+      // Variable alternativa para nombre de empresa
+      processedContent = processedContent.replace(/\{nombreEmpresa\}/g, companyName);
     }
+    
+    // Reemplazar CIF si está disponible
+    const cif = clientInfo.fiscalInfo?.cif;
+    if (cif) {
+      processedContent = processedContent.replace(/\{cif\}/g, cif);
+    }
+    
+    // Reemplazar dirección si está disponible
+    const direccion = clientInfo.fiscalInfo?.direccion;
+    if (direccion) {
+      processedContent = processedContent.replace(/\{direccion\}/g, direccion);
+    }
+    
+    console.log('🔄 Variables procesadas en FullScreenPreview:', {
+      original: content.substring(0, 50) + (content.length > 50 ? '...' : ''),
+      processed: processedContent.substring(0, 50) + (processedContent.length > 50 ? '...' : ''),
+      hasCompanyName: !!companyName,
+      hasCif: !!cif,
+      hasDireccion: !!direccion
+    });
+    
+    return processedContent;
   };
 
   // Función para convertir porcentajes a píxeles en vista previa
@@ -483,6 +403,9 @@ const FullScreenPreview = ({
         displayContent = component.content.text;
       }
     }
+    
+    // Procesar variables del cliente en el contenido
+    displayContent = processClientVariables(displayContent, clientInfo);
   
     // Handle component interaction
     const handleClick = () => {
@@ -555,7 +478,8 @@ const FullScreenPreview = ({
           </button>
         );
       case 'image': {
-        const imageUrl = extractImageUrl(component);
+        // Usar el sistema unificado para obtener la URL de la imagen
+        const imageUrl = imageManager.getUnifiedImageUrl(component, currentDevice, 'fullScreenPreview');
         const hasError = imageErrors[component.id];
         
         // Show error placeholder if image failed to load
@@ -624,8 +548,10 @@ const FullScreenPreview = ({
               }
             }}
             onError={(e) => {
-              // Marcar imagen como con error
-              setImageErrors(prev => ({ ...prev, [component.id]: true }));
+              // Usar el manejo de errores unificado
+              handleImageError(e, imageUrl, component.id, (hasError) => {
+                setImageErrors(prev => ({ ...prev, [component.id]: hasError }));
+              });
             }}
           />
         );

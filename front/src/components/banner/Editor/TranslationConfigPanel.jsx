@@ -99,7 +99,7 @@ function TranslationConfigPanel({
       {/* Overlay */}
       <div 
         className={`fixed inset-0 bg-black z-50 flex items-center justify-center transition-opacity duration-200 ${
-          isAnimating ? 'bg-opacity-50' : 'bg-opacity-0'
+          isAnimating ? 'bg-black/50' : 'bg-black/0'
         }`}
         onClick={() => {
           setIsAnimating(false);

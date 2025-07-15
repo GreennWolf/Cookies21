@@ -1,8 +1,10 @@
 // controllers/ClientController.js
 const Client = require('../models/Client');
+const Domain = require('../models/Domain');
 const UserAccount = require('../models/UserAccount');
 const SubscriptionPlan = require('../models/SubscriptionPlan');
 const SubscriptionRenewalRequest = require('../models/SubscriptionRenewalRequest');
+const BannerTemplate = require('../models/BannerTemplate');
 const AppError = require('../utils/appError');
 const { catchAsync } = require('../utils/catchAsync');
 const nodemailer = require('nodemailer');
@@ -11,108 +13,112 @@ const consentScriptGenerator = require('../services/consentScriptGenerator.servi
 const auditService = require('../services/audit.service');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
+const { getBaseUrl } = require('../config/urls');
+const fs = require('fs').promises;
+const path = require('path');
+const { ensureDirectoryExists } = require('../utils/multerConfig');
+const bcrypt = require('bcryptjs');
+const BannerImageManager = require('../services/bannerImageManager.service');
 
 class ClientController {
-  // Crear un nuevo cliente (solo para usuarios owner)
+  // Crear un nuevo cliente con transacción completa (ORDEN: cliente → dominio → banner → usuario)
   createClient = catchAsync(async (req, res, next) => {
+    console.log('🔄 INICIANDO TRANSACCIÓN COMPLETA DE CREACIÓN DE CLIENTE');
+    
+    // Variables para rollback
+    let createdClient = null;
+    let createdDomains = [];
+    let createdTemplate = null;
+    let createdUser = null;
+    
+    try {
+      // Llamar al método transaccional
+      const result = await this._createClientTransaction(req, res, next);
+      
+      // Si llegamos aquí, todo fue exitoso
+      console.log('✅ TRANSACCIÓN COMPLETADA EXITOSAMENTE');
+      return result;
+      
+    } catch (error) {
+      console.error('❌ ERROR EN TRANSACCIÓN, INICIANDO ROLLBACK AUTOMÁTICO');
+      
+      // Intentar rollback automático en orden inverso
+      await this._performRollback({
+        createdUser: error.rollbackData?.createdUser,
+        createdTemplate: error.rollbackData?.createdTemplate, 
+        createdDomains: error.rollbackData?.createdDomains || [],
+        createdClient: error.rollbackData?.createdClient
+      });
+      
+      // Re-lanzar el error original con información adicional
+      return next(new AppError(
+        error.message || 'Error durante la creación del cliente. Se han revertido todos los cambios.',
+        error.statusCode || 500
+      ));
+    }
+  });
+
+  // Método transaccional principal (privado)
+  _createClientTransaction = async (req, res, next) => {
     const { 
       name, 
       contactEmail, 
-      subscription, 
+      subscription = {}, 
       domains = [],
-      adminUser,
-      fiscalInfo = {}, // Nuevo campo para información fiscal
-      sendScriptByEmail = false, // Nuevo campo para enviar script por email
-      configureBanner = false, // Flag para indicar si se debe configurar un banner
-      bannerConfig = null, // Configuración del banner
-      domainForScript = '' // Dominio para el cual generar el script
+      adminUser = {},
+      fiscalInfo = {},
+      sendScriptByEmail = false,
+      configureBanner = false,
+      bannerConfig = null
     } = req.body;
   
-    console.log('🏢 Datos recibidos para crear cliente:', JSON.stringify(req.body, null, 2));
-    console.log(`📫 Enviar script por email: ${sendScriptByEmail ? 'Sí' : 'No'}`);
-    console.log(`🎨 Configurar banner: ${configureBanner ? 'Sí' : 'No'}`);
-  
-    // Validar que se envíen los campos requeridos
-    if (!name || !contactEmail) {
-      return next(new AppError('Se requiere nombre y email de contacto', 400));
-    }
-  
-    // Validar que el adminUser tenga los datos necesarios
-    if (!adminUser || !adminUser.name || !adminUser.email) {
-      return next(new AppError('Se requiere información del administrador', 400));
-    }
-  
-    // Verificar si ya existe un cliente con ese email
-    const existingClient = await Client.findOne({ contactEmail });
-    if (existingClient) {
-      console.warn(`⚠️ Ya existe un cliente con email: ${contactEmail}`);
-      return next(new AppError('Ya existe un cliente con ese email', 409));
-    }
-  
-    // Buscar el plan de suscripción si se ha proporcionado un planId
-    let subscriptionPlan = null;
-    if (subscription?.planId) {
-      subscriptionPlan = await SubscriptionPlan.findById(subscription.planId);
-      
-      if (!subscriptionPlan) {
-        console.error(`❌ Plan de suscripción no encontrado: ${subscription.planId}`);
-        return next(new AppError('Plan de suscripción no encontrado', 404));
-      }
-      
-      if (subscriptionPlan.status !== 'active') {
-        console.warn(`⚠️ Plan de suscripción inactivo: ${subscriptionPlan.name}`);
-        return next(new AppError('El plan seleccionado no está activo', 400));
-      }
-      
-      console.log(`✅ Plan de suscripción encontrado: ${subscriptionPlan.name}`);
-    }
-  
-    // Preparar el objeto de suscripción
-    const clientSubscription = {
-      plan: subscription?.plan || (subscriptionPlan ? subscriptionPlan.name.toLowerCase() : 'basic'),
-      planId: subscriptionPlan ? subscriptionPlan._id : null,
-      startDate: subscription?.startDate ? new Date(subscription.startDate) : new Date(),
-      maxUsers: subscription?.maxUsers || (subscriptionPlan ? subscriptionPlan.limits.maxUsers : 5),
-      isUnlimited: subscription?.isUnlimited || (subscriptionPlan ? subscriptionPlan.limits.isUnlimitedUsers : false)
-    };
-  
-    // Si no es ilimitada, establecer fecha de finalización
-    if (!clientSubscription.isUnlimited) {
-      clientSubscription.endDate = subscription?.endDate ? 
-        new Date(subscription.endDate) : 
-        new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 año por defecto
-    } else {
-      // Para suscripciones ilimitadas, usar fecha lejana
-      clientSubscription.endDate = new Date(2099, 11, 31);
-    }
-  
-    // Si hay un plan seleccionado, copiar las características
-    if (subscriptionPlan) {
-      clientSubscription.features = {
-        autoTranslate: subscriptionPlan.features.autoTranslate,
-        cookieScanning: subscriptionPlan.features.cookieScanning,
-        customization: subscriptionPlan.features.customization
-      };
-    }
-  
-    console.log(`📝 Configuración de suscripción:`);
-    console.log(`  - Plan: ${clientSubscription.plan}`);
-    console.log(`  - Fecha inicio: ${clientSubscription.startDate}`);
-    console.log(`  - Fecha fin: ${clientSubscription.endDate}`);
-    console.log(`  - Máx. usuarios: ${clientSubscription.maxUsers}`);
-    console.log(`  - Ilimitada: ${clientSubscription.isUnlimited ? 'Sí' : 'No'}`);
-  
-    // Variable para almacenar el cliente creado
+    console.log('📋 INICIANDO VALIDACIONES PREVIAS');
+    
+    // PASO 0: Validaciones exhaustivas antes de crear nada
+    await this._validateCreationData({ name, contactEmail, adminUser, domains });
+    
+    // Variables para rollback
     let createdClient = null;
-    // Variable para almacenar el ID del banner template (si se crea uno)
-    let bannerTemplateId = null;
-  
+    let createdDomains = [];
+    let createdTemplate = null;
+    let createdUser = null;
+    
     try {
-      // Crear cliente con la información fiscal
+      // PASO 1: CREAR CLIENTE (PRIMERO)
+      console.log('📝 PASO 1: Creando cliente...');
+      
+      // Preparar suscripción
+      let subscriptionPlan = null;
+      if (subscription?.planId) {
+        subscriptionPlan = await SubscriptionPlan.findById(subscription.planId);
+        if (!subscriptionPlan || subscriptionPlan.status !== 'active') {
+          const error = new AppError('Plan de suscripción no válido', 400);
+          error.rollbackData = { createdClient, createdDomains, createdTemplate, createdUser };
+          throw error;
+        }
+      }
+      
+      const clientSubscription = {
+        plan: subscription?.plan || (subscriptionPlan ? subscriptionPlan.name.toLowerCase() : 'basic'),
+        planId: subscriptionPlan ? subscriptionPlan._id : null,
+        startDate: subscription?.startDate ? new Date(subscription.startDate) : new Date(),
+        maxUsers: subscription?.maxUsers || (subscriptionPlan ? subscriptionPlan.limits.maxUsers : 5),
+        isUnlimited: subscription?.isUnlimited || (subscriptionPlan ? subscriptionPlan.limits.isUnlimitedUsers : false),
+        endDate: subscription?.isUnlimited ? new Date(2099, 11, 31) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+      };
+      
+      if (subscriptionPlan) {
+        clientSubscription.features = {
+          autoTranslate: subscriptionPlan.features.autoTranslate,
+          cookieScanning: subscriptionPlan.features.cookieScanning,
+          customization: subscriptionPlan.features.customization
+        };
+      }
+      
       createdClient = await Client.create({
         name,
         contactEmail,
-        email: contactEmail, // Asignación explícita del email para sincronizar con contactEmail
+        email: contactEmail,
         subscription: clientSubscription,
         domains,
         status: 'active',
@@ -126,425 +132,300 @@ class ClientController {
           pais: fiscalInfo.pais || 'España'
         }
       });
-  
-      console.log(`✅ Cliente creado: ${createdClient._id} - ${createdClient.name}`);
       
-      // Para la versión inicial, no creamos el banner aquí para evitar duplicación
-      // El frontend ya maneja la creación del banner para el cliente
-      // Solo guardamos la configuración de banner si se proporcionó para referencia
-      if (configureBanner && bannerConfig) {
-        console.log(`🎨 Se recibió configuración de banner para el cliente: ${createdClient.name}`);
-        console.log(`📝 La creación del banner será manejada por el frontend`);
+      console.log(`✅ PASO 1 COMPLETADO: Cliente creado con ID ${createdClient._id}`);
+      
+      // PASO 2: CREAR DOMINIOS (SEGUNDO)
+      console.log('🌐 PASO 2: Creando dominios...');
+      
+      if (domains && domains.length > 0) {
+        const validDomains = domains.filter(d => d && d.trim() && !d.includes('@'));
         
-        // Si hay imágenes, vamos a guardarlas en almacenamiento temporal
-        // para que el frontend pueda accederlas al crear el banner
-        if (bannerConfig.images && Object.keys(bannerConfig.images).length > 0 && req.files && req.files.length > 0) {
+        for (const domainName of validDomains) {
           try {
-            console.log(`🖼️ Imágenes detectadas: ${Object.keys(bannerConfig.images).length}`);
-            console.log(`📂 Archivos recibidos: ${req.files.length}`);
+            const domainData = {
+              domain: domainName,
+              clientId: createdClient._id.toString(),
+              status: 'active',
+              settings: {
+                scanning: {
+                  autoDetect: true,
+                  interval: 24
+                }
+              }
+            };
             
-            // Aquí podríamos hacer algún procesamiento si fuera necesario, 
-            // pero por ahora el frontend ya maneja esto correctamente
-          } catch (error) {
-            console.error('⚠️ Error al procesar imágenes del banner:', error);
+            const domain = await Domain.create(domainData);
+            createdDomains.push(domain);
+            console.log(`✅ Dominio creado: ${domainName}`);
+            
+          } catch (domainError) {
+            console.error(`❌ Error creando dominio ${domainName}:`, domainError.message);
+            const error = new AppError(`Error creando dominio ${domainName}: ${domainError.message}`, 400);
+            error.rollbackData = { createdClient, createdDomains, createdTemplate, createdUser };
+            throw error;
           }
         }
       }
       
-      // Determinar si se debe enviar invitación o usar contraseña
-      const sendInvitation = adminUser.sendInvitation !== false; // Por defecto, enviar invitación
-  
-      // Preparar datos del administrador
-      const adminData = {
-        clientId: createdClient._id,
-        name: adminUser.name,
-        email: adminUser.email,
-        role: 'admin',
-        // Si se envía invitación, el estado es 'pending', de lo contrario 'active'
-        status: sendInvitation ? 'pending' : 'active'
-      };
-  
-      // Generación de contraseña según el caso
-      let adminPassword = null;
-  
-      if (!sendInvitation) {
-        // Si no se envía invitación, usar la contraseña proporcionada o generar una
-        if (adminUser.password) {
-          adminPassword = adminUser.password;
-          adminData.password = adminPassword;
-        } else {
-          // Generar contraseña aleatoria
-          adminPassword = crypto.randomBytes(4).toString('hex') + 
-                        Math.random().toString(36).substring(2, 6) + 
-                        '!A9';
-          adminData.password = adminPassword;
-        }
-        
-        console.log(`🔑 Configurando contraseña para admin: ${adminPassword.substring(0, 3)}...`);
-      }
-  
-      console.log(`👤 Creando admin con datos:`, {
-        ...adminData,
-        password: adminPassword ? `${adminPassword.substring(0, 3)}...` : 'N/A'
-      });
-  
-      // Crear usuario administrador
-      const admin = await UserAccount.create(adminData);
-      console.log(`✅ Administrador creado: ${admin._id} - ${admin.email}`);
-  
-      // Datos para invitación
-      let invitationData = null;
-  
-      // Generar token de invitación y enviar email si es necesario
-      if (sendInvitation) {
+      console.log(`✅ PASO 2 COMPLETADO: ${createdDomains.length} dominios creados`);
+      
+      // PASO 3: CREAR BANNER (TERCERO)
+      console.log('🎨 PASO 3: Creando banner...');
+      
+      if (configureBanner && bannerConfig) {
         try {
-          // Crear un token de invitación
-          console.log(`🔑 Generando token de invitación para ${admin.email}`);
-          const invitationToken = admin.createInvitationToken();
-          await admin.save();
+          let bannerData;
           
-          console.log(`✅ Token de invitación generado: ${invitationToken.substring(0, 8)}...`);
+          if (bannerConfig.customizedTemplate) {
+            bannerData = {
+              ...bannerConfig.customizedTemplate,
+              name: bannerConfig.name || `${createdClient.name} - Banner Principal`,
+              clientId: createdClient._id.toString(),
+              type: 'custom',
+              metadata: {
+                createdBy: req.userId,
+                lastModifiedBy: req.userId,
+                version: 1,
+                isPublic: false
+              }
+            };
+            
+            delete bannerData._id;
+            delete bannerData.__v;
+            delete bannerData.createdAt;
+            delete bannerData.updatedAt;
+          } else {
+            bannerData = {
+              name: bannerConfig.name || `${createdClient.name} - Banner Principal`,
+              clientId: createdClient._id.toString(),
+              type: 'custom',
+              components: bannerConfig.components || [],
+              layout: bannerConfig.layout || {
+                desktop: { width: '400px', height: 'auto' },
+                tablet: { width: '350px', height: 'auto' },
+                mobile: { width: '300px', height: 'auto' }
+              }
+            };
+          }
           
-          // Construir URL de invitación
-          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-          const inviteUrl = `${frontendUrl}/invitacion/${invitationToken}`;
+          createdTemplate = await BannerTemplate.create(bannerData);
+          console.log(`✅ Banner creado con ID: ${createdTemplate._id}`);
           
-          // CAMBIO IMPORTANTE: Usar directamente el servicio de email
-          console.log(`📧 Enviando email de invitación a ${admin.email}...`);
-          
-          const emailResult = await emailService.sendInvitationEmail({
-            email: admin.email,
-            name: admin.name,
-            invitationToken,
-            clientName: createdClient.name,
-            role: 'admin',
-            sendDirect: true // Forzar envío directo
+          // NUEVO: Procesar imágenes del banner si existen archivos subidos
+          console.log('🔍 DEBUG IMÁGENES - Verificando archivos subidos:', {
+            hasReqFiles: !!req.files,
+            filesLength: req.files ? req.files.length : 0,
+            filesNames: req.files ? req.files.map(f => f.originalname) : [],
+            bannerHasComponents: !!(createdTemplate.components && createdTemplate.components.length > 0),
+            componentsCount: createdTemplate.components ? createdTemplate.components.length : 0
           });
           
-          console.log(`📨 Resultado del envío:`, emailResult);
-          
-          if (emailResult.success) {
-            console.log(`✅ Email de invitación enviado correctamente a ${admin.email}`);
+          if (req.files && req.files.length > 0) {
+            console.log(`🖼️ PROCESANDO ${req.files.length} imágenes para banner ${createdTemplate._id}`);
+            console.log('📁 Archivos a procesar:', req.files.map(f => ({
+              originalname: f.originalname,
+              mimetype: f.mimetype,
+              size: f.size,
+              path: f.path
+            })));
             
-            invitationData = {
-              sent: true,
-              email: admin.email,
-              token: invitationToken.substring(0, 8) + '...', // Solo mostrar parte del token por seguridad
-              url: inviteUrl,
-              previewUrl: emailResult.previewUrl
-            };
-          } else {
-            console.error(`❌ Error al enviar email de invitación: ${emailResult.error}`);
-            if (emailResult.details) {
-              console.error('Detalles del error:', emailResult.details);
+            try {
+              const imageManager = new BannerImageManager();
+              const imageResult = await imageManager.processImagesUnified({
+                bannerId: createdTemplate._id.toString(),
+                uploadedFiles: req.files,
+                components: createdTemplate.components || [],
+                isUpdate: false,
+                metadata: {
+                  createdBy: req.userId,
+                  clientId: createdClient._id.toString()
+                }
+              });
+              
+              console.log('🔍 RESULTADO del procesamiento de imágenes:', {
+                success: imageResult.success,
+                stats: imageResult.stats,
+                hasComponents: !!imageResult.components,
+                componentsLength: imageResult.components ? imageResult.components.length : 0
+              });
+              
+              if (imageResult.success) {
+                // El BannerImageManager ya guardó directamente en BD
+                console.log(`✅ ${imageResult.stats.successful} imágenes procesadas y guardadas en BD`);
+                
+                // Verificar que se guardó correctamente
+                const savedTemplate = await BannerTemplate.findById(createdTemplate._id);
+                const imageComponentsAfterSave = [];
+                const findImageComponents = (comps, path = '') => {
+                  comps.forEach((comp, index) => {
+                    if (comp.type === 'image') {
+                      imageComponentsAfterSave.push({
+                        id: comp.id,
+                        path: path ? `${path}[${index}]` : `[${index}]`,
+                        content: comp.content,
+                        previewUrl: comp.style?.desktop?._previewUrl
+                      });
+                    }
+                    if (comp.children) {
+                      findImageComponents(comp.children, path ? `${path}[${index}].children` : `[${index}].children`);
+                    }
+                  });
+                };
+                findImageComponents(savedTemplate.components);
+                console.log('📸 VERIFICACIÓN FINAL - Componentes imagen en BD:', JSON.stringify(imageComponentsAfterSave, null, 2));
+              } else {
+                console.error('❌ El procesamiento de imágenes no fue exitoso');
+              }
+              
+            } catch (imageError) {
+              console.error('❌ Error procesando imágenes del banner:', imageError.message);
+              // No fallar la transacción por errores de imagen, solo advertir
+              console.warn('⚠️ Banner creado pero sin procesar imágenes');
             }
-            
-            invitationData = {
-              sent: false,
-              email: admin.email,
-              error: emailResult.error
-            };
           }
-        } catch (inviteError) {
-          console.error('❌ Error al generar token de invitación o enviar email:', inviteError);
           
-          invitationData = {
-            sent: false,
-            email: admin.email,
-            error: inviteError.message
-          };
+          // Asignar template a dominios creados
+          for (const domain of createdDomains) {
+            domain.settings.defaultTemplateId = createdTemplate._id;
+            await domain.save();
+          }
+          
+        } catch (bannerError) {
+          console.error('❌ Error creando banner:', bannerError.message);
+          const error = new AppError(`Error creando banner: ${bannerError.message}`, 400);
+          error.rollbackData = { createdClient, createdDomains, createdTemplate, createdUser };
+          throw error;
         }
       }
-  
-      // Incluir información del plan en la respuesta
-      let planInfo = null;
-      if (subscriptionPlan) {
-        planInfo = {
-          id: subscriptionPlan._id,
-          name: subscriptionPlan.name,
-          features: subscriptionPlan.features
-        };
-      }
       
-      // Variable para almacenar información del email de script si se envía
-      let scriptEmailData = null;
+      console.log('✅ PASO 3 COMPLETADO: Banner configurado');
       
-      // Enviar script por email si está marcada la opción
-      if (sendScriptByEmail) {
-        try {
-          console.log('📨 Enviando script de embed por email...');
-          
-          // Determinar el dominio para el script
-          const domainToUse = domainForScript || (domains.length > 0 ? domains[0] : null);
-          
-          if (!domainToUse) {
-            console.warn('⚠️ No se pudo enviar el script por email: No hay dominio disponible');
-          } else {
-            console.log(`🌐 Generando script para el dominio: ${domainToUse}`);
-            
-            // Variables para almacenar información del dominio
-            let domainId;
-            let domainName;
-            let domainObject = null;
-            
-            // Primero verificamos si ya es un objeto Domain con _id
-            if (typeof domainToUse === 'object' && domainToUse !== null && domainToUse._id) {
-              domainId = domainToUse._id;
-              domainName = domainToUse.domain || 'tu sitio web';
-              domainObject = domainToUse;
-              console.log(`✅ Usando dominio existente con ID: ${domainId}`);
-            } else {
-              // Si es un string (nombre de dominio) o necesitamos crear/encontrar el dominio
-              const Domain = require('../models/Domain');
-              const domainStr = typeof domainToUse === 'string' ? domainToUse : 
-                               (domainToUse && typeof domainToUse === 'object' ? (domainToUse.domain || domainToUse.name || '') : '');
-              
-              if (!domainStr) {
-                console.error('❌ No se pudo determinar el nombre del dominio');
-                throw new Error('Nombre de dominio inválido');
-              }
-              
-              // Normalizar el nombre del dominio
-              const normalizedDomain = domainStr.toLowerCase().trim();
-              console.log(`🔍 Buscando dominio: ${normalizedDomain}`);
-              
-              // Buscar si el dominio ya existe
-              try {
-                domainObject = await Domain.findOne({ domain: normalizedDomain });
-                
-                if (domainObject) {
-                  console.log(`✅ Dominio encontrado en la base de datos: ${domainObject._id}`);
-                  domainId = domainObject._id;
-                  domainName = domainObject.domain;
-                  
-                  // Si existe un banner template, siempre asignarlo como defaultTemplateId del dominio
-                  if (bannerTemplateId) {
-                    console.log(`🎨 Actualizando dominio existente con plantilla ${bannerTemplateId}`);
-                    console.log(`🔍 Tipo de bannerTemplateId: ${typeof bannerTemplateId}`);
-                    console.log(`🆔 Valor de bannerTemplateId: ${bannerTemplateId}`);
-                    
-                    // Inicializar settings si no existe
-                    if (!domainObject.settings) {
-                      domainObject.settings = {};
-                    }
-                    
-                    // Asignar la plantilla (sobreescribiendo cualquier valor previo)
-                    // Asegurándonos de que sea un string válido
-                    domainObject.settings.defaultTemplateId = String(bannerTemplateId);
-                    
-                    try {
-                      await domainObject.save();
-                      console.log(`✅ Dominio actualizado con éxito. defaultTemplateId: ${domainObject.settings.defaultTemplateId}`);
-                    } catch (updateError) {
-                      console.error(`❌ Error al actualizar dominio: ${updateError.message}`);
-                      if (updateError.errors && updateError.errors.settings) {
-                        console.error(`🔍 Error específico en settings: ${JSON.stringify(updateError.errors.settings)}`);
-                      }
-                    }
-                  }
-                } else {
-                  // El dominio no existe, lo creamos
-                  console.log(`🆕 Creando nuevo dominio para: ${normalizedDomain}`);
-                  
-                  try {
-                    // Verificar que el formato del dominio sea válido
-                    const { validateDomain } = require('../utils/domainValidator');
-                    if (!validateDomain(normalizedDomain)) {
-                      console.error(`❌ Formato de dominio inválido: ${normalizedDomain}`);
-                      throw new Error('Formato de dominio inválido');
-                    }
-                    
-                    // Crear el nuevo dominio asociado al cliente
-                    // Configurar settings con el bannerTemplateId si existe
-                    const settings = {
-                      design: {},
-                      scanning: {
-                        enabled: true,
-                        interval: 24
-                      }
-                    };
-                    
-                    // Si hay un banner template, asignarlo como defaultTemplateId del dominio
-                    if (bannerTemplateId) {
-                      // Loguear información de depuración detallada sobre el template
-                      console.log(`🎨 Asignando banner template ${bannerTemplateId} como predeterminado para el dominio`);
-                      console.log(`🔍 Tipo de bannerTemplateId: ${typeof bannerTemplateId}`);
-                      console.log(`🆔 Valor de bannerTemplateId: ${bannerTemplateId}`);
-                      
-                      // Asignar el template ID asegurándose de que sea un string válido
-                      settings.defaultTemplateId = String(bannerTemplateId);
-                    }
-                    
-                    domainObject = await Domain.create({
-                      clientId: createdClient._id,
-                      domain: normalizedDomain,
-                      status: 'pending',
-                      settings: settings
-                    });
-                    
-                    console.log(`✅ Nuevo dominio creado con ID: ${domainObject._id}`);
-                    
-                    // Actualizar la lista de dominios del cliente con el nombre de dominio
-                    await Client.findByIdAndUpdate(
-                      createdClient._id, 
-                      { $addToSet: { domains: normalizedDomain } }
-                    );
-                    
-                    domainId = domainObject._id;
-                    domainName = normalizedDomain;
-                  } catch (createError) {
-                    console.error(`❌ Error al crear dominio: ${createError.message}`);
-                    throw new Error(`No se pudo crear el dominio: ${createError.message}`);
-                  }
-                }
-              } catch (domainError) {
-                console.error(`❌ Error al procesar dominio: ${domainError.message}`);
-                throw domainError;
-              }
-            }
-            
-            // Verificación final
-            if (!domainId) {
-              console.error('❌ No se pudo determinar el ID del dominio');
-              throw new Error('ID de dominio no disponible');
-            }
-            
-            console.log(`🔑 ID final del dominio para script: ${domainId}`);
-            console.log(`🏷️ Nombre del dominio: ${domainName}`);
-            
-            // Generar script de consentimiento
-            const scriptOptions = {
-              clientId: createdClient._id,
-              domainId: domainId, // Usar el ID del dominio específico
-              templateId: bannerTemplateId || 'default', // Usar el ID de plantilla si existe
-              apiEndpoint: process.env.API_URL ? `${process.env.API_URL}/api/v1/consent` : '/api/v1/consent',
-              autoAcceptNonGDPR: false
-            };
-            
-            const script = await consentScriptGenerator.generateMinifiedScript(scriptOptions);
-            console.log(`✅ Script generado (${script.length} caracteres)`);
-            
-            // Preparar opciones para el email, considerando si hay invitación
-            const emailOptions = {
+      // PASO 4: CREAR USUARIO (ÚLTIMO)
+      console.log('👤 PASO 4: Creando usuario administrador...');
+      
+      try {
+        const hashedPassword = adminUser.password ? 
+          await bcrypt.hash(adminUser.password, 12) : 
+          await bcrypt.hash(crypto.randomBytes(8).toString('hex'), 12);
+        
+        createdUser = await UserAccount.create({
+          name: adminUser.name,
+          email: adminUser.email,
+          password: hashedPassword,
+          role: 'admin',
+          clientId: createdClient._id,
+          status: 'active',
+          emailVerified: !adminUser.sendInvitation // Si se envía invitación, marcar como no verificado
+        });
+        
+        console.log(`✅ Usuario administrador creado: ${createdUser.email}`);
+        
+        // Enviar email de invitación si es necesario
+        if (adminUser.sendInvitation) {
+          try {
+            await emailService.sendInvitationEmail({
               email: adminUser.email,
               name: adminUser.name,
-              domain: domainName, // Usar el nombre del dominio en lugar del objeto o ID
-              script: `<script>
-  (function(w,d,s,l,i){
-    w[l]=w[l]||[];
-    var f=d.getElementsByTagName(s)[0],j=d.createElement(s);
-    j.async=true;j.src=i;
-    f.parentNode.insertBefore(j,f);
-  })(window,document,'script','cmp','${process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : process.env.API_URL || 'https://app.cookie21.com'}/api/v1/consent/script/${domainId}/embed.js${process.env.NODE_ENV === 'development' ? '?dev=true' : ''}');
-</script>`,
               clientName: createdClient.name,
-              sendDirect: true
-            };
-            
-            // Si también se envió invitación, incluir los datos en el email
-            if (sendInvitation && invitationData && invitationData.sent) {
-              emailOptions.invitationInfo = {
-                token: invitationData.token,
-                url: invitationData.url
-              };
-              console.log('🔄 Combinando email de script con invitación');
-            }
-            
-            // Enviar el email
-            const emailResult = await emailService.sendEmbedScriptEmail(emailOptions);
-            console.log('📧 Resultado envío email de script:', emailResult);
-            
-            if (emailResult.success) {
-              scriptEmailData = {
-                sent: true,
-                email: adminUser.email,
-                domain: domainName, // Usar el nombre del dominio en lugar del objeto
-                combined: emailResult.combined,
-                previewUrl: emailResult.previewUrl
-              };
-            } else {
-              scriptEmailData = {
-                sent: false,
-                email: adminUser.email,
-                error: emailResult.error
-              };
-            }
-          }
-        } catch (scriptError) {
-          console.error('❌ Error al enviar script por email:', scriptError);
-          
-          // Determinar si el error está relacionado con el dominio
-          const errorMessage = scriptError.message || '';
-          const isDomainError = 
-            errorMessage.includes('dominio') || 
-            errorMessage.includes('domain') || 
-            errorMessage.includes('ID del dominio');
-          
-          scriptEmailData = {
-            sent: false,
-            email: adminUser.email,
-            error: isDomainError 
-              ? `Error con el dominio: ${errorMessage}. Por favor, crea el dominio primero desde la sección de dominios.` 
-              : scriptError.message
-          };
-          
-          // Si es un error de dominio, también lo mostramos en la consola de forma destacada
-          if (isDomainError) {
-            console.error('🚨🚨🚨 ERROR DE DOMINIO 🚨🚨🚨');
-            console.error('El dominio no pudo ser procesado correctamente. Asegúrate de:');
-            console.error('1. Crear el dominio en la plataforma antes de enviar el script');
-            console.error('2. Verificar que el formato del dominio sea válido (ej: example.com)');
-            console.error('3. Comprobar que el dominio no esté ya registrado por otro cliente');
+              temporaryPassword: adminUser.password || 'Se generará al primer login'
+            });
+            console.log('✅ Email de invitación enviado');
+          } catch (emailError) {
+            console.warn('⚠️ Error enviando email de invitación:', emailError.message);
+            // No fallar la transacción por errores de email
           }
         }
+        
+      } catch (userError) {
+        console.error('❌ Error creando usuario:', userError.message);
+        const error = new AppError(`Error creando usuario administrador: ${userError.message}`, 400);
+        error.rollbackData = { createdClient, createdDomains, createdTemplate, createdUser };
+        throw error;
       }
-  
+      
+      console.log('✅ PASO 4 COMPLETADO: Usuario administrador creado');
+      
+      // PASO 5: NOTIFICAR AL OWNER (OPCIONAL)
+      console.log('📧 PASO 5: Enviando notificación al owner...');
+      
+      try {
+        // Buscar usuarios owner con notificaciones habilitadas
+        const ownersToNotify = await UserAccount.find({
+          role: 'owner',
+          'preferences.notifications.clientCreation.enabled': true
+        }).select('name email preferences.notifications.clientCreation');
+        
+        console.log(`📧 Owners a notificar: ${ownersToNotify.length}`);
+        
+        for (const owner of ownersToNotify) {
+          try {
+            // Usar el email personalizado si está configurado, sino el email del usuario
+            const notificationEmail = owner.preferences.notifications.clientCreation.emailAddress || owner.email;
+            
+            // Preparar datos del cliente para el email
+            const clientDataForEmail = {
+              name: createdClient.name,
+              contactEmail: createdClient.contactEmail,
+              domain: createdDomains.length > 0 ? createdDomains.map(d => d.domain).join(', ') : 'Sin dominios',
+              plan: createdClient.subscription.plan || 'basic',
+              createdAt: new Date().toLocaleString('es-ES'),
+              fiscalInfo: createdClient.fiscalInfo,
+              adminUser: {
+                name: createdUser.name,
+                email: createdUser.email
+              }
+            };
+            
+            await emailService.sendClientCreationNotification({
+              ownerName: owner.name,
+              ownerEmail: notificationEmail,
+              clientData: clientDataForEmail
+            });
+            
+            console.log(`✅ Notificación enviada a ${owner.name} (${notificationEmail})`);
+            
+          } catch (emailError) {
+            console.error(`❌ Error enviando notificación a ${owner.name}:`, emailError.message);
+            // No fallar la transacción por errores de email
+          }
+        }
+        
+      } catch (notificationError) {
+        console.error('❌ Error en el proceso de notificaciones:', notificationError.message);
+        // No fallar la transacción por errores de notificación
+      }
+      
+      console.log('✅ PASO 5 COMPLETADO: Notificaciones procesadas');
+      
+      // TRANSACCIÓN COMPLETADA EXITOSAMENTE
+      console.log('🎉 TRANSACCIÓN COMPLETADA EXITOSAMENTE');
+      
       return res.status(201).json({
         status: 'success',
+        message: 'Cliente creado exitosamente con todos sus recursos',
         data: {
           client: {
             id: createdClient._id,
             name: createdClient.name,
             contactEmail: createdClient.contactEmail,
+            status: createdClient.status,
             subscription: createdClient.subscription,
-            domains: createdClient.domains,
-            fiscalInfo: createdClient.fiscalInfo
-          },
-          admin: {
-            id: admin._id,
-            name: admin.name,
-            email: admin.email,
-            role: admin.role,
-            status: admin.status,
-            password: !sendInvitation ? adminPassword : undefined
-          },
-          plan: planInfo,
-          invitation: invitationData,
-          // Incluir información del banner si se configuró
-          banner: bannerTemplateId ? { 
-            templateId: bannerTemplateId,
-            configured: true
-          } : null,
-          // Incluir información del email de script si se envió
-          scriptEmail: scriptEmailData
+            domains: createdDomains.map(d => ({ id: d._id, domain: d.domain })),
+            template: createdTemplate ? { id: createdTemplate._id, name: createdTemplate.name } : null,
+            adminUser: { id: createdUser._id, email: createdUser.email, name: createdUser.name }
+          }
         }
       });
+      
     } catch (error) {
-      console.error('❌ Error al crear cliente:', error);
-      
-      // Si se creó el cliente pero falló al crear el admin, intentar eliminar el cliente
-      if (error.message && error.message.includes('UserAccount validation failed') && createdClient) {
-        try {
-          await Client.findByIdAndDelete(createdClient._id);
-          console.warn('⚠️ Se eliminó el cliente parcialmente creado debido a error en la creación del admin');
-        } catch (cleanupError) {
-          console.error('❌ Error al limpiar cliente tras fallo:', cleanupError);
-        }
+      // Agregar datos de rollback al error si no los tiene
+      if (!error.rollbackData) {
+        error.rollbackData = { createdClient, createdDomains, createdTemplate, createdUser };
       }
-      
-      return next(new AppError(`Error al crear cliente: ${error.message}`, 422));
+      throw error;
     }
-  });
+  };
 
   // Actualizar suscripción de un cliente
   updateClientSubscription = catchAsync(async (req, res, next) => {
@@ -593,132 +474,36 @@ class ClientController {
           isUnlimited,
           maxUsers
         });
-        
-        logger.info(`Suscripción del cliente ${client.name} (${client._id}) actualizada al plan ${plan.name}`);
       } catch (error) {
-        return next(new AppError(`Error al actualizar la suscripción: ${error.message}`, 400));
+        return next(new AppError(`Error al actualizar desde el plan: ${error.message}`, 400));
       }
     } else {
-      // Actualización manual de campos individuales
-      if (startDate) {
-        client.subscription.startDate = new Date(startDate);
-      }
+      // Actualización manual de campos específicos
+      const updateData = {};
       
-      if (typeof isUnlimited === 'boolean') {
-        client.subscription.isUnlimited = isUnlimited;
-        
-        if (isUnlimited) {
-          client.subscription.endDate = new Date(2099, 11, 31);
-        } else if (endDate) {
-          client.subscription.endDate = new Date(endDate);
-        }
-      } else if (endDate) {
-        client.subscription.endDate = new Date(endDate);
-      }
+      if (startDate !== undefined) updateData['subscription.startDate'] = startDate;
+      if (endDate !== undefined) updateData['subscription.endDate'] = endDate;
+      if (isUnlimited !== undefined) updateData['subscription.isUnlimited'] = isUnlimited;
+      if (maxUsers !== undefined) updateData['subscription.limits.maxUsers'] = maxUsers;
+      if (features !== undefined) updateData['subscription.features'] = features;
       
-      if (maxUsers) {
-        client.subscription.maxUsers = maxUsers;
-      }
-      
-      // Actualizar características si se proporcionan
-      if (features) {
-        Object.keys(features).forEach(key => {
-          if (client.subscription.features[key] !== undefined) {
-            client.subscription.features[key] = features[key];
-          }
-        });
-      }
-      
-      // Marcar los campos modificados para asegurar que se guarden
-      client.markModified('subscription');
-      
-      await client.save();
-      logger.info(`Suscripción del cliente ${client.name} (${client._id}) actualizada manualmente`);
+      await Client.findByIdAndUpdate(clientId, updateData);
     }
     
+    // Obtener el cliente actualizado
     const updatedClient = await Client.findById(clientId)
-      .populate('subscription.planId', 'name description features limits pricing');
-
-    // Verificar si la suscripción está ahora activa y completar solicitudes pendientes
-    const subscriptionStatus = updatedClient.isSubscriptionActive();
-    if (subscriptionStatus.isActive) {
-      try {
-        const pendingRenewalRequest = await SubscriptionRenewalRequest.findOne({
-          clientId: updatedClient._id,
-          status: { $in: ['pending', 'in_progress'] }
-        }).populate('requestedBy', 'name email');
-
-        if (pendingRenewalRequest) {
-          console.log(`🔄 Completando solicitud de renovación pendiente tras actualización: ${pendingRenewalRequest._id}`);
-          
-          // Actualizar la solicitud como completada
-          const now = new Date();
-          pendingRenewalRequest.status = 'completed';
-          pendingRenewalRequest.resolvedAt = now;
-          pendingRenewalRequest.resolvedBy = req.user._id;
-          pendingRenewalRequest.adminNotes = `Suscripción actualizada por ${req.user.name}. Plan actualizado: ${
-            typeof updatedClient.subscription.plan === 'object' 
-              ? updatedClient.subscription.plan.name 
-              : (updatedClient.subscription.plan || 'Básico')
-          }`;
-          
-          await pendingRenewalRequest.save();
-          
-          // Enviar email de confirmación al cliente
-          try {
-            const planName = typeof updatedClient.subscription.plan === 'object' 
-              ? updatedClient.subscription.plan.name 
-              : (updatedClient.subscription.plan || 'Básico');
-            
-            const features = [];
-            if (updatedClient.subscription.planId && updatedClient.subscription.planId.features) {
-              const planFeatures = updatedClient.subscription.planId.features;
-              if (planFeatures.autoTranslate) features.push('Traducción automática de banners');
-              if (planFeatures.cookieScanning) features.push('Escaneo automático de cookies');
-              if (planFeatures.customization) features.push('Personalización avanzada de banners');
-            }
-            
-            const clientEmail = updatedClient.contactEmail || updatedClient.email;
-            const requestedByEmail = pendingRenewalRequest.requestedBy?.email;
-            
-            if (clientEmail || requestedByEmail) {
-              console.log(`📧 Enviando email de confirmación de renovación a: ${requestedByEmail || clientEmail}`);
-              
-              await emailService.sendRenewalSuccessNotification({
-                to: requestedByEmail || clientEmail,
-                clientName: updatedClient.name,
-                planName: planName,
-                endDate: updatedClient.subscription.endDate,
-                features: features,
-                requestType: pendingRenewalRequest.requestType
-              });
-              
-              console.log(`✅ Email de confirmación enviado exitosamente tras actualización`);
-            }
-          } catch (emailError) {
-            console.error('❌ Error enviando email de confirmación tras actualización:', emailError);
-          }
-        }
-      } catch (renewalError) {
-        console.error('❌ Error procesando solicitud de renovación tras actualización:', renewalError);
-      }
-    }
+      .populate('subscription.plan', 'name type features')
+      .select('-__v');
     
     res.status(200).json({
       status: 'success',
       data: {
-        client: {
-          id: updatedClient._id,
-          name: updatedClient.name,
-          subscription: updatedClient.subscription
-        }
+        client: updatedClient
       }
     });
   });
-  
-  // Resto de métodos del controlador...
-  
-  // Obtener todos los clientes (con filtros opcionales)
+
+  // Obtener todos los clientes
   getClients = catchAsync(async (req, res, next) => {
     const { status, plan, search, page = 1, limit = 50, subscriptionStatus } = req.query;
     
@@ -822,10 +607,8 @@ class ClientController {
       return next(new AppError('Cliente no encontrado', 404));
     }
     
-    // Obtener información adicional
+    // Agregar información de estado de suscripción
     const clientObj = client.toObject();
-    
-    // Verificar estado de suscripción
     const subscriptionInfo = client.isSubscriptionActive();
     clientObj.subscriptionActive = subscriptionInfo.isActive;
     clientObj.subscriptionReason = subscriptionInfo.reason;
@@ -834,14 +617,17 @@ class ClientController {
     const pendingRenewal = await SubscriptionRenewalRequest.findOne({
       clientId: client._id,
       status: { $in: ['pending', 'in_progress'] }
-    })
-    .select('requestType urgency createdAt status message contactPreference')
-    .populate('requestedBy', 'name email');
+    }).select('requestType urgency createdAt status');
     
     clientObj.hasPendingRenewal = !!pendingRenewal;
-    clientObj.pendingRenewalInfo = pendingRenewal;
+    clientObj.pendingRenewalInfo = pendingRenewal ? {
+      requestType: pendingRenewal.requestType,
+      urgency: pendingRenewal.urgency,
+      createdAt: pendingRenewal.createdAt,
+      status: pendingRenewal.status
+    } : null;
     
-    return res.status(200).json({
+    res.status(200).json({
       status: 'success',
       data: {
         client: clientObj
@@ -852,93 +638,66 @@ class ClientController {
   // Actualizar un cliente
   updateClient = catchAsync(async (req, res, next) => {
     const { clientId } = req.params;
-    const { name, contactEmail, domains, subscription, fiscalInfo } = req.body;
+    const updates = req.body;
     
-    const client = await Client.findById(clientId);
-    
-    if (!client) {
+    // Verificar que el cliente existe
+    const existingClient = await Client.findById(clientId);
+    if (!existingClient) {
       return next(new AppError('Cliente no encontrado', 404));
     }
     
-    // Actualizar campos básicos
-    if (name) client.name = name;
-    if (contactEmail) {
-      client.contactEmail = contactEmail;
-      client.email = contactEmail; // Actualizar email junto con contactEmail
-    }
-    if (domains) client.domains = domains;
-    
-    // Actualizar información fiscal
-    if (fiscalInfo) {
-      client.fiscalInfo = {
-        ...client.fiscalInfo || {},
-        ...fiscalInfo
-      };
+    // Verificar permisos: admins solo pueden editar su propio cliente
+    if (req.user.role === 'admin' && existingClient._id.toString() !== req.user.clientId.toString()) {
+      return next(new AppError('No tiene permisos para editar este cliente', 403));
     }
     
-    // Actualizar suscripción si se proporciona
-    if (subscription) {
-      if (subscription.plan) client.subscription.plan = subscription.plan;
-      if (subscription.maxUsers) client.subscription.maxUsers = subscription.maxUsers;
-      
-      // Manejar fechas de suscripción
-      if (subscription.startDate) {
-        client.subscription.startDate = new Date(subscription.startDate);
-      }
-      
-      // Manejar suscripción ilimitada
-      if (typeof subscription.isUnlimited === 'boolean') {
-        client.subscription.isUnlimited = subscription.isUnlimited;
-        
-        if (subscription.isUnlimited) {
-          client.subscription.endDate = new Date(2099, 11, 31);
-        } else if (subscription.endDate) {
-          client.subscription.endDate = new Date(subscription.endDate);
-        }
-      } else if (subscription.endDate) {
-        client.subscription.endDate = new Date(subscription.endDate);
-      }
-    }
+    // Eliminar campos que no se pueden actualizar directamente
+    delete updates._id;
+    delete updates.__v;
+    delete updates.createdAt;
+    delete updates.apiKeys;
     
-    // Guardar cambios
-    await client.save();
+    // Actualizar el cliente
+    const updatedClient = await Client.findByIdAndUpdate(
+      clientId,
+      { ...updates, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    ).select('-apiKeys');
     
-    return res.status(200).json({
+    res.status(200).json({
       status: 'success',
       data: {
-        client
+        client: updatedClient
       }
     });
   });
 
-  // Cambiar estado de un cliente
+  // Cambiar estado del cliente (activar/desactivar)
   toggleClientStatus = catchAsync(async (req, res, next) => {
     const { clientId } = req.params;
     const { status } = req.body;
     
+    // Verificar que el usuario sea owner
+    if (req.user.role !== 'owner') {
+      return next(new AppError('No tiene permisos para cambiar el estado del cliente', 403));
+    }
+    
+    // Validar estado
     if (!['active', 'inactive', 'suspended'].includes(status)) {
       return next(new AppError('Estado no válido', 400));
     }
     
     const client = await Client.findByIdAndUpdate(
       clientId,
-      { status },
-      { new: true, runValidators: true }
-    );
+      { status, updatedAt: new Date() },
+      { new: true }
+    ).select('-apiKeys');
     
     if (!client) {
       return next(new AppError('Cliente no encontrado', 404));
     }
     
-    // Si el cliente está inactivo o suspendido, también inactivar a sus usuarios
-    if (status !== 'active') {
-      await UserAccount.updateMany(
-        { clientId },
-        { status: 'inactive' }
-      );
-    }
-    
-    return res.status(200).json({
+    res.status(200).json({
       status: 'success',
       data: {
         client
@@ -946,63 +705,107 @@ class ClientController {
     });
   });
 
-  // Obtener métricas de un cliente
+  // Obtener métricas del cliente
   getClientMetrics = catchAsync(async (req, res, next) => {
     const { clientId } = req.params;
     
-    const client = await Client.findById(clientId)
-      .populate('subscription.planId', 'name description features');
-    
+    // Verificar que el cliente existe
+    const client = await Client.findById(clientId);
     if (!client) {
       return next(new AppError('Cliente no encontrado', 404));
     }
     
-    // Contar usuarios del cliente
-    const usersCount = await UserAccount.countDocuments({ clientId });
+    // Verificar permisos
+    if (req.user.role === 'admin' && client._id.toString() !== req.user.clientId.toString()) {
+      return next(new AppError('No tiene permisos para ver las métricas de este cliente', 403));
+    }
     
-    // Calcular días restantes de suscripción
-    const daysRemaining = client.subscription.isUnlimited ? 
-      'Ilimitado' : 
-      Math.ceil((new Date(client.subscription.endDate) - new Date()) / (1000 * 60 * 60 * 24));
+    // Implementar métricas reales del cliente
+    let metrics;
     
-    // Verificar límites actuales
-    const subscriptionLimits = await client.checkSubscriptionLimits();
-    
-    // Obtener información del plan si está disponible
-    let planInfo = null;
-    if (client.subscription.planId) {
-      planInfo = {
-        id: client.subscription.planId._id,
-        name: client.subscription.planId.name,
-        description: client.subscription.planId.description,
-        features: client.subscription.planId.features
+    try {
+      // Contar dominios del cliente
+      const domainsCount = await Domain.countDocuments({ 
+        clientId: clientId,
+        status: { $ne: 'inactive' }
+      });
+      
+      // Contar usuarios del cliente
+      const totalUsers = await UserAccount.countDocuments({ clientId: clientId });
+      const activeUsers = await UserAccount.countDocuments({ 
+        clientId: clientId, 
+        status: 'active' 
+      });
+      
+      // Contar banners/templates del cliente
+      const bannersCount = await BannerTemplate.countDocuments({ 
+        clientId: clientId,
+        status: { $ne: 'inactive' }
+      });
+      
+      // Obtener información de suscripción
+      const subscriptionInfo = {
+        plan: client.subscription.plan || 'basic',
+        status: client.subscription.status || 'active',
+        isUnlimited: client.subscription.isUnlimited || false,
+        maxUsers: client.subscription.maxUsers || 5,
+        startDate: client.subscription.startDate,
+        endDate: client.subscription.endDate
+      };
+      
+      metrics = {
+        domains: {
+          total: domainsCount,
+          active: domainsCount, // Por ahora consideramos que todos los contados están activos
+          canAddMore: true // Básicamente siempre se pueden agregar más dominios
+        },
+        users: {
+          total: totalUsers,
+          active: activeUsers,
+          limit: client.subscription.maxUsers || 5,
+          canAddMore: client.subscription.isUnlimited || totalUsers < (client.subscription.maxUsers || 5)
+        },
+        banners: {
+          total: bannersCount,
+          active: bannersCount
+        },
+        subscription: subscriptionInfo,
+        fiscalInfo: client.fiscalInfo || {},
+        // Datos adicionales que podrían ser útiles
+        analytics: {
+          // Aquí se pueden agregar métricas de analytics cuando se implementen
+          totalViews: 0,
+          totalConsents: 0
+        }
+      };
+      
+      console.log(`📊 Métricas calculadas para cliente ${client.name}:`, metrics);
+      
+    } catch (metricsError) {
+      console.error('❌ Error calculando métricas:', metricsError);
+      
+      // Devolver métricas básicas en caso de error
+      metrics = {
+        domains: { total: 0, active: 0, canAddMore: true },
+        users: { 
+          total: 0, 
+          active: 0, 
+          limit: client.subscription.maxUsers || 5,
+          canAddMore: client.subscription.isUnlimited || true
+        },
+        banners: { total: 0, active: 0 },
+        subscription: {
+          plan: client.subscription.plan || 'basic',
+          status: client.subscription.status || 'active',
+          isUnlimited: client.subscription.isUnlimited || false,
+          maxUsers: client.subscription.maxUsers || 5
+        },
+        fiscalInfo: client.fiscalInfo || {},
+        analytics: { totalViews: 0, totalConsents: 0 }
       };
     }
     
-    // Obtener otros datos de uso
-    const metrics = {
-      users: {
-        total: usersCount,
-        active: await UserAccount.countDocuments({ clientId, status: 'active' }),
-        limit: client.subscription.maxUsers,
-        canAddMore: subscriptionLimits.canAddMoreUsers
-      },
-      subscription: {
-        plan: client.subscription.plan,
-        planInfo,
-        daysRemaining,
-        isUnlimited: client.subscription.isUnlimited,
-        features: client.subscription.features
-      },
-      domains: {
-        count: client.domains.length,
-        list: client.domains,
-        canAddMore: subscriptionLimits.canAddMoreDomains
-      },
-      fiscalInfo: client.fiscalInfo || {}
-    };
-    
-    return res.status(200).json({
+    res.status(200).json({
       status: 'success',
       data: {
         metrics
@@ -1010,251 +813,245 @@ class ClientController {
     });
   });
 
-  /**
-   * Cancelar suscripción de un cliente (solo para owners)
-   */
+  // Cancelar suscripción
   cancelSubscription = catchAsync(async (req, res) => {
     const { clientId } = req.params;
-    const { reason, cancelImmediately = false } = req.body;
-
-    // Verificar que solo owners puedan cancelar suscripciones
+    const { reason, effectiveDate } = req.body;
+    
+    // Verificar que el usuario sea owner
     if (req.user.role !== 'owner') {
-      throw new AppError('Solo los owners pueden cancelar suscripciones', 403);
+      return res.status(403).json({
+        status: 'error',
+        message: 'No tiene permisos para cancelar suscripciones'
+      });
     }
-
-    // Buscar el cliente
+    
     const client = await Client.findById(clientId);
     if (!client) {
-      throw new AppError('Cliente no encontrado', 404);
-    }
-
-    // Verificar que la suscripción esté activa
-    const subscriptionStatus = client.isSubscriptionActive();
-    if (!subscriptionStatus.isActive && subscriptionStatus.reason !== 'NOT_STARTED') {
-      throw new AppError('La suscripción ya está inactiva', 400);
-    }
-
-    // Guardar información de la cancelación
-    const cancellationInfo = {
-      cancelledAt: new Date(),
-      cancelledBy: req.user._id,
-      reason: reason || 'Cancelación manual por owner',
-      originalEndDate: client.subscription.endDate,
-      cancelImmediately
-    };
-
-    if (cancelImmediately) {
-      // Cancelación inmediata
-      client.subscription.endDate = new Date();
-      client.subscription.status = 'cancelled';
-      client.status = 'inactive';
-    } else {
-      // Cancelar al final del período actual
-      client.subscription.status = 'cancelled';
-      // Mantener endDate original para que termine naturalmente
-    }
-
-    // Agregar información de cancelación
-    client.subscription.cancellation = cancellationInfo;
-
-    await client.save();
-
-    // Registrar en auditoría (no-blocking)
-    try {
-      await auditService.logAction({
-        clientId,
-        userId: req.user._id,
-        action: 'cancel_subscription',
-        resourceType: 'client',
-        resourceId: clientId,
-        metadata: {
-          cancellationType: cancelImmediately ? 'immediate' : 'end_of_period',
-          reason,
-          originalEndDate: cancellationInfo.originalEndDate
-        }
+      return res.status(404).json({
+        status: 'error',
+        message: 'Cliente no encontrado'
       });
-    } catch (auditError) {
-      logger.error('Error logging audit action for subscription cancellation:', auditError);
-      // No fallar la operación principal por errores de auditoría
     }
-
+    
+    // Actualizar la suscripción
+    const cancelDate = effectiveDate ? new Date(effectiveDate) : new Date();
+    
+    client.subscription.status = 'cancelled';
+    client.subscription.cancelledAt = cancelDate;
+    client.subscription.cancellationReason = reason;
+    client.subscription.endDate = cancelDate;
+    
+    await client.save();
+    
+    // Registrar en auditoría
+    await auditService.log({
+      action: 'subscription_cancelled',
+      resourceType: 'Client',
+      resourceId: clientId,
+      userId: req.user._id,
+      details: {
+        reason,
+        effectiveDate: cancelDate,
+        previousStatus: 'active'
+      }
+    });
+    
     res.status(200).json({
       status: 'success',
-      message: cancelImmediately 
-        ? 'Suscripción cancelada inmediatamente' 
-        : 'Suscripción programada para cancelar al final del período',
+      message: 'Suscripción cancelada exitosamente',
       data: {
         client: {
           id: client._id,
-          companyName: client.companyName,
+          name: client.name,
           subscription: client.subscription
         }
       }
     });
   });
 
-  /**
-   * Reactivar suscripción de un cliente (solo para owners)
-   */
+  // Reactivar suscripción
   reactivateSubscription = catchAsync(async (req, res) => {
     const { clientId } = req.params;
-    const { extendDays = 30 } = req.body;
-
-    // Verificar que solo owners puedan reactivar suscripciones
+    const { newEndDate, planId } = req.body;
+    
+    // Verificar que el usuario sea owner
     if (req.user.role !== 'owner') {
-      throw new AppError('Solo los owners pueden reactivar suscripciones', 403);
+      return res.status(403).json({
+        status: 'error',
+        message: 'No tiene permisos para reactivar suscripciones'
+      });
     }
-
-    // Buscar el cliente
+    
     const client = await Client.findById(clientId);
     if (!client) {
-      throw new AppError('Cliente no encontrado', 404);
-    }
-
-    // Verificar que la suscripción esté inactiva
-    const subscriptionStatus = client.isSubscriptionActive();
-    if (subscriptionStatus.isActive) {
-      throw new AppError('La suscripción ya está activa', 400);
-    }
-
-    const now = new Date();
-    let newEndDate;
-
-    // Determinar nueva fecha de fin según el estado actual
-    if (subscriptionStatus.reason === 'CANCELLED' || subscriptionStatus.reason === 'EXPIRED') {
-      // Si estaba cancelada o expirada, extender desde ahora
-      newEndDate = new Date(now.getTime() + (extendDays * 24 * 60 * 60 * 1000));
-    } else if (subscriptionStatus.reason === 'NOT_STARTED') {
-      // Si no había empezado, mantener la duración original pero empezar ahora
-      const originalDuration = client.subscription.endDate 
-        ? new Date(client.subscription.endDate) - new Date(client.subscription.startDate)
-        : extendDays * 24 * 60 * 60 * 1000;
-      newEndDate = new Date(now.getTime() + originalDuration);
-    } else {
-      // Para otros casos, extender desde ahora
-      newEndDate = new Date(now.getTime() + (extendDays * 24 * 60 * 60 * 1000));
-    }
-
-    // Guardar información de la reactivación
-    const reactivationInfo = {
-      reactivatedAt: now,
-      reactivatedBy: req.user._id,
-      previousStatus: client.subscription.status,
-      previousEndDate: client.subscription.endDate,
-      newEndDate,
-      extendedDays: extendDays
-    };
-
-    // Reactivar la suscripción
-    client.subscription.status = 'active';
-    client.subscription.startDate = now;
-    client.subscription.endDate = newEndDate;
-    client.status = 'active';
-
-    // Agregar información de reactivación
-    client.subscription.reactivation = reactivationInfo;
-
-    // Limpiar información de cancelación si existe
-    if (client.subscription.cancellation) {
-      client.subscription.previousCancellation = client.subscription.cancellation;
-      delete client.subscription.cancellation;
-    }
-
-    await client.save();
-
-    // Buscar y completar solicitudes de renovación pendientes
-    try {
-      const pendingRenewalRequest = await SubscriptionRenewalRequest.findOne({
-        clientId: client._id,
-        status: { $in: ['pending', 'in_progress'] }
-      }).populate('requestedBy', 'name email');
-
-      if (pendingRenewalRequest) {
-        console.log(`🔄 Completando solicitud de renovación pendiente: ${pendingRenewalRequest._id}`);
-        
-        // Actualizar la solicitud como completada
-        pendingRenewalRequest.status = 'completed';
-        pendingRenewalRequest.resolvedAt = now;
-        pendingRenewalRequest.resolvedBy = req.user._id;
-        pendingRenewalRequest.adminNotes = `Suscripción reactivada automáticamente por ${req.user.name}. Extendida por ${extendDays} días hasta ${newEndDate.toLocaleDateString('es-ES')}.`;
-        
-        await pendingRenewalRequest.save();
-        
-        // Enviar email de confirmación al cliente
-        try {
-          const planName = typeof client.subscription.plan === 'object' 
-            ? client.subscription.plan.name 
-            : (client.subscription.plan || 'Básico');
-          
-          const features = [];
-          if (client.subscription.planId && client.subscription.planId.features) {
-            const planFeatures = client.subscription.planId.features;
-            if (planFeatures.autoTranslate) features.push('Traducción automática de banners');
-            if (planFeatures.cookieScanning) features.push('Escaneo automático de cookies');
-            if (planFeatures.customization) features.push('Personalización avanzada de banners');
-          }
-          
-          const clientEmail = client.contactEmail || client.email;
-          const requestedByEmail = pendingRenewalRequest.requestedBy?.email;
-          
-          if (clientEmail || requestedByEmail) {
-            console.log(`📧 Enviando email de confirmación de renovación a: ${requestedByEmail || clientEmail}`);
-            
-            await emailService.sendRenewalSuccessNotification({
-              to: requestedByEmail || clientEmail,
-              clientName: client.name,
-              planName: planName,
-              endDate: newEndDate,
-              features: features,
-              requestType: pendingRenewalRequest.requestType
-            });
-            
-            console.log(`✅ Email de confirmación enviado exitosamente`);
-          } else {
-            console.warn('⚠️ No se encontró email para enviar confirmación');
-          }
-        } catch (emailError) {
-          console.error('❌ Error enviando email de confirmación:', emailError);
-          // No fallar la operación principal por errores de email
-        }
-      }
-    } catch (renewalError) {
-      console.error('❌ Error procesando solicitud de renovación:', renewalError);
-      // No fallar la operación principal por errores en el procesamiento de renovación
-    }
-
-    // Registrar en auditoría (no-blocking)
-    try {
-      await auditService.logAction({
-        clientId,
-        userId: req.user._id,
-        action: 'reactivate_subscription',
-        resourceType: 'client',
-        resourceId: clientId,
-        metadata: {
-          previousStatus: reactivationInfo.previousStatus,
-          newEndDate: newEndDate.toISOString(),
-          extendedDays: extendDays,
-          previousEndDate: reactivationInfo.previousEndDate
-        }
+      return res.status(404).json({
+        status: 'error',
+        message: 'Cliente no encontrado'
       });
-    } catch (auditError) {
-      logger.error('Error logging audit action for subscription reactivation:', auditError);
-      // No fallar la operación principal por errores de auditoría
     }
-
+    
+    // Si se proporciona un nuevo plan, validarlo
+    if (planId) {
+      const plan = await SubscriptionPlan.findById(planId);
+      if (!plan || plan.status !== 'active') {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Plan de suscripción no válido'
+        });
+      }
+      
+      // Actualizar la suscripción con el nuevo plan
+      await client.updateFromPlan(plan, {
+        startDate: new Date(),
+        endDate: newEndDate ? new Date(newEndDate) : undefined
+      });
+    } else {
+      // Reactivar con la configuración anterior
+      client.subscription.status = 'active';
+      client.subscription.reactivatedAt = new Date();
+      client.subscription.endDate = newEndDate ? new Date(newEndDate) : client.subscription.endDate;
+      
+      // Limpiar campos de cancelación
+      client.subscription.cancelledAt = undefined;
+      client.subscription.cancellationReason = undefined;
+      
+      await client.save();
+    }
+    
+    // Registrar en auditoría
+    await auditService.log({
+      action: 'subscription_reactivated',
+      resourceType: 'Client',
+      resourceId: clientId,
+      userId: req.user._id,
+      details: {
+        newEndDate,
+        planId,
+        reactivatedAt: new Date()
+      }
+    });
+    
     res.status(200).json({
       status: 'success',
-      message: `Suscripción reactivada exitosamente hasta ${newEndDate.toLocaleDateString('es-ES')}`,
+      message: 'Suscripción reactivada exitosamente',
       data: {
         client: {
           id: client._id,
-          companyName: client.companyName,
+          name: client.name,
           subscription: client.subscription
         }
       }
     });
   });
+
+  // Método de rollback automático (privado)
+  _performRollback = async (rollbackData) => {
+    console.log('🧹 INICIANDO ROLLBACK AUTOMÁTICO');
+    const errors = [];
+
+    try {
+      // PASO 4: Eliminar usuario creado (último en ser creado, primero en eliminarse)
+      if (rollbackData.createdUser) {
+        try {
+          console.log(`🧹 Eliminando usuario: ${rollbackData.createdUser._id}`);
+          await UserAccount.findByIdAndDelete(rollbackData.createdUser._id);
+          console.log('✅ Usuario eliminado exitosamente');
+        } catch (error) {
+          console.error('❌ Error eliminando usuario:', error.message);
+          errors.push(`usuario: ${error.message}`);
+        }
+      }
+
+      // PASO 3: Eliminar banner/template creado
+      if (rollbackData.createdTemplate) {
+        try {
+          console.log(`🧹 Eliminando banner/template: ${rollbackData.createdTemplate._id}`);
+          await BannerTemplate.findByIdAndDelete(rollbackData.createdTemplate._id);
+          console.log('✅ Banner/template eliminado exitosamente');
+        } catch (error) {
+          console.error('❌ Error eliminando banner/template:', error.message);
+          errors.push(`banner: ${error.message}`);
+        }
+      }
+
+      // PASO 2: Eliminar dominios creados
+      if (rollbackData.createdDomains && rollbackData.createdDomains.length > 0) {
+        for (const domain of rollbackData.createdDomains) {
+          try {
+            console.log(`🧹 Eliminando dominio: ${domain._id} (${domain.domain})`);
+            await Domain.findByIdAndDelete(domain._id);
+            console.log(`✅ Dominio ${domain.domain} eliminado exitosamente`);
+          } catch (error) {
+            console.error(`❌ Error eliminando dominio ${domain.domain}:`, error.message);
+            errors.push(`dominio ${domain.domain}: ${error.message}`);
+          }
+        }
+      }
+
+      // PASO 1: Eliminar cliente creado (primero en ser creado, último en eliminarse)
+      if (rollbackData.createdClient) {
+        try {
+          console.log(`🧹 Eliminando cliente: ${rollbackData.createdClient._id}`);
+          await Client.findByIdAndDelete(rollbackData.createdClient._id);
+          console.log('✅ Cliente eliminado exitosamente');
+        } catch (error) {
+          console.error('❌ Error eliminando cliente:', error.message);
+          errors.push(`cliente: ${error.message}`);
+        }
+      }
+
+      if (errors.length > 0) {
+        console.error(`⚠️ ROLLBACK COMPLETADO CON ERRORES: ${errors.join(', ')}`);
+      } else {
+        console.log('✅ ROLLBACK COMPLETADO EXITOSAMENTE');
+      }
+
+    } catch (rollbackError) {
+      console.error('❌ ERROR CRÍTICO EN ROLLBACK:', rollbackError);
+      throw rollbackError;
+    }
+  };
+
+  // Validar datos de creación antes de empezar la transacción (privado)
+  _validateCreationData = async ({ name, contactEmail, adminUser, domains }) => {
+    console.log('🔍 VALIDANDO DATOS DE CREACIÓN');
+    
+    // Validaciones básicas
+    if (!name || !contactEmail) {
+      throw new AppError('Nombre y email de contacto son requeridos', 400);
+    }
+    
+    if (!adminUser || !adminUser.name || !adminUser.email) {
+      throw new AppError('Datos del usuario administrador son requeridos', 400);
+    }
+    
+    // Verificar si ya existe un cliente con el mismo email de contacto
+    const existingClientByEmail = await Client.findOne({ contactEmail });
+    if (existingClientByEmail) {
+      throw new AppError(`Ya existe un cliente con el email de contacto "${contactEmail}"`, 409);
+    }
+    
+    // Verificar si ya existe un usuario con el email del admin
+    const existingAdmin = await UserAccount.findOne({ email: adminUser.email });
+    if (existingAdmin) {
+      throw new AppError(`Ya existe un usuario con el email "${adminUser.email}"`, 409);
+    }
+    
+    // Validar dominios si se proporcionan
+    if (domains && domains.length > 0) {
+      for (const domainName of domains) {
+        if (!domainName || domainName.trim() === '') continue;
+        
+        const existingDomain = await Domain.findOne({ domain: domainName.trim() });
+        if (existingDomain) {
+          throw new AppError(`El dominio ${domainName} ya existe`, 409);
+        }
+      }
+    }
+
+    return true;
+  };
 }
 
 module.exports = new ClientController();

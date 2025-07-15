@@ -5,6 +5,7 @@ const AppError = require('../utils/appError');
 const { catchAsync } = require('../utils/catchAsync');
 const { fetchGlobalVendorList } = require('../services/iab.service');
 const cacheVendorList = require('../services/cache.service');
+const IABService = require('../services/iab.service');
 
 class VendorListController {
   // Obtener última versión de la GVL
@@ -244,6 +245,23 @@ class VendorListController {
       .sort((a, b) => b.purposeCount - a.purposeCount)
       .slice(0, limit);
   }
+
+  // COMPLIANCE POINT 7: Método para debug de datos GVL v3
+  debugGVLData = catchAsync(async (req, res) => {
+    const iabService = new IABService();
+    const gvlData = await iabService.fetchCurrentGVLData();
+    
+    res.status(200).json({
+      status: 'success',
+      message: 'GVL data logged to console',
+      data: {
+        gvlSpecificationVersion: gvlData.gvlSpecificationVersion,
+        vendorListVersion: gvlData.vendorListVersion,
+        tcfPolicyVersion: gvlData.tcfPolicyVersion,
+        lastUpdated: gvlData.lastUpdated
+      }
+    });
+  });
 }
 
 module.exports = new VendorListController();

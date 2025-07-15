@@ -126,7 +126,7 @@ const ScanLogsConsole = ({ isVisible, onClose }) => {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-11/12 h-5/6 flex flex-col border border-gray-200">
         {/* Header */}
         <div className="border-b border-gray-200 p-4 flex justify-between items-center bg-[#235C88] text-white rounded-t-lg">
@@ -306,7 +306,7 @@ const ScanLogsConsole = ({ isVisible, onClose }) => {
               ) : (
                 <div className="space-y-1">
                   {logs.map((log, index) => (
-                    <div key={index} className={`${getLogColor(log.level)} hover:bg-gray-900 hover:bg-opacity-50 px-1`}>
+                    <div key={index} className={`${getLogColor(log.level)} hover:bg-gray-900 hover:bg-black/50 px-1`}>
                       <span className="text-gray-400">[{formatTime(log.timestamp)}]</span>
                       <span className="text-white ml-1">[{log.level.toUpperCase()}]</span>
                       <span className="ml-1">{log.message}</span>

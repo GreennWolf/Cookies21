@@ -38,6 +38,7 @@ router.get(
 
 router.patch(
   '/:id',
+  checkSubscriptionWithReadOnlyMode,
   validateRequest(domainValidation.updateDomain),
   DomainController.updateDomain
 );
@@ -49,13 +50,13 @@ router.delete(
   DomainController.deleteDomain
 );
 
-// Configuración del banner
-router.patch(
-  '/:id/banner',
-  checkSubscriptionWithReadOnlyMode,
-  validateRequest(domainValidation.updateBannerConfig),
-  DomainController.updateBannerConfig
-);
+// Configuración del banner (eliminada en modelo simplificado)
+// router.patch(
+//   '/:id/banner',
+//   checkSubscriptionWithReadOnlyMode,
+//   validateRequest(domainValidation.updateBannerConfig),
+//   DomainController.updateBannerConfig
+// );
 
 // Gestión de estado
 router.patch(

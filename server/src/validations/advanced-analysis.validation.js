@@ -196,6 +196,60 @@ const advancedAnalysisValidation = {
       .optional()
       .isInt({ min: 1, max: 10 })
       .withMessage('depth must be between 1 and 10 in analysisConfig')
+  ],
+
+  // Validaciones para análisis inteligente
+  startIntelligentAnalysis: [
+    param('domainId')
+      .isMongoId()
+      .withMessage('Invalid domain ID format'),
+
+    body('deepScan')
+      .optional()
+      .isBoolean()
+      .withMessage('deepScan must be a boolean'),
+
+    body('includeThirdParty')
+      .optional()
+      .isBoolean()
+      .withMessage('includeThirdParty must be a boolean'),
+
+    body('timeout')
+      .optional()
+      .isInt({ min: 5000, max: 120000 })
+      .withMessage('timeout must be between 5000ms and 120000ms'),
+
+    body('generateRecommendations')
+      .optional()
+      .isBoolean()
+      .withMessage('generateRecommendations must be a boolean')
+  ],
+
+  getIntelligentResults: [
+    param('domainId')
+      .isMongoId()
+      .withMessage('Invalid domain ID format'),
+
+    query('limit')
+      .optional()
+      .isInt({ min: 1, max: 100 })
+      .withMessage('limit must be between 1 and 100'),
+
+    query('includeDetails')
+      .optional()
+      .isBoolean()
+      .withMessage('includeDetails must be a boolean')
+  ],
+
+  getComplianceReport: [
+    param('domainId')
+      .isMongoId()
+      .withMessage('Invalid domain ID format'),
+
+    query('format')
+      .optional()
+      .isIn(['json', 'pdf', 'csv'])
+      .withMessage('format must be json, pdf, or csv')
   ]
 };
 

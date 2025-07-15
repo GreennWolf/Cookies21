@@ -1,4 +1,5 @@
 const CookieAnalysisResult = require('../models/CookieAnalysisResult');
+const IntelligentCookieResult = require('../models/IntelligentCookieResult');
 const Domain = require('../models/Domain');
 const AppError = require('../utils/appError');
 const { catchAsync } = require('../utils/catchAsync');
@@ -141,6 +142,193 @@ class AdvancedCookieAnalysisController {
     } catch (error) {
       logger.error(`Failed to start advanced analysis for domain ${domain.domain}:`, error);
       throw new AppError(`Failed to start analysis: ${error.message}`, 500);
+    }
+  });
+
+  /**
+   * Iniciar análisis inteligente con clasificación automática y detección de vendors
+   */
+  startIntelligentAnalysis = catchAsync(async (req, res) => {
+    const { domainId } = req.params;
+    const { 
+      deepScan = true,
+      includeThirdParty = true,
+      timeout = 30000,
+      generateRecommendations = true
+    } = req.body;
+
+    // Verificar que el dominio existe y el usuario tiene acceso
+    const domain = await Domain.findById(domainId);
+    if (!domain) {
+      throw new AppError('Domain not found', 404);
+    }
+
+    // Verificar permisos
+    const clientId = req.isOwner ? domain.clientId : req.clientId;
+    if (!req.isOwner && domain.clientId && domain.clientId.toString() !== req.clientId) {
+      throw new AppError('Access denied to this domain', 403);
+    }
+
+    try {
+      // Generar ID único para el análisis
+      const analysisId = uuidv4();
+
+      // Configuración del análisis inteligente
+      const analysisConfig = {
+        deepScan,
+        includeThirdParty,
+        timeout,
+        generateRecommendations,
+        analysisType: 'intelligent',
+        version: '2.0'
+      };
+
+      logger.info(`🧠 Iniciando análisis inteligente para dominio: ${domain.domain}`);
+
+      // Ejecutar análisis inteligente de forma asíncrona
+      setTimeout(async () => {
+        try {
+          const result = await advancedCookieAnalyzer.performIntelligentAnalysis(
+            domainId,
+            clientId,
+            domain.domain,
+            analysisId,
+            analysisConfig
+          );
+
+          logger.info(`✅ Análisis inteligente completado para ${domain.domain}: ${result.totalCookies} cookies analizadas`);
+        } catch (err) {
+          logger.error(`❌ Error en análisis inteligente para ${domain.domain}:`, err);
+        }
+      }, 1000);
+
+      res.status(201).json({
+        status: 'success',
+        message: 'Análisis inteligente iniciado correctamente',
+        data: {
+          analysisId,
+          domain: domain.domain,
+          analysisType: 'intelligent',
+          config: analysisConfig,
+          estimatedDuration: 60, // 1 minuto estimado
+          status: 'running'
+        }
+      });
+
+    } catch (error) {
+      logger.error(`Failed to start intelligent analysis for domain ${domain.domain}:`, error);
+      throw new AppError(`Failed to start intelligent analysis: ${error.message}`, 500);
+    }
+  });
+
+  /**
+   * Obtener resultados del análisis inteligente
+   */
+  getIntelligentAnalysisResults = catchAsync(async (req, res) => {
+    const { domainId } = req.params;
+    const { limit = 1, includeDetails = false } = req.query;
+
+    // Verificar acceso al dominio
+    const domain = await Domain.findById(domainId);
+    if (!domain) {
+      throw new AppError('Domain not found', 404);
+    }
+
+    if (!req.isOwner && domain.clientId && domain.clientId.toString() !== req.clientId) {
+      throw new AppError('Access denied to this domain', 403);
+    }
+
+    // Buscar resultados del análisis inteligente
+    let query = { domainId, status: 'completed' };
+    if (!req.isOwner) {
+      query.clientId = req.clientId;
+    }
+
+    const results = await IntelligentCookieResult.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
+
+    if (results.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'No se encontraron resultados de análisis inteligente'
+      });
+    }
+
+    // Formatear respuesta
+    const responseData = results.map(result => {
+      const baseData = {
+        resultId: result._id,
+        analysisId: result.analysisId,
+        domain: result.domain,
+        analysisDate: result.createdAt,
+        summary: result.summary,
+        metadata: result.metadata
+      };
+
+      if (includeDetails) {
+        baseData.cookies = result.cookies;
+        baseData.detailedBreakdown = {
+          byPurpose: result.summary.byPurpose,
+          byVendor: Object.fromEntries(result.summary.byVendor),
+          complianceOverview: result.getComplianceOverview(),
+          highRiskCookies: result.getHighRiskCookies().slice(0, 10),
+          topVendors: result.summary.topVendors,
+          criticalIssues: result.summary.criticalIssues
+        };
+      }
+
+      return baseData;
+    });
+
+    res.status(200).json({
+      status: 'success',
+      results: responseData.length,
+      data: limit === 1 ? responseData[0] : responseData
+    });
+  });
+
+  /**
+   * Generar reporte de cumplimiento GDPR
+   */
+  generateComplianceReport = catchAsync(async (req, res) => {
+    const { domainId } = req.params;
+    const { format = 'json' } = req.query;
+
+    // Verificar acceso al dominio
+    const domain = await Domain.findById(domainId);
+    if (!domain) {
+      throw new AppError('Domain not found', 404);
+    }
+
+    const clientId = req.isOwner ? domain.clientId : req.clientId;
+    if (!req.isOwner && domain.clientId && domain.clientId.toString() !== req.clientId) {
+      throw new AppError('Access denied to this domain', 403);
+    }
+
+    // Generar reporte usando el método estático del modelo
+    const report = await IntelligentCookieResult.generateComplianceReport(domainId, clientId);
+
+    if (!report) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'No se encontraron análisis completados para generar el reporte'
+      });
+    }
+
+    // Agregar información adicional al reporte
+    report.generatedAt = new Date();
+    report.generatedBy = req.userId;
+    report.reportVersion = '2.0';
+
+    if (format === 'json') {
+      res.status(200).json({
+        status: 'success',
+        data: report
+      });
+    } else {
+      // En el futuro se pueden agregar otros formatos (PDF, CSV, etc.)
+      throw new AppError('Formato de reporte no soportado', 400);
     }
   });
 
@@ -495,21 +683,16 @@ class AdvancedCookieAnalysisController {
       throw new AppError('Schedule configuration is required', 400);
     }
 
-    // Actualizar configuración de programación en el dominio
-    domain.analysisSchedule = {
-      enabled,
-      frequency: schedule.frequency, // 'daily', 'weekly', 'monthly'
-      time: schedule.time || '02:00', // Hora en formato HH:mm
-      daysOfWeek: schedule.daysOfWeek || [1], // Para frecuencia semanal
-      dayOfMonth: schedule.dayOfMonth || 1, // Para frecuencia mensual
-      analysisConfig: {
-        scanType: analysisConfig.scanType || 'full',
-        includeSubdomains: analysisConfig.includeSubdomains !== false,
-        maxUrls: analysisConfig.maxUrls || 100,
-        depth: analysisConfig.depth || 5
-      },
-      lastRun: null,
-      nextRun: this.calculateNextRun(schedule)
+    // Actualizar configuración de escaneo automático en el dominio
+    domain.scanConfig = {
+      ...domain.scanConfig,
+      autoScanEnabled: enabled,
+      scanInterval: schedule.frequency, // 'daily', 'weekly', 'monthly'
+      scanType: analysisConfig.scanType || 'smart',
+      includeSubdomains: analysisConfig.includeSubdomains || false,
+      maxDepth: analysisConfig.depth || 3,
+      lastScheduledScan: null,
+      nextScheduledScan: this.calculateNextRun(schedule)
     };
 
     await domain.save();
@@ -521,7 +704,7 @@ class AdvancedCookieAnalysisController {
       message: 'Analysis scheduled successfully',
       data: {
         domainId: domain._id,
-        schedule: domain.analysisSchedule
+        scanConfig: domain.scanConfig
       }
     });
   });

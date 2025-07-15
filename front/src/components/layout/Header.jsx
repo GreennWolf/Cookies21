@@ -112,6 +112,17 @@ const Header = () => {
               </Link>
             )}
 
+            {/* {isOwner && (
+              <Link to="/dashboard/experimental/cookie-analysis" className="hover:text-gray-300 relative">
+                <span className="flex items-center gap-1">
+                  V2 Test
+                  <span className="text-xs bg-yellow-400 text-black px-1.5 py-0.5 rounded font-bold">
+                    BETA
+                  </span>
+                </span>
+              </Link>
+            )} */}
+
             <Link to="/dashboard/settings" className="hover:text-gray-300">
               Mi Cuenta
             </Link>

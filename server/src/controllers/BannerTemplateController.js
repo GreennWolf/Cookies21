@@ -17,7 +17,11 @@ const bannerExportService = require('../services/bannerExport.service');
 const componentProcessor = require('../services/componentProcessor.service');
 const { getBaseUrl } = require('../config/urls');
 const bannerTranslationService = require('../services/bannerTranslation.service');
-const bannerImageManager = require('../services/bannerImageManager.service');
+const BannerImageManager = require('../services/bannerImageManager.service');
+const bannerImageManager = new BannerImageManager();
+const emailService = require('../services/email.service');
+const consentScriptGenerator = require('../services/consentScriptGenerator.service');
+const User = require('../models/UserAccount');
 
 const moveFromTempToBannerFolder = async (tempFilePath, bannerId, filename) => {
   try {
@@ -842,27 +846,18 @@ createSystemTemplate = async (req, res) => {
       });
     }
     
-    // 5. Procesar componentes y archivos usando el servicio unificado
+    // 5. NUEVO FLUJO: Procesar imágenes primero guardándolas en temporal
+    let tempImageData = null;
+    if (uploadedFiles.length > 0) {
+      console.log('🖼️ NUEVO FLUJO: Guardando archivos en temporal...');
+      tempImageData = await bannerImageManager.saveFilesToTemp(uploadedFiles);
+      console.log(`💾 ${tempImageData.savedFiles.length} archivos guardados en temp/${tempImageData.timestamp}`);
+    }
+    
+    // Procesar componentes
     if (templateData.components && Array.isArray(templateData.components)) {
       // Normalizar posiciones a porcentajes
       templateData.components = bannerValidator.normalizePositions(templateData.components);
-      
-      // Usar el servicio unificado para procesar imágenes (IGUAL QUE createTemplate)
-      let tempBannerId = null;
-      if (uploadedFiles.length > 0) {
-        console.log('🖼️ SISTEMA: Procesando imágenes con servicio unificado...');
-        tempBannerId = `temp_${Date.now()}`;
-        const imageResult = await bannerImageManager.processImagesUnified({
-          bannerId: tempBannerId, // Temporal hasta obtener el ID real
-          uploadedFiles,
-          components: templateData.components,
-          isUpdate: false,
-          metadata: { operation: 'create_system', timestamp: Date.now() }
-        });
-        
-        templateData.components = imageResult.components;
-        console.log(`✅ Procesadas ${imageResult.stats.successful} imágenes de ${imageResult.stats.total}`);
-      }
     }
     
     // 6. Procesar y validar componentes
@@ -914,19 +909,28 @@ createSystemTemplate = async (req, res) => {
     const createdTemplate = await BannerTemplate.create(templateWithMetadata);
     console.log(`✅ Plantilla del sistema creada con ID: ${createdTemplate._id}`);
     
-    // 8. Finalizar procesamiento de imágenes con el ID real del banner (IGUAL QUE createTemplate)
-    if (uploadedFiles.length > 0 && tempBannerId) {
-      console.log('🔄 Finalizando procesamiento de imágenes con ID real del banner...');
+    // 8. NUEVO FLUJO: Mover archivos de temp a carpeta final y actualizar URLs
+    if (tempImageData && tempImageData.savedFiles.length > 0) {
+      console.log('🔄 NUEVO FLUJO: Moviendo archivos de temporal a carpeta final...');
       try {
-        const finalResult = await bannerImageManager.finalizeImages({
-          tempBannerId: tempBannerId,
-          realBannerId: createdTemplate._id.toString(),
-          components: templateData.components
-        });
+        const movedFiles = await bannerImageManager.moveFilesFromTempToFinal(
+          tempImageData, 
+          createdTemplate._id.toString()
+        );
         
-        if (finalResult.success) {
-          console.log(`✅ Finalización de imágenes completada para banner ${createdTemplate._id}`);
-        }
+        // Actualizar URLs en los componentes
+        templateWithMetadata.components = await bannerImageManager.updateComponentUrlsAfterMove(
+          templateWithMetadata.components, 
+          movedFiles
+        );
+        
+        // Guardar template actualizado con URLs finales
+        await BannerTemplate.findByIdAndUpdate(
+          createdTemplate._id, 
+          { components: templateWithMetadata.components }
+        );
+        
+        console.log(`✅ ${movedFiles.length} archivos movidos y URLs actualizadas para banner ${createdTemplate._id}`);
       } catch (finalizeError) {
         console.error('❌ Error finalizando imágenes:', finalizeError);
       }
@@ -971,6 +975,76 @@ createSystemTemplate = async (req, res) => {
 };
   
   // Actualizar una plantilla del sistema (solo para administradores)
+  // NUEVO: Subir imagen temporal para edición en step 3
+  uploadTempImage = async (req, res) => {
+    try {
+      const { clientId, userId } = req;
+      
+      // Verificar que se subió un archivo
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'No se subió ningún archivo de imagen'
+        });
+      }
+      
+      const file = req.files[0];
+      const { componentId } = req.body;
+      
+      if (!componentId) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'componentId es requerido'
+        });
+      }
+      
+      console.log(`📷 [TempImage] Subiendo imagen temporal para componente ${componentId}:`, file.originalname);
+      
+      // Crear nombre único para la imagen temporal
+      const timestamp = Date.now();
+      const extension = path.extname(file.originalname) || '.jpg';
+      const fileName = `temp-${componentId}-${timestamp}${extension}`;
+      
+      // Crear directorio temporal si no existe
+      const tempDir = path.join(process.cwd(), 'public', 'templates', 'temp');
+      await ensureDirectoryExists(tempDir);
+      
+      // Mover archivo a directorio temporal
+      const tempPath = path.join(tempDir, fileName);
+      await fs.copyFile(file.path, tempPath);
+      
+      // Limpiar archivo original de multer
+      try {
+        await fs.unlink(file.path);
+      } catch (err) {
+        console.warn('No se pudo eliminar archivo temporal de multer:', err.message);
+      }
+      
+      // Construir URL temporal
+      const tempUrl = `/templates/temp/${fileName}`;
+      
+      console.log(`✅ [TempImage] Imagen temporal guardada: ${tempUrl}`);
+      
+      res.status(200).json({
+        status: 'success',
+        data: {
+          componentId,
+          tempUrl,
+          fileName,
+          originalName: file.originalname
+        }
+      });
+      
+    } catch (error) {
+      console.error('❌ Error subiendo imagen temporal:', error);
+      res.status(500).json({
+        status: 'error',
+        message: 'Error interno del servidor',
+        details: error.message
+      });
+    }
+  };
+
   updateSystemTemplate = async (req, res) => {
     try {
       const { id } = req.params;
@@ -1157,43 +1231,70 @@ createSystemTemplate = async (req, res) => {
   // Obtener plantillas del cliente
   getClientTemplates = catchAsync(async (req, res) => {
     const { clientId } = req;
-    const { status, search, clientId: queryClientId } = req.query;
+    const { status, search, clientId: queryClientId, type } = req.query;
 
-    console.log('buscando template ', clientId, status, search, queryClientId);
+    console.log('🔍 BannerTemplateController.getClientTemplates:', { 
+      clientId, 
+      status, 
+      search, 
+      queryClientId, 
+      type,
+      isOwner: req.isOwner 
+    });
 
     let query = {};
     let clientInfo;
     
-    // Si es owner y se proporcionó un clientId en la consulta
-    if (req.isOwner && queryClientId) {
-      // Buscar plantillas del cliente específico + plantillas del sistema
-      query = {
-        $or: [
-          { clientId: queryClientId, type: 'custom' },
-          { type: 'system' }
-        ]
-      };
-      
-      // Obtener información del cliente para incluir en la respuesta
-      clientInfo = await Client.findById(queryClientId).select('name email status');
-    } 
-    // Si es owner sin especificar cliente, mostrar todas las plantillas personalizadas
-    else if (req.isOwner && !queryClientId) {
-      query = {
-        $or: [
-          { type: 'custom' },  // Todas las plantillas personalizadas de todos los clientes
-          { type: 'system' }
-        ]
-      };
-    } 
-    // Usuarios normales solo ven sus propias plantillas + las del sistema
-    else {
-      query = {
-        $or: [
-          { clientId, type: 'custom' },
-          { type: 'system' }
-        ]
-      };
+    // Si se especifica un tipo específico, filtrar solo por ese tipo
+    if (type) {
+      if (type === 'system') {
+        // Solo plantillas del sistema
+        query = { type: 'system' };
+        console.log('📋 Filtrando solo plantillas del sistema');
+      } else if (type === 'custom') {
+        // Solo plantillas personalizadas
+        if (req.isOwner && queryClientId) {
+          query = { clientId: queryClientId, type: 'custom' };
+        } else if (req.isOwner && !queryClientId) {
+          query = { type: 'custom' };
+        } else {
+          query = { clientId, type: 'custom' };
+        }
+        console.log('📋 Filtrando solo plantillas personalizadas');
+      }
+    } else {
+      // Comportamiento original: mostrar ambos tipos
+      // Si es owner y se proporcionó un clientId en la consulta
+      if (req.isOwner && queryClientId) {
+        // Buscar plantillas del cliente específico + plantillas del sistema
+        query = {
+          $or: [
+            { clientId: queryClientId, type: 'custom' },
+            { type: 'system' }
+          ]
+        };
+        
+        // Obtener información del cliente para incluir en la respuesta
+        clientInfo = await Client.findById(queryClientId).select('name email status');
+      } 
+      // Si es owner sin especificar cliente, mostrar todas las plantillas personalizadas
+      else if (req.isOwner && !queryClientId) {
+        query = {
+          $or: [
+            { type: 'custom' },  // Todas las plantillas personalizadas de todos los clientes
+            { type: 'system' }
+          ]
+        };
+      } 
+      // Usuarios normales solo ven sus propias plantillas + las del sistema
+      else {
+        query = {
+          $or: [
+            { clientId, type: 'custom' },
+            { type: 'system' }
+          ]
+        };
+      }
     }
 
     // Aplicar filtros adicionales
@@ -3544,6 +3645,351 @@ createSystemTemplate = async (req, res) => {
     res.status(200).json({
       status: 'success',
       data: stats
+    });
+  });
+
+  /**
+   * Asigna un banner a un cliente específico (solo para owners)
+   */
+  assignBannerToClient = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const { clientId } = req.body;
+    const { isOwner } = req;
+
+    // Solo los owners pueden asignar banners a clientes
+    if (!isOwner) {
+      throw new AppError('No tienes permisos para asignar banners a clientes', 403);
+    }
+
+    // Verificar que el banner existe
+    const banner = await BannerTemplate.findById(id);
+    if (!banner) {
+      throw new AppError('Banner no encontrado', 404);
+    }
+
+    // Verificar que el cliente existe
+    const client = await Client.findById(clientId);
+    if (!client) {
+      throw new AppError('Cliente no encontrado', 404);
+    }
+
+    // Actualizar el banner para asignarlo al cliente
+    banner.clientId = clientId;
+    banner.type = 'custom'; // Convertir a plantilla personalizada
+    await banner.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: `Banner "${banner.name}" asignado exitosamente al cliente "${client.name}"`,
+      data: {
+        banner: {
+          id: banner._id,
+          name: banner.name,
+          type: banner.type,
+          clientId: banner.clientId
+        },
+        client: {
+          id: client._id,
+          name: client.name,
+          email: client.email
+        }
+      }
+    });
+  });
+
+  /**
+   * Desasigna un banner de un cliente (lo convierte en plantilla del sistema)
+   */
+  unassignBannerFromClient = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const { isOwner } = req;
+
+    // Solo los owners pueden desasignar banners
+    if (!isOwner) {
+      throw new AppError('No tienes permisos para desasignar banners', 403);
+    }
+
+    // Verificar que el banner existe
+    const banner = await BannerTemplate.findById(id);
+    if (!banner) {
+      throw new AppError('Banner no encontrado', 404);
+    }
+
+    // Guardar información del cliente anterior para el mensaje
+    const previousClient = banner.clientId ? await Client.findById(banner.clientId) : null;
+
+    // Desasignar el banner (convertirlo en plantilla del sistema)
+    banner.clientId = null;
+    banner.type = 'system';
+    await banner.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: previousClient 
+        ? `Banner "${banner.name}" desasignado del cliente "${previousClient.name}" y convertido en plantilla del sistema`
+        : `Banner "${banner.name}" convertido en plantilla del sistema`,
+      data: {
+        banner: {
+          id: banner._id,
+          name: banner.name,
+          type: banner.type,
+          clientId: banner.clientId
+        }
+      }
+    });
+  });
+
+  /**
+   * Obtiene banners disponibles para asignación a clientes
+   */
+  getAvailableBannersForAssignment = catchAsync(async (req, res) => {
+    const { isOwner } = req;
+    const { search, type, status = 'active' } = req.query;
+
+    // Solo los owners pueden ver banners disponibles para asignación
+    if (!isOwner) {
+      throw new AppError('No tienes permisos para ver banners disponibles para asignación', 403);
+    }
+
+    // Construir query
+    const query = {
+      status: status !== 'all' ? status : { $ne: 'archived' }
+    };
+
+    // Filtrar por tipo si se especifica
+    if (type && type !== 'all') {
+      query.type = type;
+    }
+
+    // Búsqueda por nombre si se especifica
+    if (search) {
+      query.name = { $regex: search, $options: 'i' };
+    }
+
+    // Obtener banners con información del cliente asignado
+    const banners = await BannerTemplate.find(query)
+      .populate('clientId', 'name email status')
+      .select('name type status clientId createdAt updatedAt metadata')
+      .sort({ updatedAt: -1 });
+
+    // Organizar banners por categorías
+    const categorizedBanners = {
+      system: banners.filter(b => b.type === 'system'),
+      assigned: banners.filter(b => b.type === 'custom' && b.clientId),
+      unassigned: banners.filter(b => b.type === 'custom' && !b.clientId)
+    };
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        total: banners.length,
+        categories: {
+          system: {
+            count: categorizedBanners.system.length,
+            banners: categorizedBanners.system
+          },
+          assigned: {
+            count: categorizedBanners.assigned.length,
+            banners: categorizedBanners.assigned
+          },
+          unassigned: {
+            count: categorizedBanners.unassigned.length,
+            banners: categorizedBanners.unassigned
+          }
+        }
+      }
+    });
+  });
+
+  /**
+   * Envía el script del banner por email a usuarios seleccionados
+   */
+  sendScriptByEmail = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const { recipients, domainData } = req.body;
+    const { isOwner, clientId: userClientId, user } = req;
+
+    // Validar que hay destinatarios
+    if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+      throw new AppError('Debe seleccionar al menos un destinatario', 400);
+    }
+
+    // Obtener el banner
+    const banner = await BannerTemplate.findById(id).populate('clientId');
+    if (!banner) {
+      throw new AppError('Banner no encontrado', 404);
+    }
+
+    // Verificar permisos
+    if (!isOwner && banner.clientId?._id.toString() !== userClientId) {
+      throw new AppError('No tienes permisos para enviar este banner', 403);
+    }
+
+    // Agrupar recipients por dominio y actualizar defaultTemplateId si es necesario
+    const domainScripts = {};
+
+    for (const recipient of recipients) {
+      const domainId = recipient.domainId;
+      
+      if (!domainScripts[domainId]) {
+        // Obtener el dominio
+        const domain = await Domain.findById(domainId);
+        if (!domain) {
+          throw new AppError(`Dominio no encontrado: ${domainId}`, 404);
+        }
+
+        // Actualizar defaultTemplateId si es necesario
+        const clientDomainData = Object.values(domainData || {}).find(d => d.domainId === domainId);
+        if (clientDomainData && clientDomainData.needsUpdate) {
+          if (!domain.settings) {
+            domain.settings = {};
+          }
+          domain.settings.defaultTemplateId = banner._id;
+          await domain.save();
+          
+          logger.info(`✅ DefaultTemplateId actualizado para dominio ${domain.domain}: ${banner._id}`);
+        }
+
+        // Generar el script embed de instalación (el script corto que va en el <head>)
+        const { getBaseUrl } = require('../config/urls');
+        const devMode = process.env.NODE_ENV !== 'production';
+        const baseUrl = getBaseUrl();
+        const scriptUrl = `${baseUrl}/api/v1/consent/script/${domain._id}/embed.js${devMode ? '?dev=true' : ''}`;
+        
+        const installCode = `
+<!-- Consent Management Platform -->
+<script>
+  (function(w,d,s,l,i){
+    w[l]=w[l]||[];
+    var f=d.getElementsByTagName(s)[0],j=d.createElement(s);
+    j.async=true;j.src=i;
+    f.parentNode.insertBefore(j,f);
+  })(window,document,'script','cmp','${scriptUrl}');
+</script>
+<!-- End Consent Management Platform -->
+        `.trim();
+
+        domainScripts[domainId] = {
+          domain: domain,
+          script: installCode,
+          recipients: []
+        };
+      }
+
+      // Agregar recipient a este dominio
+      domainScripts[domainId].recipients.push(recipient);
+    }
+
+    // Enviar emails agrupados por dominio
+    const allResults = [];
+    
+    console.log('📧 Iniciando envío de emails...');
+    console.log('📊 Resumen de dominios a procesar:', Object.keys(domainScripts).length);
+    
+    for (const [domainId, domainInfo] of Object.entries(domainScripts)) {
+      console.log(`📧 Procesando dominio: ${domainInfo.domain.domain} (${domainInfo.recipients.length} recipients)`);
+      
+      const emailPromises = domainInfo.recipients.map(async (recipient) => {
+        try {
+          console.log(`📧 Enviando email a: ${recipient.email} para dominio: ${domainInfo.domain.domain}`);
+          
+          const emailOptions = {
+            email: recipient.email,
+            name: recipient.name,
+            domain: domainInfo.domain.domain,
+            script: domainInfo.script,
+            clientName: banner.clientId?.name || 'Cookie21'
+          };
+          
+          console.log('📧 Opciones del email:', {
+            email: emailOptions.email,
+            name: emailOptions.name,
+            domain: emailOptions.domain,
+            scriptLength: emailOptions.script?.length || 0,
+            clientName: emailOptions.clientName
+          });
+          
+          const result = await emailService.sendEmbedScriptEmail(emailOptions);
+          
+          console.log(`📧 Resultado para ${recipient.email}:`, result);
+          
+          return {
+            email: recipient.email,
+            domain: domainInfo.domain.domain,
+            success: result.success,
+            error: result.error
+          };
+        } catch (error) {
+          logger.error(`Error enviando email a ${recipient.email}:`, error);
+          return {
+            email: recipient.email,
+            domain: domainInfo.domain.domain,
+            success: false,
+            error: error.message
+          };
+        }
+      });
+
+      const domainResults = await Promise.all(emailPromises);
+      allResults.push(...domainResults);
+    }
+
+    const results = allResults;
+    
+    // Contar éxitos y errores
+    const successCount = results.filter(r => r.success).length;
+    const errorCount = results.filter(r => !r.success).length;
+
+    // Registrar en auditoría
+    if (Audit) {
+      // Determinar clientId para auditoría
+      let auditClientId = banner.clientId?._id || userClientId;
+      
+      // Si no hay clientId válido, usar el primer cliente de los recipients o crear un ID especial
+      if (!auditClientId) {
+        const firstRecipientClientId = recipients[0]?.clientId;
+        if (firstRecipientClientId) {
+          auditClientId = firstRecipientClientId;
+        } else {
+          // Para banners del sistema sin cliente específico, necesitamos un clientId válido
+          // Buscar el primer cliente disponible o crear uno temporal
+          const Client = require('../models/Client');
+          const firstClient = await Client.findOne().select('_id');
+          auditClientId = firstClient?._id;
+        }
+      }
+      
+      // Solo crear auditoría si tenemos un clientId válido
+      if (auditClientId) {
+        await Audit.create({
+          action: 'generate', // Usar 'generate' como acción más apropiada del enum
+          resourceType: 'banner_template',
+          resourceId: banner._id,
+          userId: user?._id,
+          clientId: auditClientId,
+          metadata: {
+            operation: 'send_script_email',
+            bannerName: banner.name,
+            bannerType: banner.type,
+            recipientCount: recipients.length,
+            successCount,
+            errorCount,
+            results
+          }
+        });
+      } else {
+        console.warn('⚠️ No se pudo crear auditoría: no hay clientId válido disponible');
+      }
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: `Script enviado a ${successCount} usuario(s)${errorCount > 0 ? `, ${errorCount} fallo(s)` : ''}`,
+      data: {
+        sent: successCount,
+        failed: errorCount,
+        details: results
+      }
     });
   });
 }

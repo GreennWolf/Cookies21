@@ -176,7 +176,7 @@ const SubscriptionPlanManagementPage = () => {
 
       {/* Modal de confirmación para inicializar planes */}
       {showInitializeConfirm && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex justify-center items-center">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 flex justify-center items-center">
           <div className="bg-white rounded-lg shadow-lg max-w-md w-full m-4 p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Inicializar Planes Predeterminados</h3>
             <p className="text-sm text-gray-500 mb-4">

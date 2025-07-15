@@ -82,6 +82,21 @@ export const resetPassword = async (resetData) => {
 };
 
 /**
+ * Obtiene información actualizada de la sesión del usuario.
+ * @returns {Object} Información del usuario y cliente.
+ */
+export const getSessionInfo = async () => {
+  try {
+    const response = await apiClient.get('/api/v1/auth/session');
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || 'Error getting session info'
+    );
+  }
+};
+
+/**
  * Cierra la sesión del usuario.
  * @returns {Object} Mensaje de confirmación.
  */

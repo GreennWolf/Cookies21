@@ -4,8 +4,9 @@ import { getSystemTemplates } from '../../api/bannerTemplate';
 import BannerThumbnail from '../banner/BannerThumbnail';
 import BrowserSimulatorPreview from './BrowserSimulatorPreview';
 import InteractiveBannerPreview from './InteractiveBannerPreview';
+import useTemplateVariables from '../../hooks/useTemplateVariables';
 
-const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
+const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain, client }) => {
   const [availableTemplates, setAvailableTemplates] = useState([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -20,19 +21,66 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     images: [],
     containers: []
   });
-  const [customizations, setCustomizations] = useState({
-    backgroundColor: '#ffffff',
-    acceptButton: { backgroundColor: '#10b981', textColor: '#ffffff' },
-    rejectButton: { backgroundColor: '#ef4444', textColor: '#ffffff' },
-    preferencesButton: { backgroundColor: '#6b7280', textColor: '#ffffff' },
-    textColor: '#374151',
-    otherButtons: {},
-    images: {},
-    // NUEVO: Almacenar cambios de posición/tamaño por separado
-    componentUpdates: {}
+  
+  // Flag para saber si ya cargamos desde formData
+  const hasInitialFormData = formData.bannerConfig && 
+                              formData.bannerConfig.customizations && 
+                              Object.keys(formData.bannerConfig.customizations).length > 0 &&
+                              formData.bannerConfig.customizations.acceptButton &&
+                              formData.bannerConfig.customizations.acceptButton.backgroundColor;
+  
+  const [customizations, setCustomizations] = useState(() => {
+    // Inicializar con valores de formData si existen
+    if (hasInitialFormData) {
+      console.log('🚀 INICIALIZANDO customizations desde formData existente:', formData.bannerConfig.customizations);
+      return formData.bannerConfig.customizations;
+    }
+    
+    console.log('🆕 INICIALIZANDO customizations vacías');
+    // Si no, inicializar vacío
+    return {
+      backgroundColor: '',
+      acceptButton: { backgroundColor: '', textColor: '' },
+      rejectButton: { backgroundColor: '', textColor: '' },
+      preferencesButton: { backgroundColor: '', textColor: '' },
+      // textColor general eliminado - solo textos individuales
+      otherButtons: {},
+      images: {},
+      // NUEVO: Almacenar cambios de posición/tamaño por separado
+      componentUpdates: {},
+      // NUEVO: Textos individuales con colores independientes
+      individualTexts: {}
+    };
   });
 
   const previewRef = useRef(null);
+  const hasInitializedRef = useRef(false);
+  const blobUrlsRef = useRef(new Set());
+  
+  // Función auxiliar para crear blob URLs de manera segura
+  const createSafeBlobUrl = useCallback((file) => {
+    const url = URL.createObjectURL(file);
+    blobUrlsRef.current.add(url);
+    return url;
+  }, []);
+  
+  // Limpiar blob URLs al desmontar el componente
+  useEffect(() => {
+    return () => {
+      blobUrlsRef.current.forEach(url => {
+        URL.revokeObjectURL(url);
+      });
+      blobUrlsRef.current.clear();
+    };
+  }, []);
+  
+  // Si inicializamos desde formData, marcar como inicializado después del primer render
+  useEffect(() => {
+    if (hasInitialFormData) {
+      hasInitializedRef.current = true;
+      console.log('✅ Marcado como inicializado desde formData');
+    }
+  }, []);
 
   // Cargar plantillas disponibles
   useEffect(() => {
@@ -86,7 +134,7 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
           if (parentComponent) {
             Object.keys(processedComponent.style).forEach(device => {
               const deviceStyle = processedComponent.style[device];
-              const parentStyle = parentComponent.style?.[device] || {};
+              const parentStyle = (parentComponent.style && parentComponent.style[device]) || {};
               
               if (deviceStyle) {
                 // Simular el cálculo que hace el editor
@@ -162,8 +210,8 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     }
     
     console.log('🔧 Template pre-procesado para consistencia:', {
-      originalComponents: template.components?.length || 0,
-      processedComponents: processed.components?.length || 0
+      originalComponents: (template.components && template.components.length) || 0,
+      processedComponents: (processed.components && processed.components.length) || 0
     });
     
     return processed;
@@ -188,8 +236,8 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     }
     
     console.log('🧹 Template preparado:', {
-      originalComponents: template.components?.length || 0,
-      finalComponents: templateToUse.components?.length || 0,
+      originalComponents: (template.components && template.components.length) || 0,
+      finalComponents: (templateToUse.components && templateToUse.components.length) || 0,
       isFirstLoad: !hasComponentUpdates
     });
     
@@ -201,7 +249,7 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
         const newComponent = { ...component };
         
         // NUEVO: Aplicar componentUpdates (resize/drag) PRIMERO
-        const componentUpdate = customizations.componentUpdates?.[component.id];
+        const componentUpdate = customizations.componentUpdates && customizations.componentUpdates[component.id];
         if (componentUpdate) {
           console.log(`🔄 APLICANDO componentUpdate a ${component.id}:`, componentUpdate);
           console.log(`🔄 Componente ANTES:`, { 
@@ -291,30 +339,75 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
             newComponent.style.mobile.color = buttonCustomization.textColor;
           }
         } else if (component.type === 'text') {
-          // Aplicar color de texto general PRESERVANDO los cambios de resize
+          // NUEVO: Aplicar colores individuales de textos con prioridad sobre color general
+          const individualTextColor = customizations.individualTexts[component.id];
+          
+          // Obtener color original del componente como fallback
+          const originalColor = component.style?.desktop?.color || 
+                               component.style?.color || 
+                               '#000000';
+          
+          // Lógica simplificada: individual > original (SIN color general)
+          let textColor = originalColor; // Empezar con el color original
+          if (individualTextColor?.textColor && individualTextColor.textColor !== '') {
+            textColor = individualTextColor.textColor; // Color individual tiene prioridad sobre original
+          }
+          
+          const backgroundColor = individualTextColor?.backgroundColor;
+          
+          console.log(`🎨 Aplicando color a texto ${component.id}:`, {
+            original: originalColor,
+            individual: individualTextColor?.textColor,
+            final: textColor,
+            hasBackground: !!backgroundColor
+          });
+          
           // Solo actualizar color, NO dimensiones ni posición
           // APLICAR A LOS 3 DISPOSITIVOS
           if (!newComponent.style) newComponent.style = {};
           
           // Desktop
           if (!newComponent.style.desktop) newComponent.style.desktop = {};
-          newComponent.style.desktop.color = customizations.textColor;
+          newComponent.style.desktop.color = textColor;
+          if (backgroundColor && backgroundColor !== 'transparent') {
+            newComponent.style.desktop.backgroundColor = backgroundColor;
+          }
           
           // Tablet
           if (!newComponent.style.tablet) newComponent.style.tablet = {};
-          newComponent.style.tablet.color = customizations.textColor;
+          newComponent.style.tablet.color = textColor;
+          if (backgroundColor && backgroundColor !== 'transparent') {
+            newComponent.style.tablet.backgroundColor = backgroundColor;
+          }
           
           // Mobile
           if (!newComponent.style.mobile) newComponent.style.mobile = {};
-          newComponent.style.mobile.color = customizations.textColor;
+          newComponent.style.mobile.color = textColor;
+          if (backgroundColor && backgroundColor !== 'transparent') {
+            newComponent.style.mobile.backgroundColor = backgroundColor;
+          }
         } else if (component.type === 'image') {
           // Aplicar customizations de imagen PRESERVANDO la imagen original
           const imageCustomization = customizations.images[component.id];
           
-          // SIEMPRE procesar la URL de la imagen original para que se vea
-          if (component.content && typeof component.content === 'string') {
-            let imageUrl = component.content;
-            console.log('🖼️ SimpleBanner: Procesando imagen:', { componentId: component.id, originalContent: imageUrl });
+          // NUEVO: Verificar si hay una imagen personalizada almacenada (File object)
+          let imageUrl = component.content;
+          let hasCustomImage = false;
+          
+          if (imageCustomization instanceof File) {
+            // Crear URL temporal para mostrar la imagen personalizada
+            imageUrl = createSafeBlobUrl(imageCustomization);
+            hasCustomImage = true;
+            console.log('🖼️ SimpleBanner: Usando imagen personalizada:', { componentId: component.id, fileName: imageCustomization.name });
+            
+            // CORRECTO: Content debe ser solo el nombre del archivo
+            newComponent.content = imageCustomization.name;
+            // Mantener el preview URL para mostrar en la interfaz
+            newComponent._previewUrl = imageUrl;
+            console.log('🔗 SimpleBanner: Content marcado con nombre original:', newComponent.content);
+            console.log('👁️ SimpleBanner: Preview URL asignada:', newComponent._previewUrl);
+          } else if (component.content && typeof component.content === 'string') {
+            console.log('🖼️ SimpleBanner: Procesando imagen original:', { componentId: component.id, originalContent: imageUrl });
             
             // Procesar diferentes tipos de URLs
             if (!imageUrl.startsWith('data:') && !imageUrl.startsWith('blob:') && !imageUrl.startsWith('http')) {
@@ -327,25 +420,58 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
               }
               console.log('🔗 SimpleBanner: URL procesada:', { componentId: component.id, processedUrl: imageUrl });
             }
-            
-            // IMPORTANTE: SIEMPRE asignar _previewUrl para que la imagen se vea en TODOS los dispositivos
-            newComponent.style = {
-              ...newComponent.style,
-              desktop: {
-                ...newComponent.style?.desktop,
-                _previewUrl: imageUrl
-              },
-              tablet: {
-                ...newComponent.style?.tablet,
-                _previewUrl: imageUrl
-              },
-              mobile: {
-                ...newComponent.style?.mobile,
-                _previewUrl: imageUrl
-              }
-            };
-            console.log('✅ SimpleBanner: _previewUrl asignada para todos los dispositivos:', imageUrl);
           }
+          
+          // Marcar componente para procesamiento posterior si tiene imagen personalizada
+          if (hasCustomImage) {
+            newComponent._hasCustomImage = true;
+            newComponent._customImageId = component.id;
+            console.log('✅ SimpleBanner: Componente marcado para procesamiento de imagen personalizada:', component.id);
+          }
+          
+          // NUEVO: Aplicar escalado manteniendo aspect ratio
+          const scale = imageCustomization?.scale || 100;
+          let finalWidth = newComponent.style?.desktop?.width;
+          let finalHeight = newComponent.style?.desktop?.height;
+          
+          if (scale !== 100 && finalWidth && finalHeight) {
+            const scaleMultiplier = scale / 100;
+            const widthValue = parseFloat(finalWidth);
+            const heightValue = parseFloat(finalHeight);
+            
+            if (!isNaN(widthValue) && !isNaN(heightValue)) {
+              finalWidth = `${Math.round(widthValue * scaleMultiplier)}px`;
+              finalHeight = `${Math.round(heightValue * scaleMultiplier)}px`;
+              console.log('🔍 SimpleBanner: Imagen escalada:', { 
+                componentId: component.id, 
+                scale: `${scale}%`,
+                originalSize: { width: newComponent.style?.desktop?.width, height: newComponent.style?.desktop?.height },
+                newSize: { width: finalWidth, height: finalHeight }
+              });
+            }
+          }
+          
+          // IMPORTANTE: SIEMPRE asignar _previewUrl para que la imagen se vea en TODOS los dispositivos
+          newComponent.style = {
+            ...newComponent.style,
+            desktop: {
+              ...newComponent.style?.desktop,
+              _previewUrl: imageUrl,
+              ...(finalWidth && finalHeight && { width: finalWidth, height: finalHeight })
+            },
+            tablet: {
+              ...newComponent.style?.tablet,
+              _previewUrl: imageUrl,
+              ...(finalWidth && finalHeight && { width: finalWidth, height: finalHeight })
+            },
+            mobile: {
+              ...newComponent.style?.mobile,
+              _previewUrl: imageUrl,
+              ...(finalWidth && finalHeight && { width: finalWidth, height: finalHeight })
+            }
+          };
+          
+          console.log('✅ SimpleBanner: _previewUrl asignada para todos los dispositivos:', imageUrl);
           
           // Luego aplicar customizations si las hay
           if (imageCustomization) {
@@ -357,12 +483,29 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
               };
             }
             if (imageCustomization.size) {
+              // NUEVO: Aplicar escala a las dimensiones personalizadas también
+              const scale = imageCustomization.scale || 100;
+              const scaleMultiplier = scale / 100;
+              
+              let finalWidth = imageCustomization.size.width;
+              let finalHeight = imageCustomization.size.height;
+              
+              if (scale !== 100) {
+                const widthValue = parseFloat(finalWidth);
+                const heightValue = parseFloat(finalHeight);
+                
+                if (!isNaN(widthValue) && !isNaN(heightValue)) {
+                  finalWidth = `${Math.round(widthValue * scaleMultiplier)}px`;
+                  finalHeight = `${Math.round(heightValue * scaleMultiplier)}px`;
+                }
+              }
+              
               newComponent.style = {
                 ...newComponent.style,
                 desktop: {
                   ...newComponent.style?.desktop,
-                  width: imageCustomization.size.width,
-                  height: imageCustomization.size.height
+                  width: finalWidth,
+                  height: finalHeight
                 }
               };
             }
@@ -375,7 +518,24 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
               // Crear ObjectURL para el archivo si existe
               let previewUrl = imageCustomization.tempUrl;
               if (imageCustomization.file && !previewUrl) {
-                previewUrl = URL.createObjectURL(imageCustomization.file);
+                previewUrl = createSafeBlobUrl(imageCustomization.file);
+              }
+              
+              // NUEVO: Aplicar escala también a nuevas imágenes
+              const scale = imageCustomization.scale || 100;
+              let scaledDimensions = {};
+              
+              if (scale !== 100 && newComponent.style?.desktop?.width && newComponent.style?.desktop?.height) {
+                const scaleMultiplier = scale / 100;
+                const widthValue = parseFloat(newComponent.style.desktop.width);
+                const heightValue = parseFloat(newComponent.style.desktop.height);
+                
+                if (!isNaN(widthValue) && !isNaN(heightValue)) {
+                  scaledDimensions = {
+                    width: `${Math.round(widthValue * scaleMultiplier)}px`,
+                    height: `${Math.round(heightValue * scaleMultiplier)}px`
+                  };
+                }
               }
               
               // Usar _previewUrl para el preview (como en BannerPreview)
@@ -383,15 +543,18 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
                 ...newComponent.style,
                 desktop: {
                   ...newComponent.style?.desktop,
-                  _previewUrl: previewUrl
+                  _previewUrl: previewUrl,
+                  ...scaledDimensions
                 },
                 tablet: {
                   ...newComponent.style?.tablet,
-                  _previewUrl: previewUrl
+                  _previewUrl: previewUrl,
+                  ...scaledDimensions
                 },
                 mobile: {
                   ...newComponent.style?.mobile,
-                  _previewUrl: previewUrl
+                  _previewUrl: previewUrl,
+                  ...scaledDimensions
                 }
               };
               
@@ -402,6 +565,38 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
               }
             }
             // Nota: La URL original ya fue procesada arriba, no necesitamos repetir el proceso aquí
+          } else {
+            // NUEVO: Aplicar escala incluso sin customizations específicas si hay una escala diferente
+            const scale = imageCustomization?.scale;
+            if (scale && scale !== 100 && newComponent.style?.desktop?.width && newComponent.style?.desktop?.height) {
+              const scaleMultiplier = scale / 100;
+              const widthValue = parseFloat(newComponent.style.desktop.width);
+              const heightValue = parseFloat(newComponent.style.desktop.height);
+              
+              if (!isNaN(widthValue) && !isNaN(heightValue)) {
+                const scaledWidth = `${Math.round(widthValue * scaleMultiplier)}px`;
+                const scaledHeight = `${Math.round(heightValue * scaleMultiplier)}px`;
+                
+                newComponent.style = {
+                  ...newComponent.style,
+                  desktop: {
+                    ...newComponent.style.desktop,
+                    width: scaledWidth,
+                    height: scaledHeight
+                  },
+                  tablet: {
+                    ...newComponent.style.tablet,
+                    width: scaledWidth,
+                    height: scaledHeight
+                  },
+                  mobile: {
+                    ...newComponent.style.mobile,
+                    width: scaledWidth,
+                    height: scaledHeight
+                  }
+                };
+              }
+            }
           }
         }
         
@@ -433,14 +628,355 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
   // Analizar componentes cuando se selecciona una plantilla
   useEffect(() => {
     if (selectedTemplate) {
+      console.log('🔍 Template seleccionado, analizando componentes');
       analyzeTemplateComponents(selectedTemplate);
     }
   }, [selectedTemplate]);
 
+  // Función para crear/obtener un mapa de variables template
+  const getTemplateVariables = useCallback((clientData) => {
+    return {
+      razonSocial: clientData?.fiscalInfo?.razonSocial || clientData?.name || '',
+      nombreEmpresa: clientData?.fiscalInfo?.razonSocial || clientData?.name || '',
+      cif: clientData?.fiscalInfo?.cif || '',
+      direccion: clientData?.fiscalInfo?.direccion || ''
+    };
+  }, []);
+
+  // Función para detectar si un texto contiene una variable reemplazada previamente
+  const detectReplacedVariables = useCallback((text, currentClientData) => {
+    if (!text || typeof text !== 'string') return text;
+    
+    let modifiedText = text;
+    
+    // Detectar y revertir patrones comunes donde se debería usar {razonSocial}
+    const patterns = [
+      {
+        // "Algunas pueden ser nuestras de [EMPRESA]" -> "Algunas pueden ser nuestras de {razonSocial}"
+        regex: /Algunas pueden ser nuestras de ([^,\.;!?]+)/gi,
+        replacement: 'Algunas pueden ser nuestras de {razonSocial}'
+      },
+      {
+        // "Empresa: [EMPRESA]" -> "Empresa: {razonSocial}"
+        regex: /Empresa:\s*([^,\.;!?\n]+)/gi,
+        replacement: 'Empresa: {razonSocial}'
+      },
+      {
+        // "[EMPRESA] utiliza cookies" -> "{razonSocial} utiliza cookies"
+        regex: /^([^,\.;!?\n]+)\s+(utiliza|usa) cookies/gi,
+        replacement: '{razonSocial} $2 cookies'
+      },
+      {
+        // "En [EMPRESA] respetamos" -> "En {razonSocial} respetamos"
+        regex: /En ([^,\.;!?\n]+) respetamos/gi,
+        replacement: 'En {razonSocial} respetamos'
+      },
+      {
+        // "[EMPRESA] se compromete" -> "{razonSocial} se compromete"
+        regex: /^([^,\.;!?\n]+) se compromete/gi,
+        replacement: '{razonSocial} se compromete'
+      },
+      {
+        // "de [EMPRESA]" al final de oración -> "de {razonSocial}"
+        regex: /de ([^,\.;!?\n]+)(\.|,|;|!|\?|$)/gi,
+        replacement: 'de {razonSocial}$2'
+      }
+    ];
+    
+    patterns.forEach(({ regex, replacement }) => {
+      const matches = [...modifiedText.matchAll(regex)];
+      
+      matches.forEach(match => {
+        // Solo procesar si no contiene ya una variable template
+        if (!match[0].includes('{') && !match[0].includes('}')) {
+          const companyName = match[1]?.trim();
+          
+          // Verificar que parece un nombre de empresa válido (no una palabra común)
+          if (companyName && companyName.length > 2 && companyName.length < 100) {
+            // Evitar reemplazar palabras comunes que no son nombres de empresa
+            const commonWords = ['cookies', 'sitio', 'web', 'página', 'usuario', 'datos', 'información', 'política', 'privacidad'];
+            const isCommonWord = commonWords.some(word => companyName.toLowerCase().includes(word.toLowerCase()));
+            
+            if (!isCommonWord) {
+              const newText = modifiedText.replace(match[0], match[0].replace(regex, replacement));
+              if (newText !== modifiedText) {
+                console.log('🔄 Detectado y revertido reemplazo previo:', { 
+                  original: match[0], 
+                  companyDetected: companyName,
+                  revertido: match[0].replace(regex, replacement)
+                });
+                modifiedText = newText;
+              }
+            }
+          }
+        }
+      });
+    });
+    
+    return modifiedText;
+  }, []);
+
+  // Función mejorada para reemplazar variables en el contenido de componentes
+  const replaceTemplateVariables = useCallback((template, clientData) => {
+    console.log('🔧 replaceTemplateVariables iniciado (versión mejorada)');
+    console.log('🔧 Template recibido:', !!template);
+    console.log('🔧 ClientData recibido:', clientData);
+    
+    if (!template || !template.components) {
+      console.log('⚠️ Template inválido o sin componentes');
+      return template;
+    }
+    
+    // Crear una copia profunda para evitar mutar el original
+    const templateCopy = JSON.parse(JSON.stringify(template));
+    
+    // Obtener variables de reemplazo
+    const variables = getTemplateVariables(clientData);
+    console.log('📝 Variables disponibles para reemplazo:', variables);
+    
+    // Si no hay razón social, aplicar solo detección de variables previamente reemplazadas
+    if (!variables.razonSocial || variables.razonSocial.trim() === '') {
+      console.log('⚠️ No hay razón social nueva, solo detectando variables previas');
+      
+      // Procesar componentes para detectar y revertir reemplazos previos
+      const processComponentForDetection = (component) => {
+        if (!component) return component;
+        
+        if (component.content) {
+          if (typeof component.content === 'string') {
+            component.content = detectReplacedVariables(component.content, clientData);
+          } else if (component.content.texts && typeof component.content.texts === 'object') {
+            Object.keys(component.content.texts).forEach(lang => {
+              if (typeof component.content.texts[lang] === 'string') {
+                component.content.texts[lang] = detectReplacedVariables(component.content.texts[lang], clientData);
+              }
+            });
+          } else if (component.content.text && typeof component.content.text === 'string') {
+            component.content.text = detectReplacedVariables(component.content.text, clientData);
+          }
+        }
+        
+        // Procesar hijos recursivamente
+        if (component.children && Array.isArray(component.children)) {
+          component.children = component.children.map(processComponentForDetection);
+        }
+        
+        return component;
+      };
+      
+      templateCopy.components = templateCopy.components.map(processComponentForDetection);
+      console.log('✅ Detección de variables previas completada');
+      return templateCopy;
+    }
+    
+    console.log('🔄 Realizando reemplazo completo de variables:', variables);
+    
+    // Función recursiva para procesar componentes con reemplazo mejorado
+    const processComponent = (component) => {
+      if (!component) return component;
+      
+      // Función para aplicar todas las variables a un texto
+      const applyVariables = (text) => {
+        if (!text || typeof text !== 'string') return text;
+        
+        let processedText = text;
+        
+        // Primero, detectar y revertir posibles reemplazos previos
+        processedText = detectReplacedVariables(processedText, clientData);
+        
+        // Luego, aplicar nuevos reemplazos
+        Object.entries(variables).forEach(([varName, varValue]) => {
+          if (varValue && varValue.trim() !== '') {
+            const regex = new RegExp(`\\{${varName}\\}`, 'g');
+            const beforeReplace = processedText;
+            processedText = processedText.replace(regex, varValue);
+            
+            if (beforeReplace !== processedText) {
+              console.log(`✅ Variable ${varName} reemplazada:`, { 
+                variable: `{${varName}}`, 
+                valor: varValue,
+                antes: beforeReplace,
+                después: processedText
+              });
+            }
+          }
+        });
+        
+        return processedText;
+      };
+      
+      // Procesar contenido del componente
+      if (component.content) {
+        if (typeof component.content === 'string') {
+          component.content = applyVariables(component.content);
+        } else if (component.content.texts && typeof component.content.texts === 'object') {
+          // Reemplazar en textos multiidioma
+          Object.keys(component.content.texts).forEach(lang => {
+            if (typeof component.content.texts[lang] === 'string') {
+              component.content.texts[lang] = applyVariables(component.content.texts[lang]);
+            }
+          });
+        } else if (component.content.text && typeof component.content.text === 'string') {
+          const originalText = component.content.text;
+          component.content.text = applyVariables(component.content.text);
+          if (originalText !== component.content.text) {
+            console.log(`✅ Reemplazado en componente ${component.id} (legacy):`, { antes: originalText, después: component.content.text });
+          }
+        }
+        
+        // Debug: solo mostrar si contiene la variable
+        if (JSON.stringify(component.content).includes('{razonSocial}')) {
+          console.log(`🎯 Componente con {razonSocial} encontrado - ${component.id}:`, {
+            type: component.type,
+            contentType: typeof component.content,
+            content: component.content
+          });
+        }
+      }
+      
+      // Procesar hijos del componente
+      if (component.children && Array.isArray(component.children)) {
+        component.children = component.children.map(processComponent);
+      }
+      
+      return component;
+    };
+    
+    // Procesar todos los componentes
+    let replacementsCount = 0;
+    templateCopy.components = templateCopy.components.map(component => {
+      const processedComponent = processComponent(component);
+      
+      // Contar reemplazos realizados
+      const checkForReplacements = (comp) => {
+        if (comp.content && typeof comp.content === 'string' && comp.content.includes(variables.razonSocial || '')) {
+          replacementsCount++;
+        }
+        if (comp.children && Array.isArray(comp.children)) {
+          comp.children.forEach(checkForReplacements);
+        }
+      };
+      
+      checkForReplacements(processedComponent);
+      return processedComponent;
+    });
+    
+    console.log('✅ Variables reemplazadas en template:', {
+      razonSocialUsada: variables.razonSocial,
+      reemplazosRealizados: replacementsCount,
+      componentesTotal: templateCopy.components.length
+    });
+    
+    return templateCopy;
+  }, [getTemplateVariables, detectReplacedVariables]);
+
+  // Función para crear una versión del template que preserve las variables para guardar en BD
+  const createTemplateForDatabase = useCallback((template) => {
+    if (!template) {
+      console.warn('⚠️ Template no válido para base de datos');
+      return null;
+    }
+    
+    // Crear una copia profunda
+    const templateForDB = JSON.parse(JSON.stringify(template));
+    
+    // IMPORTANTE: Asegurar que layout y components siempre estén presentes
+    if (!templateForDB.layout) {
+      console.warn('⚠️ Template sin layout, usando layout por defecto');
+      templateForDB.layout = {
+        desktop: { width: '400px', height: 'auto' },
+        tablet: { width: '350px', height: 'auto' },
+        mobile: { width: '300px', height: 'auto' }
+      };
+    }
+    
+    if (!templateForDB.components || !Array.isArray(templateForDB.components)) {
+      console.warn('⚠️ Template sin components válidos, inicializando array vacío');
+      templateForDB.components = [];
+    }
+    
+    // Función recursiva para revertir cualquier reemplazo y preservar variables
+    const preserveVariables = (component) => {
+      if (!component) return component;
+      
+      // NUEVO: Marcar imágenes personalizadas para que el backend las procese
+      if (component.type === 'image' && customizations.images?.[component.id]) {
+        const imageCustomization = customizations.images[component.id];
+        
+        // Si tiene archivo personalizado, marcar para procesamiento en backend
+        if (imageCustomization instanceof File) {
+          component._hasCustomImage = true;
+          component._customImageId = component.id;
+          // CORRECTO: Content debe usar el patrón __IMAGE_REF__ como en el editor
+          component.content = `__IMAGE_REF__${component.id}_${imageCustomization.name}`;
+          console.log(`🖼️ Marcando imagen ${component.id} para procesamiento personalizado`);
+          console.log(`🔗 Content marcado en templateForDatabase:`, component.content);
+        } else if (imageCustomization.file || imageCustomization.tempUrl) {
+          component._hasCustomImage = true;
+          component._customImageId = component.id;
+          console.log(`🖼️ Marcando imagen ${component.id} para procesamiento personalizado (legacy)`);
+        }
+        
+        // Preservar configuración de escala
+        if (imageCustomization.scale && imageCustomization.scale !== 100) {
+          component._customScale = imageCustomization.scale;
+          console.log(`🔍 Preservando escala ${imageCustomization.scale}% para imagen ${component.id}`);
+        }
+      }
+      
+      // Procesar contenido del componente para preservar variables
+      if (component.content) {
+        if (typeof component.content === 'string') {
+          // Aplicar detección para revertir cualquier reemplazo previo
+          component.content = detectReplacedVariables(component.content, {});
+        } else if (component.content.texts && typeof component.content.texts === 'object') {
+          // Procesar textos multiidioma
+          Object.keys(component.content.texts).forEach(lang => {
+            if (typeof component.content.texts[lang] === 'string') {
+              component.content.texts[lang] = detectReplacedVariables(component.content.texts[lang], {});
+            }
+          });
+        } else if (component.content.text && typeof component.content.text === 'string') {
+          component.content.text = detectReplacedVariables(component.content.text, {});
+        }
+      }
+      
+      // Procesar hijos recursivamente
+      if (component.children && Array.isArray(component.children)) {
+        component.children = component.children.map(preserveVariables);
+      }
+      
+      return component;
+    };
+    
+    // Procesar todos los componentes
+    templateForDB.components = templateForDB.components.map(preserveVariables);
+    
+    console.log('💾 Template preparado para base de datos:', {
+      hasLayout: !!templateForDB.layout,
+      hasComponents: !!templateForDB.components,
+      componentsCount: templateForDB.components?.length || 0,
+      templateName: templateForDB.name
+    });
+    
+    return templateForDB;
+  }, [detectReplacedVariables]);
+
+  // Usar el hook para procesar variables del template
+  const templateWithVariables = useTemplateVariables(selectedTemplate, client || formData);
+
   // Memoizar template personalizado
   const customizedTemplate = useMemo(() => {
-    if (!selectedTemplate) return null;
-    const result = applyCustomizations(selectedTemplate, customizations);
+    if (!templateWithVariables) return null;
+    
+    // Aplicar customizations al template que ya tiene las variables procesadas
+    const result = applyCustomizations(templateWithVariables, customizations);
+    
+    console.log('🔄 Template con variables procesadas:', {
+      hasClient: !!client,
+      hasFiscalInfo: !!formData?.fiscalInfo,
+      razonSocial: client?.fiscalInfo?.razonSocial || formData?.fiscalInfo?.razonSocial
+    });
     
     // DEBUG: Verificar que las imágenes tengan _previewUrl Y componentUpdates
     if (result && result.components) {
@@ -468,73 +1004,179 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     }
     
     return result;
-  }, [selectedTemplate, customizations]);
+  }, [templateWithVariables, customizations]);
 
-  // Función para manejar la carga de imágenes
+  // Función para manejar la carga de imágenes (NUEVO PATRÓN: igual al editor fullscreen)
   const handleImageUpload = (componentId, file) => {
-    if (!file) return;
+    console.log('🚀 FRONTEND: handleImageUpload llamado', { componentId, fileName: file?.name, fileSize: file?.size });
+    
+    if (!file) {
+      console.log('❌ FRONTEND: No hay archivo, saliendo de handleImageUpload');
+      return;
+    }
     
     // Validar tipo de archivo
     if (!file.type.startsWith('image/')) {
+      console.log('❌ FRONTEND: Tipo de archivo inválido:', file.type);
       toast.error('Por favor selecciona un archivo de imagen válido');
       return;
     }
     
-    console.log(`📷 Subiendo imagen para componente ${componentId}:`, file.name);
+    console.log('✅ FRONTEND: Archivo válido, preparando imagen para componente:', {
+      componentId,
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size
+    });
     
-    // Crear URL temporal para preview inmediato
-    const tempUrl = URL.createObjectURL(file);
+    // NUEVO PATRÓN: NO subir inmediatamente, solo almacenar para el proceso de creación
+    // Crear URL temporal para preview inmediato (pero no la guardamos, se creará cuando se necesite)
+    console.log('📸 FRONTEND: Archivo listo para preview');
     
-    // Actualizar customizations con la URL temporal
-    setCustomizations(prev => ({
-      ...prev,
-      images: {
-        ...prev.images,
-        [componentId]: {
-          ...prev.images[componentId],
-          tempUrl: tempUrl,
-          file: file,
-          fileName: file.name
+    // Actualizar customizations almacenando el archivo File directamente (igual que ClientsManagementPage)
+    setCustomizations(prev => {
+      const newCustomizations = {
+        ...prev,
+        images: {
+          ...prev.images,
+          [componentId]: file // Almacenar el archivo File directamente como hace ClientsManagementPage
         }
-      }
-    }));
+      };
+      console.log('📝 FRONTEND: Customizations actualizadas:', newCustomizations);
+      return newCustomizations;
+    });
     
-    toast.success('Imagen actualizada correctamente');
+    // También almacenar en window._imageFiles para compatibilidad con ClientsManagementPage
+    if (!window._imageFiles) {
+      window._imageFiles = {};
+      console.log('🆕 FRONTEND: Creando window._imageFiles');
+    }
+    window._imageFiles[componentId] = file;
+    console.log('💾 FRONTEND: Archivo almacenado en window._imageFiles:', { componentId, fileName: file.name });
     
-    // El useEffect se encargará de actualizar el formData cuando customizations cambien
+    console.log(`✅ FRONTEND: Imagen almacenada para componente ${componentId}: ${file.name}`);
+    console.log('📊 FRONTEND: Total imágenes almacenadas:', Object.keys(window._imageFiles || {}).length);
+    
+    // Marcar que este componente tendrá una imagen personalizada en las customizations
+    setCustomizations(prev => {
+      const newCustomizations = {
+        ...prev,
+        images: {
+          ...prev.images,
+          [componentId]: file
+        },
+        // Marcar que este componente necesita actualización de imagen
+        componentUpdates: {
+          ...prev.componentUpdates,
+          [componentId]: {
+            ...prev.componentUpdates?.[componentId],
+            hasCustomImage: true,
+            imageRef: `IMAGE_REF_${componentId}_${file.name}`
+          }
+        }
+      };
+      console.log('🔄 FRONTEND: ComponentUpdates actualizadas:', newCustomizations.componentUpdates);
+      return newCustomizations;
+    });
+    
+    toast.success('Imagen preparada correctamente');
+    
+    // El archivo se enviará junto con el banner cuando se cree el cliente
+    // El backend lo procesará y guardará en la carpeta final
   };
 
-  // Actualizar formData cuando cambien las customizations
+  // REMOVED: updateFormData ya no es necesario, se maneja directamente en el useEffect
+
+  // FIXED: Usar debounce para evitar actualizaciones excesivas
   useEffect(() => {
-    if (selectedTemplate && formData.bannerConfig && customizedTemplate) {
-      // Recopilar todas las imágenes de las customizations
-      const imageFiles = {};
-      const imageSettings = {};
-      
-      // Extraer archivos de imagen de customizations
-      Object.entries(customizations.images || {}).forEach(([componentId, imageData]) => {
-        if (imageData.file instanceof File) {
-          imageFiles[componentId] = imageData.file;
-          imageSettings[componentId] = {
-            fileName: imageData.fileName,
-            hasCustomImage: true,
-            tempUrl: imageData.tempUrl
-          };
-          console.log(`✅ Imagen detectada para componente ${componentId}:`, imageData.fileName);
+    const timeoutId = setTimeout(() => {
+      if (selectedTemplate && formData.bannerConfig && customizedTemplate) {
+        // Crear versión del template para guardar en base de datos (con variables preservadas)
+        const templateForDatabase = createTemplateForDatabase(selectedTemplate);
+        
+        // Validar que el nombre del cliente esté presente
+        if (!formData.name || formData.name.trim() === '') {
+          return;
         }
-      });
-      
-      console.log('📤 Enviando bannerConfig con imágenes:', Object.keys(imageFiles));
-      
-      onChange('bannerConfig', {
-        ...formData.bannerConfig,
-        customizations: customizations,
-        customizedTemplate: customizedTemplate,
-        images: Object.keys(imageFiles).length > 0 ? imageFiles : formData.bannerConfig.images,
-        imageSettings: Object.keys(imageSettings).length > 0 ? imageSettings : formData.bannerConfig.imageSettings
-      });
-    }
-  }, [customizedTemplate, customizations]);
+
+        // Recopilar todas las imágenes de las customizations (NUEVO PATRÓN: File directo)
+        const imageFiles = {};
+        const imageSettings = {};
+        
+        Object.entries(customizations.images || {}).forEach(([componentId, imageData]) => {
+          if (imageData instanceof File) {
+            // NUEVO: Ahora imageData es directamente el File object
+            imageFiles[componentId] = imageData;
+            imageSettings[componentId] = {
+              fileName: imageData.name,
+              hasCustomImage: true,
+              scale: 100 // Por defecto sin escalado
+            };
+            console.log(`📁 Recopilando imagen para ${componentId}: ${imageData.name}`);
+          } else if (imageData && typeof imageData === 'object' && imageData.file instanceof File) {
+            // Mantener compatibilidad con formato anterior
+            imageFiles[componentId] = imageData.file;
+            imageSettings[componentId] = {
+              fileName: imageData.fileName || imageData.file.name,
+              hasCustomImage: true,
+              tempUrl: imageData.tempUrl,
+              scale: imageData.scale || 100
+            };
+          } else if (imageData && imageData.scale && imageData.scale !== 100) {
+            // También guardar configuración de escala para imágenes existentes del template
+            if (!imageSettings[componentId]) {
+              imageSettings[componentId] = {};
+            }
+            imageSettings[componentId].scale = imageData.scale;
+          }
+        });
+
+        // NUEVO: También transferir a window._imageFiles para compatibilidad con ClientsManagementPage
+        if (Object.keys(imageFiles).length > 0) {
+          if (!window._imageFiles) {
+            window._imageFiles = {};
+          }
+          Object.entries(imageFiles).forEach(([componentId, file]) => {
+            window._imageFiles[componentId] = file;
+            console.log(`🔄 Transfiriendo imagen ${componentId} a window._imageFiles:`, file.name);
+          });
+        }
+
+        // Solo actualizar si hay cambios reales
+        const currentConfig = JSON.stringify(formData.bannerConfig?.customizations || {});
+        const newConfig = JSON.stringify(customizations);
+        
+        if (currentConfig !== newConfig) {
+          console.log('💾 CAMBIOS GUARDADOS:', {
+            acceptButton: customizations.acceptButton,
+            rejectButton: customizations.rejectButton,
+            preferencesButton: customizations.preferencesButton,
+            backgroundColor: customizations.backgroundColor,
+            individualTexts: Object.keys(customizations.individualTexts || {}),
+            images: Object.keys(customizations.images || {})
+          });
+          
+          onChange('bannerConfig', {
+            ...formData.bannerConfig,
+            customizations: customizations,
+            customizedTemplate: customizedTemplate,
+            templateForDatabase: templateForDatabase,
+            images: Object.keys(imageFiles).length > 0 ? imageFiles : formData.bannerConfig.images,
+            imageSettings: Object.keys(imageSettings).length > 0 ? imageSettings : formData.bannerConfig.imageSettings,
+            validated: true,
+            clientName: formData.name,
+            configuredAt: new Date().toISOString()
+          });
+          
+          console.log('✅ Cambios guardados en formData exitosamente');
+        } else {
+          console.log('⏭️ Sin cambios que guardar (configs idénticas)');
+        }
+      }
+    }, 200); // 200ms debounce
+    
+    return () => clearTimeout(timeoutId);
+  }, [customizations, selectedTemplate]); // Solo cuando cambian las customizations o selectedTemplate
 
   // Función para crear una plantilla básica temporal cuando no hay plantillas del sistema
   const createBasicTemplate = () => {
@@ -698,7 +1340,7 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
         selectTemplate(templates[0]);
       } else {
         console.warn('⚠️ SimpleBannerConfigStep: No se encontraron plantillas del sistema');
-        toast.warning('No se encontraron plantillas del sistema disponibles. Contacte al administrador para crear plantillas del sistema.');
+        toast.warning('No se encontraron plantillas del sistema disponibles. El sistema creará una automáticamente. Si el problema persiste, contacte al administrador.');
         
         // Crear una plantilla básica temporal para que el componente funcione
         const basicTemplate = createBasicTemplate();
@@ -718,7 +1360,11 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
   const selectTemplate = (template) => {
     setSelectedTemplate(template);
     
+    // Analizar componentes del template original
+    analyzeTemplateComponents(template);
+    
     // Actualizar formData con la plantilla seleccionada
+    // El reemplazo de variables se hará en customizedTemplate useMemo
     onChange('configureBanner', true);
     onChange('bannerConfig', {
       templateId: template._id,
@@ -733,6 +1379,98 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
       console.warn('Template sin componentes:', template);
       return;
     }
+
+    // Verificar si ya tenemos customizations con valores editados
+    const hasEditedValues = customizations.acceptButton?.backgroundColor && 
+                           customizations.acceptButton.backgroundColor !== '' &&
+                           hasInitializedRef.current;
+    
+    if (hasEditedValues) {
+      console.log('🚫 BLOQUEANDO análisis - hay valores editados por el usuario');
+      // Solo actualizar bannerComponents sin tocar customizations
+      const components = template.components || [];
+      const analysis = {
+        acceptButton: null,
+        rejectButton: null,
+        preferencesButton: null,
+        otherButtons: [],
+        texts: [],
+        images: [],
+        containers: []
+      };
+      
+      // Función recursiva completa para análisis (sin modificar customizations)
+      const analyzeComponent = (component, parentContainer = null) => {
+        if (!component || !component.type) {
+          return;
+        }
+
+        // Detectar botones
+        if (component.type === 'button') {
+          const action = component.action?.type;
+          const id = component.id;
+          
+          if (action === 'accept_all' || ['acceptBtn', 'acceptAll'].includes(id)) {
+            analysis.acceptButton = { ...component, parentContainer };
+          } else if (action === 'reject_all' || ['rejectBtn', 'rejectAll'].includes(id)) {
+            analysis.rejectButton = { ...component, parentContainer };
+          } else if (action === 'show_preferences' || ['preferencesBtn', 'preferencesButton'].includes(id)) {
+            analysis.preferencesButton = { ...component, parentContainer };
+          } else {
+            analysis.otherButtons.push({ ...component, parentContainer });
+          }
+        }
+        // Detectar textos
+        else if (component.type === 'text') {
+          analysis.texts.push({ ...component, parentContainer });
+        }
+        // Detectar imágenes
+        else if (component.type === 'image') {
+          analysis.images.push({ ...component, parentContainer });
+        }
+        // Detectar contenedores
+        else if (component.type === 'container') {
+          analysis.containers.push(component);
+          
+          // Analizar hijos del contenedor recursivamente
+          if (component.children && Array.isArray(component.children)) {
+            component.children.forEach(child => {
+              let childComponent = child;
+              if (typeof child === 'string') {
+                // Si es string, buscar el componente por ID
+                childComponent = components.find(c => c.id === child);
+              }
+              if (childComponent) {
+                analyzeComponent(childComponent, component);
+              }
+            });
+          }
+        }
+      };
+
+      // Analizar componentes raíz
+      const rootComponents = components.filter(c => !c.parentId);
+      rootComponents.forEach(component => {
+        analyzeComponent(component);
+      });
+      
+      setBannerComponents(analysis);
+      console.log('✅ Análisis completado SIN modificar customizations preservadas');
+      return;
+    }
+
+    console.log('🔍 TEMPLATE RECIBIDO para análisis:', {
+      name: template.name,
+      id: template._id,
+      totalComponents: template.components?.length,
+      components: template.components?.map(comp => ({
+        id: comp.id,
+        type: comp.type,
+        action: comp.action,
+        style: comp.style,
+        content: typeof comp.content === 'string' ? comp.content : 'object'
+      }))
+    });
 
     const components = template.components || [];
     const analysis = {
@@ -806,38 +1544,173 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     console.log('Análisis de componentes:', analysis);
     setBannerComponents(analysis);
     
-    // Inicializar customizations con valores del template
-    const newCustomizations = {
-      // Color de fondo del banner del template
-      backgroundColor: template.layout?.desktop?.backgroundColor || '#ffffff',
-      // Colores de los botones principales del template
+    // DEBUG: Verificar estructura COMPLETA de los botones encontrados - SIEMPRE MOSTRAR
+    console.log('🔍 ANÁLISIS COMPLETO de botones en template:', {
+      acceptButton: analysis.acceptButton ? {
+        id: analysis.acceptButton.id,
+        completeStyle: analysis.acceptButton.style,
+        action: analysis.acceptButton.action,
+        fullComponent: analysis.acceptButton
+      } : 'No encontrado',
+      rejectButton: analysis.rejectButton ? {
+        id: analysis.rejectButton.id,
+        completeStyle: analysis.rejectButton.style,
+        action: analysis.rejectButton.action,
+        fullComponent: analysis.rejectButton
+      } : 'No encontrado',
+      preferencesButton: analysis.preferencesButton ? {
+        id: analysis.preferencesButton.id,
+        completeStyle: analysis.preferencesButton.style,
+        action: analysis.preferencesButton.action,
+        fullComponent: analysis.preferencesButton
+      } : 'No encontrado',
+      allButtons: analysis.otherButtons.map(btn => ({
+        id: btn.id,
+        action: btn.action,
+        style: btn.style,
+        fullComponent: btn
+      }))
+    });
+    
+    // FIXED: Verificar si hay customizations guardadas en formData PRIMERO
+    const formDataCustomizations = formData.bannerConfig?.customizations;
+    const hasFormDataCustomizations = formDataCustomizations && Object.keys(formDataCustomizations).length > 0;
+    
+    // Luego verificar customizations actuales en estado
+    const existingCustomizations = customizations;
+    const hasExistingCustomizations = existingCustomizations && Object.keys(existingCustomizations).length > 0;
+    
+    // Prioridad: formData > customizations actuales > valores del template
+    console.log('🔍 Verificando fuentes de customizations:', {
+      hasFormDataCustomizations,
+      hasExistingCustomizations,
+      shouldPreserve: hasFormDataCustomizations || hasExistingCustomizations
+    });
+    
+    // NUEVA LÓGICA: SIEMPRE extraer valores REALES del template sin valores por defecto
+    const templateDefaults = {
+      backgroundColor: template.layout?.desktop?.backgroundColor || template.layout?.backgroundColor || '#ffffff',
       acceptButton: {
-        backgroundColor: analysis.acceptButton?.style?.desktop?.backgroundColor || '#10b981',
+        backgroundColor: analysis.acceptButton?.style?.desktop?.backgroundColor || '#000000',
         textColor: analysis.acceptButton?.style?.desktop?.color || '#ffffff'
       },
       rejectButton: {
-        backgroundColor: analysis.rejectButton?.style?.desktop?.backgroundColor || '#ef4444',
+        backgroundColor: analysis.rejectButton?.style?.desktop?.backgroundColor || '#000000',
         textColor: analysis.rejectButton?.style?.desktop?.color || '#ffffff'
       },
       preferencesButton: {
-        backgroundColor: analysis.preferencesButton?.style?.desktop?.backgroundColor || '#6b7280',
+        backgroundColor: analysis.preferencesButton?.style?.desktop?.backgroundColor || '#000000',
         textColor: analysis.preferencesButton?.style?.desktop?.color || '#ffffff'
-      },
-      // Color de texto general (tomar del primer texto encontrado)
-      textColor: analysis.texts[0]?.style?.desktop?.color || '#374151',
-      otherButtons: {},
-      images: {}
+      }
+      // textColor general eliminado - solo se usan colores individuales por texto
     };
     
-    // Inicializar customizations para otros botones con sus valores actuales
+    console.log('🎨 COLORES DEL BACKEND (template):', {
+      acceptButton: {
+        backgroundColor: analysis.acceptButton?.style?.desktop?.backgroundColor,
+        color: analysis.acceptButton?.style?.desktop?.color,
+        fullStyle: analysis.acceptButton?.style
+      },
+      rejectButton: {
+        backgroundColor: analysis.rejectButton?.style?.desktop?.backgroundColor,
+        color: analysis.rejectButton?.style?.desktop?.color,
+        fullStyle: analysis.rejectButton?.style
+      },
+      preferencesButton: {
+        backgroundColor: analysis.preferencesButton?.style?.desktop?.backgroundColor,
+        color: analysis.preferencesButton?.style?.desktop?.color,
+        fullStyle: analysis.preferencesButton?.style
+      },
+      templateLayout: {
+        backgroundColor: template.layout?.desktop?.backgroundColor || template.layout?.backgroundColor,
+        fullLayout: template.layout
+      }
+    });
+    
+    console.log('📋 Valores EXTRAÍDOS y PROCESADOS para usar:', templateDefaults);
+    
+    // Si hay customizations guardadas
+    if (hasFormDataCustomizations || hasExistingCustomizations) {
+      const storedCustomizations = formDataCustomizations || existingCustomizations;
+      
+      console.log('📦 CUSTOMIZATIONS GUARDADAS:', storedCustomizations);
+      
+      // Verificar si las customizations tienen valores vacíos (estado inicial)
+      const needsTemplateColors = !storedCustomizations.acceptButton?.backgroundColor || 
+                                 storedCustomizations.acceptButton?.backgroundColor === '';
+      
+      if (needsTemplateColors) {
+        console.log('🔧 Customizations vacías, inicializando con colores del template');
+        
+        // Usar colores del template PERO NO establecer textColor general si hay textos individuales
+        const updatedCustomizations = {
+          ...storedCustomizations,
+          backgroundColor: templateDefaults.backgroundColor,
+          acceptButton: templateDefaults.acceptButton,
+          rejectButton: templateDefaults.rejectButton,
+          preferencesButton: templateDefaults.preferencesButton,
+          // IMPORTANTE: NO establecer textColor general para no sobrescribir colores individuales
+          // textColor: templateDefaults.textColor  // COMENTADO para permitir colores individuales
+        };
+        
+        setCustomizations(updatedCustomizations);
+        hasInitializedRef.current = true; // Marcar como inicializado
+        console.log('✅ Customizations inicializadas con valores del template (sin textColor general)');
+        
+        // LOG: Colores que se mostrarán en los inputs
+        console.log('🎯 COLORES DE INPUTS (con valores del template):', {
+          acceptButton: {
+            backgroundColor: updatedCustomizations.acceptButton?.backgroundColor,
+            textColor: updatedCustomizations.acceptButton?.textColor
+          },
+          rejectButton: {
+            backgroundColor: updatedCustomizations.rejectButton?.backgroundColor,
+            textColor: updatedCustomizations.rejectButton?.textColor
+          },
+          preferencesButton: {
+            backgroundColor: updatedCustomizations.preferencesButton?.backgroundColor,
+            textColor: updatedCustomizations.preferencesButton?.textColor
+          },
+          backgroundColor: updatedCustomizations.backgroundColor
+        });
+      } else {
+        console.log('✅ Customizations ya tienen valores, NO MODIFICAR');
+        // IMPORTANTE: NO hacer setCustomizations aquí para no sobrescribir
+        console.log('🎯 VALORES ACTUALES EN CUSTOMIZATIONS:', {
+          acceptButton: storedCustomizations.acceptButton,
+          rejectButton: storedCustomizations.rejectButton,
+          preferencesButton: storedCustomizations.preferencesButton
+        });
+      }
+      return;
+    }
+    
+    console.log('🆕 Inicializando customizations desde template por primera vez');
+    
+    let newCustomizations = {
+      // Usar valores específicos del template SIN textColor general
+      backgroundColor: templateDefaults.backgroundColor,
+      acceptButton: templateDefaults.acceptButton,
+      rejectButton: templateDefaults.rejectButton,
+      preferencesButton: templateDefaults.preferencesButton,
+      // NO incluir textColor general para permitir colores individuales
+      otherButtons: {},
+      images: {},
+      individualTexts: {},
+      componentUpdates: {}
+    };
+    
+    // Inicializar customizations para otros botones
     analysis.otherButtons.forEach(button => {
       newCustomizations.otherButtons[button.id] = {
-        backgroundColor: button.style?.desktop?.backgroundColor || '#3b82f6',
-        textColor: button.style?.desktop?.color || '#ffffff'
+        backgroundColor: button.style?.desktop?.backgroundColor || 
+                       button.style?.backgroundColor || 'transparent',
+        textColor: button.style?.desktop?.color || 
+                 button.style?.color || '#000000'
       };
     });
     
-    // Inicializar customizations para imágenes con sus valores actuales
+    // Inicializar customizations para imágenes
     analysis.images.forEach(image => {
       newCustomizations.images[image.id] = {
         position: image.position?.desktop || { top: '0%', left: '0%' },
@@ -845,15 +1718,66 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
           width: image.style?.desktop?.width || '100px',
           height: image.style?.desktop?.height || '100px'
         },
-        currentImage: image.content || null
+        currentImage: image.content || null,
+        scale: 100
+      };
+    });
+    
+    // Inicializar textos individuales
+    analysis.texts.forEach(text => {
+      let displayContent = '';
+      if (typeof text.content === 'string') {
+        displayContent = text.content;
+      } else if (text.content && typeof text.content === 'object') {
+        if (text.content.texts && typeof text.content.texts === 'object') {
+          displayContent = text.content.texts.es || text.content.texts.en || Object.values(text.content.texts)[0] || '';
+        } else if (text.content.text) {
+          displayContent = text.content.text;
+        }
+      }
+      
+      newCustomizations.individualTexts[text.id] = {
+        textColor: text.style?.desktop?.color || text.style?.color || '#000000',
+        backgroundColor: text.style?.desktop?.backgroundColor || text.style?.backgroundColor || 'transparent',
+        content: displayContent,
+        parentContainer: text.parentContainer?.id || null
       };
     });
     
     setCustomizations(newCustomizations);
+    hasInitializedRef.current = true; // Marcar como inicializado
+    
+    // LOG: Colores que se mostrarán en los inputs (primera vez)
+    console.log('🎯 COLORES DE INPUTS (inicialización primera vez):', {
+      acceptButton: {
+        backgroundColor: newCustomizations.acceptButton?.backgroundColor,
+        textColor: newCustomizations.acceptButton?.textColor
+      },
+      rejectButton: {
+        backgroundColor: newCustomizations.rejectButton?.backgroundColor,
+        textColor: newCustomizations.rejectButton?.textColor
+      },
+      preferencesButton: {
+        backgroundColor: newCustomizations.preferencesButton?.backgroundColor,
+        textColor: newCustomizations.preferencesButton?.textColor
+      },
+      backgroundColor: newCustomizations.backgroundColor
+    });
   };
 
   const updateCustomization = (type, field, value, buttonId = null) => {
     const newCustomizations = { ...customizations };
+    
+    // LOG: Cambio detectado
+    console.log('🔄 CAMBIO DETECTADO:', {
+      type,
+      field,
+      value,
+      buttonId,
+      oldValue: type === 'acceptButton' || type === 'rejectButton' || type === 'preferencesButton' 
+        ? customizations[type]?.[field]
+        : buttonId ? customizations[type]?.[buttonId]?.[field] : customizations[type]
+    });
     
     if (type === 'otherButtons' && buttonId) {
       if (!newCustomizations.otherButtons[buttonId]) {
@@ -865,6 +1789,12 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
         newCustomizations.images[buttonId] = {};
       }
       newCustomizations.images[buttonId][field] = value;
+    } else if (type === 'individualTexts' && buttonId) {
+      // NUEVO: Manejar textos individuales
+      if (!newCustomizations.individualTexts[buttonId]) {
+        newCustomizations.individualTexts[buttonId] = {};
+      }
+      newCustomizations.individualTexts[buttonId][field] = value;
     } else {
       if (field) {
         if (!newCustomizations[type]) {
@@ -878,14 +1808,8 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     
     setCustomizations(newCustomizations);
     
-    // Para cambios inmediatos como colores, sí necesitamos llamar onChange
-    // pero sin pasar customizations para evitar el bucle
-    if (formData.bannerConfig) {
-      onChange('bannerConfig', {
-        ...formData.bannerConfig,
-        customizations: newCustomizations
-      });
-    }
+    // REMOVED: Eliminar la llamada inmediata a onChange para evitar bucles
+    // El useEffect se encargará de actualizar formData cuando sea necesario
   };
 
 
@@ -952,17 +1876,27 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
   }, [selectedTemplate]);
 
   const ColorPicker = ({ label, value, onChange, compact = false }) => {
-    const [localColor, setLocalColor] = useState(value);
+    // FIXED: Asegurar que el valor inicial sea válido para el color picker
+    const sanitizeColor = (color) => {
+      if (!color || color === 'transparent') return '#ffffff';
+      if (typeof color !== 'string') return '#ffffff';
+      if (!color.startsWith('#')) return '#ffffff';
+      if (!/^#[0-9A-Fa-f]{6}$/.test(color)) return '#ffffff';
+      return color;
+    };
+    
+    const isTransparent = value === 'transparent';
+    const [localColor, setLocalColor] = useState(sanitizeColor(value));
     const colorPickerRef = useRef(null);
     
     // Sincronizar con valor externo cuando cambie
     useEffect(() => {
-      setLocalColor(value);
+      setLocalColor(sanitizeColor(value));
     }, [value]);
     
-    const handleColorChange = (newColor) => {
-      setLocalColor(newColor);
-      // onChange(newColor);
+    const handleTransparentClick = () => {
+      setLocalColor('#ffffff'); // Para mostrar en el picker
+      onChange('transparent'); // Pero enviar transparent como valor
     };
     
     return (
@@ -971,31 +1905,42 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
           {label}
         </label>
         <div className="flex items-center gap-3">
+          {/* FIXED: Input de color simple sin contenedor wrapper que interfiera */}
           <div className="relative">
-            {/* Contenedor visible con el color actual */}
-            <div 
-              className="w-12 h-12 rounded-lg border-2 border-gray-300 cursor-pointer overflow-hidden"
-              onClick={() => colorPickerRef.current?.click()}
-              style={{
-                backgroundColor: localColor
+            <input
+              ref={colorPickerRef}
+              type="color"
+              value={localColor}
+              onChange={(e) => {
+                // Solo actualizar estado local, NO llamar onChange aquí
+                const newColor = e.target.value;
+                setLocalColor(newColor);
               }}
-            >
-              {/* Input de color oculto */}
-              <input
-                ref={colorPickerRef}
-                type="color"
-                value={localColor}
-                onChange={(e) => handleColorChange(e.target.value)}
-                onBlur={(e) => onChange(e.target.value)} 
-                className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-              />
-            </div>
+              onBlur={(e) => {
+                // AQUÍ SÍ llamar onChange cuando se pierde el foco
+                const newColor = e.target.value;
+                onChange(newColor);
+              }}
+              className="w-12 h-12 rounded-lg border-2 border-gray-300 cursor-pointer hover:border-gray-400 transition-colors"
+              style={{
+                backgroundColor: isTransparent ? 'transparent' : localColor,
+                ...(isTransparent && {
+                  backgroundImage: 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)',
+                  backgroundSize: '8px 8px',
+                  backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px'
+                })
+              }}
+            />
           </div>
           <input
             type="text"
-            value={localColor}
+            value={isTransparent ? 'transparent' : localColor}
             onChange={(e) => {
               const value = e.target.value;
+              if (value === 'transparent') {
+                handleTransparentClick();
+                return;
+              }
               // Validar formato hex
               if (/^#[0-9A-Fa-f]{0,6}$/.test(value)) {
                 setLocalColor(value);
@@ -1008,6 +1953,21 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
             style={{ width: '80px' }}
             placeholder="#ffffff"
           />
+          {/* Botón de transparencia para fondos */}
+          {label.toLowerCase().includes('fondo') && (
+            <button
+              type="button"
+              onClick={handleTransparentClick}
+              className={`text-xs px-2 py-1 rounded border transition-colors ${
+                isTransparent 
+                  ? 'bg-blue-500 text-white border-blue-500' 
+                  : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+              }`}
+              title="Hacer transparente"
+            >
+              {isTransparent ? '✓ Transparente' : 'Transparente'}
+            </button>
+          )}
         </div>
       </div>
     );
@@ -1037,6 +1997,61 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     );
   };
 
+  // NUEVO: Componente para controles de texto individual
+  const IndividualTextControls = ({ text, customization, index }) => {
+    if (!text) return null;
+    
+    // Obtener una vista previa del contenido del texto
+    let previewContent = '';
+    if (typeof text.content === 'string') {
+      previewContent = text.content;
+    } else if (text.content && typeof text.content === 'object') {
+      if (text.content.texts && typeof text.content.texts === 'object') {
+        previewContent = text.content.texts.es || text.content.texts.en || Object.values(text.content.texts)[0] || '';
+      } else if (text.content.text) {
+        previewContent = text.content.text;
+      }
+    }
+    
+    // Limitar la vista previa a 50 caracteres
+    const truncatedPreview = previewContent.length > 50 ? 
+      previewContent.substring(0, 50) + '...' : previewContent;
+    
+    return (
+      <div className="bg-white p-3 rounded-lg border">
+        <div className="mb-3">
+          <h6 className="font-medium text-gray-700 text-sm mb-1">
+            Texto {index + 1}
+            {text.parentContainer && (
+              <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                En {text.parentContainer.id}
+              </span>
+            )}
+          </h6>
+          <p className="text-xs text-gray-600 italic mb-2" title={previewContent}>
+            "{truncatedPreview}"
+          </p>
+        </div>
+        <div className="space-y-3">
+          <ColorPicker
+            label="Color de texto"
+            value={customization?.textColor || '#374151'}
+            onChange={(value) => updateCustomization('individualTexts', 'textColor', value, text.id)}
+            compact={true}
+          />
+          <ColorPicker
+            label="Fondo del texto"
+            value={customization?.backgroundColor || 'transparent'}
+            onChange={(value) => updateCustomization('individualTexts', 'backgroundColor', value, text.id)}
+            compact={true}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  // Eliminar este useEffect porque ya inicializamos desde formData en el useState
+
   if (isLoadingTemplates) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -1045,18 +2060,53 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
     );
   }
 
+  // LOG: Estado actual de customizations que se mostrarán en los inputs
+  console.log('🎨 ESTADO ACTUAL DE CUSTOMIZATIONS EN INPUTS:', {
+    acceptButton: customizations.acceptButton,
+    rejectButton: customizations.rejectButton,
+    preferencesButton: customizations.preferencesButton,
+    backgroundColor: customizations.backgroundColor,
+    individualTexts: Object.keys(customizations.individualTexts || {})
+  });
+
   return (
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-medium mb-2">Configuración del Banner de Cookies</h3>
+        
+        {/* Indicador de estado */}
+        <div className="mb-4 p-3 rounded-lg border">
+          {!formData.name || formData.name.trim() === '' ? (
+            <div className="flex items-center text-amber-700 bg-amber-50 border-amber-200">
+              <div className="w-2 h-2 bg-amber-500 rounded-full mr-2"></div>
+              <span className="text-sm font-medium">Requerido: Complete el nombre del cliente en el paso anterior para continuar</span>
+            </div>
+          ) : selectedTemplate ? (
+            <div className="flex items-center text-green-700 bg-green-50 border-green-200">
+              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+              <span className="text-sm font-medium">✓ Banner configurado correctamente para "{formData.name}"</span>
+            </div>
+          ) : (
+            <div className="flex items-center text-blue-700 bg-blue-50 border-blue-200">
+              <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+              <span className="text-sm font-medium">Seleccione una plantilla para continuar</span>
+            </div>
+          )}
+        </div>
+        
         <p className="text-sm text-gray-600 mb-4">
-          Selecciona una plantilla base y personaliza los colores, textos e imágenes según las necesidades del cliente.
+          Solo se muestran plantillas del sistema validadas. Personaliza los colores, textos e imágenes según las necesidades del cliente.
         </p>
       </div>
 
       {/* Selector de plantillas */}
       <div>
-        <h4 className="font-medium text-gray-700 mb-3">Seleccionar Plantilla Base</h4>
+        <h4 className="font-medium text-gray-700 mb-3">
+          Seleccionar Plantilla del Sistema
+          <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+            ✓ Validadas
+          </span>
+        </h4>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {availableTemplates.map((template) => (
             <div
@@ -1170,15 +2220,19 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
                 <BrowserSimulatorPreview 
                   bannerConfig={customizedTemplate} 
                   deviceView={currentDevice}
-                  height="500px"
+                  height={currentDevice === 'mobile' ? '600px' : currentDevice === 'tablet' ? '550px' : '500px'}
                 />
               ) : (
-                <div className="bg-white p-4" style={{ minHeight: '400px' }}>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4" style={{ minHeight: '360px' }}>
+                <div className="bg-white p-4" style={{ 
+                  minHeight: currentDevice === 'mobile' ? '500px' : currentDevice === 'tablet' ? '450px' : '400px' 
+                }}>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4" style={{ 
+                    minHeight: currentDevice === 'mobile' ? '460px' : currentDevice === 'tablet' ? '410px' : '360px' 
+                  }}>
                     <InteractiveBannerPreview 
                       bannerConfig={customizedTemplate} 
                       deviceView={currentDevice}
-                      height="350px"
+                      height={currentDevice === 'mobile' ? '450px' : currentDevice === 'tablet' ? '400px' : '350px'}
                       onUpdateComponent={handleComponentUpdate}
                     />
                   </div>
@@ -1194,22 +2248,22 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
             {/* Colores generales - primera fila */}
             <div className="bg-gray-50 p-4 rounded-lg border mb-6">
               <h5 className="font-medium text-gray-700 mb-3">Colores Generales</h5>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <ColorPicker
                   label="Fondo del banner"
                   value={customizations.backgroundColor}
                   onChange={(value) => updateCustomization('backgroundColor', null, value)}
                   compact={true}
                 />
-                {bannerComponents.texts.length > 0 && (
-                  <ColorPicker
-                    label="Color de textos"
-                    value={customizations.textColor}
-                    onChange={(value) => updateCustomization('textColor', null, value)}
-                    compact={true}
-                  />
-                )}
               </div>
+              {bannerComponents.texts.length > 0 && (
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-700">
+                    💡 <strong>Tip:</strong> Para personalizar los colores de cada texto individualmente, 
+                    utiliza los controles específicos en la sección "Textos Individuales" más abajo.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Botones de consentimiento - segunda fila, 100% width */}
@@ -1239,17 +2293,63 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
               </div>
             </div>
 
+            {/* NUEVA SECCIÓN: Textos Individuales */}
+            {bannerComponents.texts.length > 0 && (
+              <div className="bg-gray-50 p-4 rounded-lg border mb-6">
+                <h5 className="font-medium text-gray-700 mb-3">
+                  Textos Individuales
+                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                    ✨ Nuevo
+                  </span>
+                </h5>
+                <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-800">
+                    <strong>Edición independiente:</strong> Personaliza el color de texto y fondo de cada elemento de texto por separado. 
+                    Estos colores tienen prioridad sobre el color general.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {bannerComponents.texts.map((text, index) => {
+                    const textCustomization = customizations.individualTexts[text.id] || {};
+                    return (
+                      <IndividualTextControls
+                        key={text.id}
+                        text={text}
+                        customization={textCustomization}
+                        index={index}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Sección de imágenes debajo */}
             {bannerComponents.images.length > 0 && (
-              <div className="bg-gray-50 p-4 rounded-lg border">
+              <div className="bg-gray-50 p-4 rounded-lg border mb-6">
                 <h5 className="font-medium text-gray-700 mb-3">Imágenes del Banner</h5>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {bannerComponents.images.map((image, index) => {
                     const imageCustomization = customizations.images[image.id] || {};
                     // Priorizar la imagen personalizada sobre la original
-                    const currentImageUrl = imageCustomization.tempUrl || 
-                                          imageCustomization.file ? URL.createObjectURL(imageCustomization.file) : 
-                                          image.content || '';
+                    // NUEVO: Manejar el caso donde imageCustomization es directamente el File
+                    let currentImageUrl = '';
+                    if (imageCustomization instanceof File) {
+                      // Si es un File directo, crear blob URL de manera segura
+                      currentImageUrl = createSafeBlobUrl(imageCustomization);
+                    } else if (imageCustomization.tempUrl) {
+                      // Si tiene tempUrl, usarla
+                      currentImageUrl = imageCustomization.tempUrl;
+                    } else if (imageCustomization.file) {
+                      // Si tiene file dentro del objeto, crear blob URL de manera segura
+                      currentImageUrl = createSafeBlobUrl(imageCustomization.file);
+                    } else if (image._previewUrl) {
+                      // Si el componente tiene _previewUrl (desde el procesamiento)
+                      currentImageUrl = image._previewUrl;
+                    } else {
+                      // Fallback a content original
+                      currentImageUrl = image.content || '';
+                    }
                     
                     return (
                       <div key={image.id} className="bg-white p-3 rounded-lg border">
@@ -1301,6 +2401,47 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
                             />
                           </div>
                           
+                          {/* NUEVO: Controles de escalado si la imagen existe */}
+                          {currentImageUrl && (
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-2">
+                                Escalar imagen (mantiene proporción)
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="range"
+                                  min="20"
+                                  max="200"
+                                  step="5"
+                                  value={imageCustomization.scale || 100}
+                                  onChange={(e) => {
+                                    const scale = parseInt(e.target.value);
+                                    updateCustomization('images', 'scale', scale, image.id);
+                                  }}
+                                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <span className="text-xs font-mono text-gray-600 min-w-[50px]">
+                                  {imageCustomization.scale || 100}%
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between mt-1">
+                                <span className="text-xs text-gray-500">20%</span>
+                                <span className="text-xs text-gray-500">200%</span>
+                              </div>
+                              {(imageCustomization.scale || 100) !== 100 && (
+                                <button
+                                  onClick={() => updateCustomization('images', 'scale', 100, image.id)}
+                                  className="mt-2 text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                  </svg>
+                                  Restablecer tamaño original
+                                </button>
+                              )}
+                            </div>
+                          )}
+                          
                           {/* Información de posicionamiento */}
                           {!image.parentContainer && (
                             <div className="bg-blue-50 p-2 rounded text-xs">
@@ -1333,7 +2474,7 @@ const SimpleBannerConfigStep = ({ formData, onChange, selectedDomain }) => {
 
             {/* Otros botones */}
             {bannerComponents.otherButtons.length > 0 && (
-              <div className="bg-gray-50 p-4 rounded-lg border mt-6">
+              <div className="bg-gray-50 p-4 rounded-lg border">
                 <h5 className="font-medium text-gray-700 mb-3">Otros Botones</h5>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {bannerComponents.otherButtons.map((button) => (

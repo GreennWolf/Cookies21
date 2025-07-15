@@ -5,6 +5,7 @@ const ConsentScriptController = require('../../controllers/ConsentScriptControll
 const { validateRequest } = require('../../middleware/validateRequest');
 const { protect } = require('../../middleware/auth');
 const { cacheControl } = require('../../middleware/cache');
+const { checkSubscriptionForScript } = require('../../middleware/subscriptionCheck');
 
 // Rutas que requieren autenticación
 
@@ -34,6 +35,11 @@ router.post(
   ConsentScriptController.generateTestPage
 );
 
+router.get(
+  '/embed/:domainId',
+  ConsentScriptController.generateEmbedScript
+);
+
 router.post(
   '/provider/:provider',
   ConsentScriptController.getProviderScript
@@ -54,6 +60,15 @@ router.get(
 );
 
 // Rutas públicas
+
+// Ruta principal para obtener script de consentimiento por dominio
+// TEMPORALMENTE sin verificación de suscripción para testing
+router.get(
+  '/:domainId',
+  // checkSubscriptionForScript, // Temporalmente deshabilitado
+  cacheControl('15 minutes'),
+  ConsentScriptController.getBannerByDomain
+);
 
 router.post(
   '/interaction/:domainId',

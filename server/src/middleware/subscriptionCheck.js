@@ -333,44 +333,72 @@ exports.checkSubscriptionForScript = catchAsync(async (req, res, next) => {
   try {
     // Obtener dominio
     const Domain = require('../models/Domain');
+    const Client = require('../models/Client');
+    
+    console.log('🔍 Buscando dominio con ID:', domainId);
     const domain = await Domain.findById(domainId).populate('clientId');
     
     if (!domain) {
+      console.log('❌ Dominio no encontrado:', domainId);
       return next(new AppError('Dominio no encontrado', 404));
     }
     
+    console.log('✅ Dominio encontrado:', {
+      id: domain._id,
+      domain: domain.domain,
+      clientId: domain.clientId?._id || domain.clientId,
+      hasClient: !!domain.clientId
+    });
+    
     const client = domain.clientId;
     if (!client) {
+      console.log('❌ Cliente asociado al dominio no encontrado');
       return next(new AppError('Cliente asociado al dominio no encontrado', 404));
     }
     
     // Asegurar que el cliente sea un documento Mongoose con los métodos del esquema
+    let finalClient = client;
     if (typeof client.isSubscriptionActive !== 'function') {
-      client = await Client.findById(client._id || client.id);
-      if (!client) {
+      console.log('🔄 Cliente no tiene método isSubscriptionActive, refrescando desde BD');
+      finalClient = await Client.findById(client._id || client.id);
+      if (!finalClient) {
+        console.log('❌ Cliente no encontrado en la base de datos');
         return next(new AppError('Cliente no encontrado en la base de datos', 404));
       }
     }
     
     // Verificar suscripción
-    const subscriptionStatus = client.isSubscriptionActive();
+    console.log('🔄 Verificando suscripción del cliente:', {
+      clientId: finalClient._id,
+      hasMethod: typeof finalClient.isSubscriptionActive === 'function',
+      status: finalClient.status,
+      subscriptionStatus: finalClient.subscription?.status
+    });
+    
+    const subscriptionStatus = finalClient.isSubscriptionActive();
+    
+    console.log('📊 Estado de suscripción:', {
+      isActive: subscriptionStatus.isActive,
+      reason: subscriptionStatus.reason
+    });
     
     if (!subscriptionStatus.isActive) {
       // Marcar como inactiva pero no bloquear
       req.subscriptionInactive = true;
       req.subscriptionReason = subscriptionStatus.reason;
       req.subscriptionMessage = subscriptionStatus.message;
-      req.client = client;
+      req.client = finalClient;
       req.domain = domain;
     }
     
     // Agregar información al request
-    req.client = client;
+    req.client = finalClient;
     req.domain = domain;
     req.subscriptionStatus = subscriptionStatus;
     
     next();
   } catch (error) {
+    console.error('❌ Error en checkSubscriptionForScript:', error);
     return next(new AppError('Error verificando suscripción', 500));
   }
 });

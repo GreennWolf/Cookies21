@@ -1,0 +1,1264 @@
+[
+  {
+    "_id": "68377ede6d0b500f73b36b65",
+    "clientId": "6836433a8ccc6e649bc907f3",
+    "domain": "iconicmidcentury.com",
+    "settings": {},
+    "status": "pending",
+    "createdAt": "2025-05-28T21:23:42.266Z",
+    "updatedAt": "2025-06-24T10:54:33.498Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "smart",
+      "maxDepth": 3,
+      "includeSubdomains": false,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "683a5475c0a5f7fbaabd66f1",
+    "clientId": "683a5475c0a5f7fbaabd66df",
+    "domain": "asesd.com",
+    "settings": {
+      "defaultTemplateId": "683a5475c0a5f7fbaabd66e9"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-05-31T00:59:33.431Z",
+    "updatedAt": "2025-06-24T10:54:33.519Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "683b9ad2cd151dda1edee4aa",
+    "clientId": "683b9ad2cd151dda1edee49c",
+    "domain": "abder.com",
+    "settings": {},
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-01T00:12:02.796Z",
+    "updatedAt": "2025-06-24T10:54:33.526Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "683bdb0013cb60756bbc5cfc",
+    "clientId": "683bdb0013cb60756bbc5cec",
+    "domain": "asdlol.com",
+    "settings": {
+      "defaultTemplateId": "68406f9844b5d4549eb76b5a"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-01T04:45:52.867Z",
+    "updatedAt": "2025-06-24T10:54:33.533Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "683bdd6103d01cb50eb0c093",
+    "clientId": "683bdd6003d01cb50eb0c08d",
+    "domain": "asdasd.com",
+    "settings": {
+      "defaultTemplateId": "685878387352da33e12d5702"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "active",
+    "createdAt": "2025-06-01T04:56:01.294Z",
+    "updatedAt": "2025-06-24T10:56:03.071Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true,
+      "nextScheduledScan": "2025-06-25T00:00:00.000Z"
+    }
+  },
+  {
+    "_id": "683be0797321881bf5180da1",
+    "clientId": "683be0797321881bf5180d91",
+    "domain": "adsadasdasdas.arg",
+    "settings": {
+      "defaultTemplateId": "683be0797321881bf5180d99"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-01T05:09:13.658Z",
+    "updatedAt": "2025-06-24T10:54:33.545Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "684050ecaa28cd25f0be84cb",
+    "clientId": "684050eaaa28cd25f0be84c4",
+    "domain": "test.com",
+    "settings": {
+      "defaultTemplateId": "68406f9844b5d4549eb76b5a"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-04T13:58:04.009Z",
+    "updatedAt": "2025-06-24T10:54:33.554Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": false,
+      "retryAttempts": 1,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": true,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "684087a38636d8165a11bda2",
+    "clientId": "684087a18636d8165a11bd9b",
+    "domain": "dasdas.com",
+    "settings": {
+      "defaultTemplateId": "68570cfb3790fb81cd2bf494"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "active",
+    "createdAt": "2025-06-04T17:51:31.775Z",
+    "updatedAt": "2025-06-24T10:56:03.073Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true,
+      "nextScheduledScan": "2025-06-25T00:00:00.000Z"
+    }
+  },
+  {
+    "_id": "6841a25ac4353b6431c2bca9",
+    "clientId": "6841a25ac4353b6431c2bc96",
+    "domain": "asd.com",
+    "settings": {
+      "defaultTemplateId": "6856faff3790fb81cd2befab"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "active",
+    "createdAt": "2025-06-05T13:57:46.503Z",
+    "updatedAt": "2025-06-24T10:56:03.073Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true,
+      "nextScheduledScan": "2025-06-25T00:00:00.000Z"
+    }
+  },
+  {
+    "_id": "6844c6df9c3fe205ccc3382f",
+    "clientId": "6844c6de9c3fe205ccc3381d",
+    "domain": "amazon.com",
+    "settings": {
+      "defaultTemplateId": "6857bf87e9ee73b95cfdb4b6"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-07T23:10:23.391Z",
+    "updatedAt": "2025-06-24T10:54:33.584Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "6844cb57112320ba63ec5eef",
+    "clientId": "6844c6de9c3fe205ccc3381d",
+    "domain": "cookie21.com",
+    "settings": {
+      "defaultTemplateId": "68406f9844b5d4549eb76b5a"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-07T23:29:27.479Z",
+    "updatedAt": "2025-06-24T10:55:37.710Z",
+    "__v": 1,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": false,
+      "retryAttempts": 1,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": true,
+      "embedDetectionEnabled": true,
+      "lastFullAnalysis": "2025-06-24T10:55:37.710Z"
+    }
+  },
+  {
+    "_id": "68469aea560dca2ecec32674",
+    "clientId": "6844c6de9c3fe205ccc3381d",
+    "domain": "www.atleticodemadrid.com",
+    "settings": {},
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-09T08:27:22.167Z",
+    "updatedAt": "2025-06-24T10:54:33.605Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "6855788788447de63db453c4",
+    "clientId": "6855788788447de63db453af",
+    "domain": "ksdinstore.com",
+    "settings": {
+      "defaultTemplateId": "68557da609c3c401f13e5ca9"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "active",
+    "createdAt": "2025-06-20T15:04:39.724Z",
+    "updatedAt": "2025-06-24T10:56:03.073Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true,
+      "nextScheduledScan": "2025-06-25T00:00:00.000Z"
+    }
+  },
+  {
+    "_id": "685649b958846c3b6fc0a59b",
+    "clientId": "685649b858846c3b6fc0a58a",
+    "domain": "ksdin.com",
+    "settings": {
+      "defaultTemplateId": "6855408c3d1a45c68a70ef4b"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-21T05:57:13.278Z",
+    "updatedAt": "2025-06-24T10:54:33.635Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "6857c8085b93c6f0c4c8be9a",
+    "clientId": "6857c8065b93c6f0c4c8be87",
+    "domain": "kappa.com",
+    "settings": {
+      "defaultTemplateId": "6857c8085b93c6f0c4c8be92"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-22T09:08:24.714Z",
+    "updatedAt": "2025-06-24T10:54:33.653Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "68580fdfb65f89cf7050b36e",
+    "clientId": "68580fddb65f89cf7050b35d",
+    "domain": "asdasda.org",
+    "settings": {},
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-22T14:14:55.898Z",
+    "updatedAt": "2025-06-24T10:54:33.667Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "685811b9b65f89cf7050b4b6",
+    "clientId": "685811b7b65f89cf7050b4a3",
+    "domain": "artir.com",
+    "settings": {
+      "defaultTemplateId": "685811b9b65f89cf7050b4ae"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-22T14:22:49.163Z",
+    "updatedAt": "2025-06-24T10:54:33.682Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "68581ae827f811f110f243eb",
+    "clientId": "68581ae527f811f110f243d8",
+    "domain": "asdasdas.com",
+    "settings": {
+      "defaultTemplateId": "68581ae727f811f110f243e3"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-22T15:02:00.010Z",
+    "updatedAt": "2025-06-24T10:54:33.694Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "685820a027f811f110f245db",
+    "clientId": "6858209e27f811f110f245c8",
+    "domain": "asdasdasdas.com",
+    "settings": {
+      "defaultTemplateId": "685820a027f811f110f245d3"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-22T15:26:24.143Z",
+    "updatedAt": "2025-06-24T10:54:33.707Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "68582233235e6e5caa08a4cc",
+    "clientId": "68582230235e6e5caa08a4b9",
+    "domain": "asdasdasdasdas23.com",
+    "settings": {
+      "defaultTemplateId": "68582232235e6e5caa08a4c4"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-22T15:33:07.031Z",
+    "updatedAt": "2025-06-24T10:54:33.722Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "6858544cde796ea36e45cdf7",
+    "clientId": "6858544ade796ea36e45cde4",
+    "domain": "asdasdsa.org",
+    "settings": {
+      "defaultTemplateId": "6858544cde796ea36e45cdef"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-22T19:06:52.848Z",
+    "updatedAt": "2025-06-24T10:54:33.734Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "68585ec64a20af067f5c8918",
+    "clientId": "68585ec34a20af067f5c8904",
+    "domain": "sdasdas.com",
+    "settings": {
+      "defaultTemplateId": "68585ec64a20af067f5c8910"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-22T19:51:34.175Z",
+    "updatedAt": "2025-06-24T10:54:33.743Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "68587212fe3cea91164390df",
+    "clientId": "6858720ffe3cea91164390c7",
+    "domain": "asdasdasd.ret",
+    "settings": {
+      "defaultTemplateId": "68587212fe3cea91164390d7"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-22T21:13:54.336Z",
+    "updatedAt": "2025-06-24T10:54:33.751Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "6858732f5f29961f3da0cd8e",
+    "clientId": "6858732c5f29961f3da0cd75",
+    "domain": "asdasdasd.es",
+    "settings": {
+      "defaultTemplateId": "6858732f5f29961f3da0cd86"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-22T21:18:39.282Z",
+    "updatedAt": "2025-06-24T10:54:33.758Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "6858764b7352da33e12d5494",
+    "clientId": "685876497352da33e12d547c",
+    "domain": "adsdasdasdasd.org",
+    "settings": {
+      "defaultTemplateId": "6858764b7352da33e12d548c"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-22T21:31:55.611Z",
+    "updatedAt": "2025-06-24T10:54:33.765Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "68587e667352da33e12d5b54",
+    "clientId": "68587e647352da33e12d5b3c",
+    "domain": "asdasdasdas.org",
+    "settings": {
+      "defaultTemplateId": "68587e657352da33e12d5b4c"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-22T22:06:30.038Z",
+    "updatedAt": "2025-06-24T10:54:33.774Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "685886ba7352da33e12d6042",
+    "clientId": "685886b87352da33e12d6029",
+    "domain": "asdasdas.red",
+    "settings": {
+      "defaultTemplateId": "685886ba7352da33e12d603a"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-22T22:42:02.641Z",
+    "updatedAt": "2025-06-24T10:54:33.782Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "68588c189c5737f570c29e4c",
+    "clientId": "68588c159c5737f570c29e35",
+    "domain": "xd.org",
+    "settings": {
+      "defaultTemplateId": "68588c189c5737f570c29e44"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-22T23:04:56.440Z",
+    "updatedAt": "2025-06-24T10:54:33.791Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "685890b643728409e71ea2de",
+    "clientId": "685890b343728409e71ea2c7",
+    "domain": "asdasdasd.ong",
+    "settings": {
+      "defaultTemplateId": "685890b643728409e71ea2d6"
+    },
+    "analysisSchedule": {
+      "analysisConfig": {
+        "scanType": "full",
+        "includeSubdomains": true,
+        "maxUrls": 100,
+        "depth": 5
+      },
+      "enabled": false,
+      "frequency": "weekly",
+      "time": "02:00",
+      "daysOfWeek": [],
+      "dayOfMonth": 1
+    },
+    "status": "pending",
+    "createdAt": "2025-06-22T23:24:38.505Z",
+    "updatedAt": "2025-06-24T10:54:33.799Z",
+    "__v": 0,
+    "scanConfig": {
+      "autoScanEnabled": true,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "full",
+      "maxDepth": 5,
+      "includeSubdomains": true,
+      "enableAdvancedAnalysis": true,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true
+    }
+  },
+  {
+    "_id": "685a835b4c3ba9e40e9d026f",
+    "clientId": "685890b343728409e71ea2c7",
+    "domain": "roulettebot.net",
+    "settings": {},
+    "scanConfig": {
+      "autoScanEnabled": false,
+      "scanInterval": "daily",
+      "cronExpression": "0 2 * * *",
+      "timezone": "UTC",
+      "scanType": "smart",
+      "maxDepth": 3,
+      "includeSubdomains": false,
+      "enableAdvancedAnalysis": false,
+      "notifyOnCompletion": true,
+      "retryAttempts": 2,
+      "smartAnalysisFrequency": "weekly",
+      "cookieCleanupAction": "mark_inactive",
+      "cookieCleanupEnabled": true,
+      "scanStatus": "idle",
+      "firstScanCompleted": false,
+      "embedDetectionEnabled": true,
+      "lastScanResult": {
+        "errors": []
+      }
+    },
+    "status": "pending",
+    "createdAt": "2025-06-24T10:52:11.082Z",
+    "updatedAt": "2025-06-24T10:54:33.808Z",
+    "__v": 0
+  }
+]

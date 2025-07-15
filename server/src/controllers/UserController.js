@@ -320,7 +320,7 @@ class UserController {
   // Actualizar usuario
   updateUser = catchAsync(async (req, res, next) => {
     const { userId } = req.params;
-    const { name, role } = req.body;
+    const { name, role, preferences } = req.body;
     
     // Obtener el usuario
     const user = await UserAccount.findById(userId);
@@ -356,18 +356,71 @@ class UserController {
       user.role = role;
     }
     
+    // Actualizar preferencias si se proporcionan
+    if (preferences) {
+      logger.info('Actualizando preferencias del usuario:', {
+        userId,
+        preferences,
+        existingPreferences: user.preferences
+      });
+      
+      // Convertir a objeto plano si es un documento Mongoose
+      const existingPrefs = user.preferences && user.preferences.toObject 
+        ? user.preferences.toObject() 
+        : (user.preferences || {});
+      
+      // Mezcla profunda de preferencias
+      const mergedPreferences = {
+        language: preferences.language || existingPrefs.language || 'es',
+        theme: preferences.theme || existingPrefs.theme || 'system',
+        notifications: {
+          email: preferences.notifications?.email !== undefined 
+            ? preferences.notifications.email 
+            : (existingPrefs.notifications?.email ?? true),
+          push: preferences.notifications?.push !== undefined 
+            ? preferences.notifications.push 
+            : (existingPrefs.notifications?.push ?? true),
+          clientCreation: {
+            enabled: preferences.notifications?.clientCreation?.enabled !== undefined
+              ? preferences.notifications.clientCreation.enabled
+              : (existingPrefs.notifications?.clientCreation?.enabled ?? false),
+            emailAddress: preferences.notifications?.clientCreation?.emailAddress !== undefined
+              ? preferences.notifications.clientCreation.emailAddress
+              : (existingPrefs.notifications?.clientCreation?.emailAddress || '')
+          }
+        }
+      };
+      
+      // Asignar las preferencias mezcladas
+      user.preferences = mergedPreferences;
+      
+      logger.info('Preferencias después de la actualización:', user.preferences);
+    }
+    
+    // Marcar el campo preferences como modificado para asegurar que Mongoose lo guarde
+    user.markModified('preferences');
+    
     // Guardar cambios
     await user.save();
+    
+    // Recargar el usuario para asegurar que tenemos los datos actualizados
+    const updatedUser = await UserAccount.findById(userId).select('-password -security');
+    
+    logger.info('Usuario después de guardar:', {
+      userId: updatedUser._id,
+      preferences: updatedUser.preferences
+    });
     
     return res.status(200).json({
       status: 'success',
       data: {
         user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          status: user.status
+          id: updatedUser._id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          status: updatedUser.status,
+          preferences: updatedUser.preferences
         }
       }
     });

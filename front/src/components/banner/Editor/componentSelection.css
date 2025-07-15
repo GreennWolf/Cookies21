@@ -1,5 +1,5 @@
 /* Estilos para la selección de componentes que respetan el border-radius */
-
+@import "tailwindcss";
 .banner-component {
   position: relative;
 }

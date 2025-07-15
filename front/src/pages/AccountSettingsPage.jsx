@@ -24,6 +24,12 @@ const AccountSettingsPage = () => {
     name: '',
     email: '',
   });
+
+  // Estados para configuración de notificaciones (solo para owners)
+  const [notificationSettings, setNotificationSettings] = useState({
+    clientCreationEnabled: false,
+    clientCreationEmail: '',
+  });
   
   // Estados para el formulario de cambio de contraseña
   const [passwordForm, setPasswordForm] = useState({
@@ -92,11 +98,32 @@ const AccountSettingsPage = () => {
         name: userData.name || '',
         email: userData.email || '',
       });
+
+      // Cargar configuración de notificaciones para owners
+      if (userData.role === 'owner') {
+        console.log('📧 Cargando configuración de notificaciones:', {
+          preferences: userData.preferences,
+          notifications: userData.preferences?.notifications,
+          clientCreation: userData.preferences?.notifications?.clientCreation
+        });
+        
+        setNotificationSettings({
+          clientCreationEnabled: userData.preferences?.notifications?.clientCreation?.enabled || false,
+          clientCreationEmail: userData.preferences?.notifications?.clientCreation?.emailAddress || userData.email || '',
+        });
+      }
       
       // Si es admin u owner, intentar cargar los detalles del cliente
       if (['admin', 'owner'].includes(userData.role) && userData.clientId) {
         try {
-          const clientResponse = await getClient(userData.clientId);
+          // Asegurar que clientId es un string
+          const clientId = typeof userData.clientId === 'object' ? 
+            (userData.clientId._id || userData.clientId.toString()) : 
+            userData.clientId;
+          
+          console.log('🔍 Cargando cliente con ID:', clientId, 'tipo:', typeof clientId);
+          
+          const clientResponse = await getClient(clientId);
           setClientDetails(clientResponse.data.client);
         } catch (clientError) {
           console.error("Error al cargar detalles del cliente:", clientError);
@@ -165,6 +192,75 @@ const AccountSettingsPage = () => {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handleNotificationSettingsChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setNotificationSettings(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
+
+  const handleSaveNotificationSettings = async (e) => {
+    e.preventDefault();
+    
+    // Verificar que tenemos la información necesaria
+    if (!authContext || !authContext.user || !authContext.user.id) {
+      toast.error("Error de autenticación. Por favor, recarga la página.");
+      return;
+    }
+
+    // Validar email si las notificaciones están habilitadas
+    if (notificationSettings.clientCreationEnabled && !notificationSettings.clientCreationEmail.trim()) {
+      toast.error("Por favor, ingresa un email para recibir las notificaciones.");
+      return;
+    }
+
+    if (notificationSettings.clientCreationEnabled && !/\S+@\S+\.\S+/.test(notificationSettings.clientCreationEmail)) {
+      toast.error("Por favor, ingresa un email válido para las notificaciones.");
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const userId = authContext.user.id;
+      const updateData = {
+        preferences: {
+          ...user.preferences,
+          notifications: {
+            ...user.preferences?.notifications,
+            clientCreation: {
+              enabled: notificationSettings.clientCreationEnabled,
+              emailAddress: notificationSettings.clientCreationEmail.trim(),
+            }
+          }
+        }
+      };
+
+      console.log('📧 Enviando configuración de notificaciones:', {
+        userId,
+        updateData,
+        notificationSettings
+      });
+
+      const response = await updateUser(userId, updateData);
+      
+      console.log('📧 Respuesta del servidor:', response);
+      
+      toast.success('Configuración de notificaciones actualizada exitosamente');
+      
+      // Esperar un momento antes de recargar
+      setTimeout(() => {
+        loadUserData(); // Recargar los datos
+      }, 500);
+    } catch (error) {
+      console.error("❌ Error al actualizar configuración de notificaciones:", error);
+      toast.error(error.message || 'Error al actualizar la configuración');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSaveProfile = async (e) => {
@@ -314,6 +410,18 @@ const AccountSettingsPage = () => {
           >
             Seguridad
           </button>
+          {user?.role === 'owner' && (
+            <button
+              onClick={() => setActiveTab('notifications')}
+              className={`py-2 px-1 font-medium text-sm border-b-2 ${
+                activeTab === 'notifications'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Notificaciones
+            </button>
+          )}
           {canViewClientInfo && clientDetails && (
             <button
               onClick={() => setActiveTab('plan')}
@@ -567,6 +675,76 @@ const AccountSettingsPage = () => {
             </div>
             
             {/* Si se implementa, se puede añadir aquí más opciones como 2FA */}
+          </div>
+        )}
+        
+        {/* Notificaciones Tab (solo para owners) */}
+        {activeTab === 'notifications' && user?.role === 'owner' && (
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Configuración de Notificaciones</h2>
+            
+            <form onSubmit={handleSaveNotificationSettings} className="space-y-6">
+              <div className="bg-gray-50 p-4 rounded border">
+                <h3 className="text-lg font-medium mb-4">Notificaciones de Clientes</h3>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="clientCreationEnabled"
+                      name="clientCreationEnabled"
+                      checked={notificationSettings.clientCreationEnabled}
+                      onChange={handleNotificationSettingsChange}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="clientCreationEnabled" className="ml-2 block text-sm text-gray-900">
+                      Recibir notificación por email cuando se cree un nuevo cliente
+                    </label>
+                  </div>
+                  
+                  {notificationSettings.clientCreationEnabled && (
+                    <div>
+                      <label htmlFor="clientCreationEmail" className="block text-sm font-medium text-gray-700 mb-1">
+                        Email para notificaciones
+                      </label>
+                      <input
+                        type="email"
+                        id="clientCreationEmail"
+                        name="clientCreationEmail"
+                        value={notificationSettings.clientCreationEmail}
+                        onChange={handleNotificationSettingsChange}
+                        placeholder="Ingresa el email para recibir notificaciones"
+                        className="w-full border border-gray-300 p-2 rounded focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                      <p className="text-sm text-gray-500 mt-1">
+                        Por defecto se usa el email de tu cuenta, pero puedes cambiarlo por otro.
+                      </p>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mt-6">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Guardando...' : 'Guardar Configuración'}
+                  </button>
+                </div>
+              </div>
+              
+              {notificationSettings.clientCreationEnabled && (
+                <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                  <h4 className="text-sm font-medium text-blue-800 mb-2">📧 Información del Email</h4>
+                  <p className="text-sm text-blue-700">
+                    Recibirás un email cada vez que se registre un nuevo cliente en la plataforma. 
+                    El email incluirá información básica como el nombre del cliente, dominio y datos de contacto.
+                  </p>
+                </div>
+              )}
+            </form>
           </div>
         )}
         

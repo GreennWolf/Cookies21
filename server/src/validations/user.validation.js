@@ -38,6 +38,20 @@ const userValidation = {
       name: Joi.string().trim(),
       role: Joi.string().valid('owner', 'admin', 'editor', 'viewer').messages({
         'any.only': 'El rol debe ser owner, admin, editor o viewer'
+      }),
+      preferences: Joi.object({
+        language: Joi.string().valid('es', 'en', 'fr', 'de', 'it', 'pt', 'nl'),
+        theme: Joi.string().valid('light', 'dark', 'system'),
+        notifications: Joi.object({
+          email: Joi.boolean(),
+          push: Joi.boolean(),
+          clientCreation: Joi.object({
+            enabled: Joi.boolean(),
+            emailAddress: Joi.string().email().allow('').messages({
+              'string.email': 'El email de notificaciones debe tener un formato válido'
+            })
+          })
+        })
       })
     }).min(1).messages({
       'object.min': 'Debe proporcionar al menos un campo para actualizar'

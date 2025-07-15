@@ -107,7 +107,7 @@ class CacheService {
   }
 
   // Métodos especializados para vendors
-  async setVendorList(vendorList, ttl = 86400) {
+  async setVendorList(vendorList, ttl = 604800) { // COMPLIANCE POINT 7: 7 días por defecto para GVL
     return this.set('vendor:list:latest', vendorList, { ttl });
   }
 

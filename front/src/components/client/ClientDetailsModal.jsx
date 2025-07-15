@@ -558,7 +558,7 @@ const ClientDetailsModal = ({ client, onClose, onToggleStatus, onUpdateClient })
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex justify-center items-center">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-black/50 flex justify-center items-center">
       <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full m-4 max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white z-10 border-b p-4 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-800">
@@ -599,325 +599,366 @@ const ClientDetailsModal = ({ client, onClose, onToggleStatus, onUpdateClient })
         
         <div className="p-4">
           {activeTab === 'general' && (
-            <div>
+            <div className="space-y-6">
               {isEditing ? (
-                <form onSubmit={handleSubmit}>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Nombre
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      className="w-full border border-gray-300 p-2 rounded"
-                    />
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  {/* Información básica */}
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl border border-blue-200">
+                    <h3 className="text-lg font-semibold text-blue-900 mb-4">🏢 Información Básica</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-blue-800 mb-2">
+                          📝 Nombre del Cliente
+                        </label>
+                        <input
+                          type="text"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleChange}
+                          className="w-full border border-blue-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="Nombre de la empresa"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-blue-800 mb-2">
+                          📧 Email de Contacto
+                        </label>
+                        <input
+                          type="email"
+                          name="contactEmail"
+                          value={formData.contactEmail}
+                          onChange={handleChange}
+                          className="w-full border border-blue-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="contacto@empresa.com"
+                        />
+                      </div>
+                    </div>
                   </div>
                   
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email de contacto
-                    </label>
-                    <input
-                      type="email"
-                      name="contactEmail"
-                      value={formData.contactEmail}
-                      onChange={handleChange}
-                      className="w-full border border-gray-300 p-2 rounded"
-                    />
-                  </div>
-                  
-                  <div className="mb-4">
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Dominios
-                      </label>
+                  {/* Gestión de dominios */}
+                  <div className="bg-gradient-to-br from-blue-50 to-sky-100 p-6 rounded-xl border border-blue-200">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-semibold text-blue-900">🌐 Dominios</h3>
                       <button
                         type="button"
                         onClick={addDomain}
-                        className="text-blue-600 hover:text-blue-800 text-sm"
+                        className="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors duration-200"
                       >
-                        + Añadir dominio
+                        ➕ Añadir dominio
                       </button>
                     </div>
-                    {formData.domains.map((domain, index) => (
-                      <div key={index} className="flex mb-2">
-                        <input
-                          type="text"
-                          value={domain}
-                          onChange={(e) => handleDomainChange(e, index)}
-                          className="flex-grow border border-gray-300 p-2 rounded-l"
-                          placeholder="ejemplo.com"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeDomain(index)}
-                          className="bg-red-50 text-red-500 px-3 rounded-r border border-l-0 border-red-200 hover:bg-red-100"
-                        >
-                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
-                    {formData.domains.length === 0 && (
-                      <p className="text-sm text-gray-500 italic">No hay dominios configurados</p>
-                    )}
+                    
+                    <div className="space-y-3">
+                      {formData.domains.map((domain, index) => (
+                        <div key={index} className="flex items-center space-x-3 bg-white p-3 rounded-lg border border-blue-200">
+                          <div className="text-blue-600">🌐</div>
+                          <input
+                            type="text"
+                            value={domain}
+                            onChange={(e) => handleDomainChange(e, index)}
+                            className="flex-1 border border-blue-300 p-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="ejemplo.com"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeDomain(index)}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-200"
+                            title="Eliminar dominio"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      ))}
+                      
+                      {formData.domains.length === 0 && (
+                        <div className="text-center py-8 bg-white rounded-lg border border-blue-200">
+                          <div className="text-4xl mb-2">🌐</div>
+                          <p className="text-blue-700 font-medium">No hay dominios configurados</p>
+                          <p className="text-blue-600 text-sm">Añade dominios para comenzar</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
-                  {/* Sección de Información Fiscal */}
-                  <div className="mb-6">
-                    <h3 className="text-md font-medium text-gray-700 mb-2">Información Fiscal</h3>
-                    <div className="bg-gray-50 p-4 rounded-lg">
+                  {/* Información Fiscal */}
+                  <div className="bg-gradient-to-br from-slate-50 to-gray-100 p-6 rounded-xl border border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">🏛️ Información Fiscal</h3>
+                    
+                    <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            CIF
+                        <div>
+                          <label className="block text-sm font-medium text-gray-800 mb-2">
+                            🆔 CIF/NIF
                           </label>
                           <input
                             type="text"
                             name="fiscalInfo.cif"
                             value={formData.fiscalInfo.cif}
                             onChange={handleChange}
-                            className="w-full border border-gray-300 p-2 rounded"
+                            className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
                             placeholder="B12345678"
                           />
                         </div>
                         
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Razón Social
+                        <div>
+                          <label className="block text-sm font-medium text-gray-800 mb-2">
+                            🏢 Razón Social
                           </label>
                           <input
                             type="text"
                             name="fiscalInfo.razonSocial"
                             value={formData.fiscalInfo.razonSocial}
                             onChange={handleChange}
-                            className="w-full border border-gray-300 p-2 rounded"
+                            className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
                             placeholder="Empresa, S.L."
                           />
                         </div>
-                        
-                        <div className="mb-4 md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Dirección
-                          </label>
-                          <input
-                            type="text"
-                            name="fiscalInfo.direccion"
-                            value={formData.fiscalInfo.direccion}
-                            onChange={handleChange}
-                            className="w-full border border-gray-300 p-2 rounded"
-                            placeholder="Calle, número, piso, etc."
-                          />
-                        </div>
-                        
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Código Postal
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-800 mb-2">
+                          📍 Dirección Completa
+                        </label>
+                        <input
+                          type="text"
+                          name="fiscalInfo.direccion"
+                          value={formData.fiscalInfo.direccion}
+                          onChange={handleChange}
+                          className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
+                          placeholder="Calle, número, piso, etc."
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-800 mb-2">
+                            📮 Código Postal
                           </label>
                           <input
                             type="text"
                             name="fiscalInfo.codigoPostal"
                             value={formData.fiscalInfo.codigoPostal}
                             onChange={handleChange}
-                            className="w-full border border-gray-300 p-2 rounded"
+                            className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
                             placeholder="28001"
                           />
                         </div>
                         
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Población
+                        <div>
+                          <label className="block text-sm font-medium text-gray-800 mb-2">
+                            🏙️ Población
                           </label>
                           <input
                             type="text"
                             name="fiscalInfo.poblacion"
                             value={formData.fiscalInfo.poblacion}
                             onChange={handleChange}
-                            className="w-full border border-gray-300 p-2 rounded"
+                            className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
                             placeholder="Madrid"
                           />
                         </div>
                         
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Provincia
+                        <div>
+                          <label className="block text-sm font-medium text-gray-800 mb-2">
+                            🗺️ Provincia
                           </label>
                           <input
                             type="text"
                             name="fiscalInfo.provincia"
                             value={formData.fiscalInfo.provincia}
                             onChange={handleChange}
-                            className="w-full border border-gray-300 p-2 rounded"
+                            className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
                             placeholder="Madrid"
                           />
                         </div>
-                        
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            País
-                          </label>
-                          <input
-                            type="text"
-                            name="fiscalInfo.pais"
-                            value={formData.fiscalInfo.pais}
-                            onChange={handleChange}
-                            className="w-full border border-gray-300 p-2 rounded"
-                            placeholder="España"
-                          />
-                        </div>
+                      </div>
+                      
+                      <div className="w-1/2">
+                        <label className="block text-sm font-medium text-gray-800 mb-2">
+                          🌍 País
+                        </label>
+                        <input
+                          type="text"
+                          name="fiscalInfo.pais"
+                          value={formData.fiscalInfo.pais}
+                          onChange={handleChange}
+                          className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
+                          placeholder="España"
+                        />
                       </div>
                     </div>
                   </div>
                   
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditing(false)}
-                      className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                      Guardar
-                    </button>
+                  {/* Botones de acción */}
+                  <div className="flex justify-between items-center pt-6 border-t border-gray-200">
+                    <div className="text-sm text-gray-500">
+                      💡 Los cambios se guardarán inmediatamente
+                    </div>
+                    <div className="flex space-x-3">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditing(false)}
+                        className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium"
+                      >
+                        ❌ Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium shadow-md"
+                      >
+                        ✅ Guardar Cambios
+                      </button>
+                    </div>
                   </div>
                 </form>
               ) : (
-                <div>
-                  <div className="mb-6">
+                <div className="space-y-6">
+                  {/* Encabezado del cliente */}
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl border border-blue-200">
                     <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900">{currentClient.name}</h3>
-                        <p className="text-sm text-gray-500">{currentClient.contactEmail}</p>
+                      <div className="flex items-center space-x-4">
+                        <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl font-bold">
+                          {currentClient.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-bold text-blue-900">{currentClient.name}</h3>
+                          <p className="text-blue-700 flex items-center">
+                            📧 {currentClient.contactEmail}
+                          </p>
+                          <p className="text-sm text-blue-600 mt-1">
+                            Cliente desde {new Date(currentClient.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
                       </div>
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        currentClient.status === 'active' ? 'bg-green-100 text-green-800' :
-                        currentClient.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {currentClient.status === 'active' ? 'Activo' :
-                         currentClient.status === 'inactive' ? 'Inactivo' :
-                         'Suspendido'}
-                      </span>
+                      <div className="text-right">
+                        <span className={`px-4 py-2 inline-flex text-sm font-semibold rounded-full ${
+                          currentClient.status === 'active' ? 'bg-green-100 text-blue-800' :
+                          currentClient.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {currentClient.status === 'active' ? '✅ Activo' :
+                           currentClient.status === 'inactive' ? '⏸️ Inactivo' :
+                           '🚫 Suspendido'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   
                   {/* Información de renovación pendiente */}
                   {currentClient.hasPendingRenewal && currentClient.pendingRenewalInfo && (
-                    <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-6 rounded-xl border border-yellow-200 shadow-sm">
                       <div className="flex items-start">
-                        <svg className="flex-shrink-0 h-5 w-5 text-yellow-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        <div className="ml-3 flex-1">
-                          <h3 className="text-sm font-medium text-yellow-800">
-                            Solicitud de Renovación Pendiente
+                        <div className="text-3xl mr-4">⚠️</div>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-yellow-900 mb-3">
+                            🔄 Solicitud de Renovación Pendiente
                           </h3>
-                          <div className="mt-2 text-sm text-yellow-700">
-                            <p>
-                              <span className="font-medium">Tipo:</span> {
-                                currentClient.pendingRenewalInfo.requestType === 'renewal' ? 'Renovación' :
-                                currentClient.pendingRenewalInfo.requestType === 'reactivation' ? 'Reactivación' :
-                                currentClient.pendingRenewalInfo.requestType === 'support' ? 'Soporte' : 'Actualización'
-                              }
-                            </p>
-                            <p>
-                              <span className="font-medium">Urgencia:</span> {
-                                currentClient.pendingRenewalInfo.urgency === 'high' ? 'Alta' :
-                                currentClient.pendingRenewalInfo.urgency === 'medium' ? 'Media' : 'Baja'
-                              }
-                            </p>
-                            <p>
-                              <span className="font-medium">Estado:</span> {
-                                currentClient.pendingRenewalInfo.status === 'pending' ? 'Pendiente' : 'En proceso'
-                              }
-                            </p>
-                            {currentClient.pendingRenewalInfo.requestedBy && (
-                              <p>
-                                <span className="font-medium">Solicitado por:</span> {currentClient.pendingRenewalInfo.requestedBy.name} ({currentClient.pendingRenewalInfo.requestedBy.email})
-                              </p>
-                            )}
+                          <div className="bg-white p-4 rounded-lg border border-yellow-200">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="font-medium text-yellow-800">📋 Tipo:</span>
+                                <p className="text-yellow-700">{
+                                  currentClient.pendingRenewalInfo.requestType === 'renewal' ? 'Renovación' :
+                                  currentClient.pendingRenewalInfo.requestType === 'reactivation' ? 'Reactivación' :
+                                  currentClient.pendingRenewalInfo.requestType === 'support' ? 'Soporte' : 'Actualización'
+                                }</p>
+                              </div>
+                              <div>
+                                <span className="font-medium text-yellow-800">🚨 Urgencia:</span>
+                                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${
+                                  currentClient.pendingRenewalInfo.urgency === 'high' ? 'bg-red-100 text-red-800' :
+                                  currentClient.pendingRenewalInfo.urgency === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-green-100 text-blue-800'
+                                }`}>
+                                  {currentClient.pendingRenewalInfo.urgency === 'high' ? 'Alta' :
+                                   currentClient.pendingRenewalInfo.urgency === 'medium' ? 'Media' : 'Baja'}
+                                </span>
+                              </div>
+                            </div>
                             {currentClient.pendingRenewalInfo.message && (
-                              <div className="mt-2">
-                                <span className="font-medium">Mensaje:</span>
-                                <p className="mt-1 text-yellow-600 bg-yellow-100 p-2 rounded">
+                              <div className="mt-4">
+                                <span className="font-medium text-yellow-800 block mb-2">💬 Mensaje:</span>
+                                <p className="text-yellow-700 bg-yellow-50 p-3 rounded border text-sm">
                                   {currentClient.pendingRenewalInfo.message}
                                 </p>
                               </div>
                             )}
-                            <p className="mt-2 text-xs text-yellow-600">
-                              Solicitado el {new Date(currentClient.pendingRenewalInfo.createdAt).toLocaleString()}
-                            </p>
+                            <div className="mt-4 text-xs text-yellow-600 text-right">
+                              📅 Solicitado el {new Date(currentClient.pendingRenewalInfo.createdAt).toLocaleString()}
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   )}
                   
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Información Fiscal</h4>
-                    <div className="bg-gray-50 p-3 rounded">
-                      {currentClient.fiscalInfo && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <p><span className="font-medium">CIF:</span> {currentClient.fiscalInfo.cif || 'No especificado'}</p>
-                            <p><span className="font-medium">Razón Social:</span> {currentClient.fiscalInfo.razonSocial || 'No especificada'}</p>
-                            <p><span className="font-medium">Dirección:</span> {currentClient.fiscalInfo.direccion || 'No especificada'}</p>
-                            <p><span className="font-medium">Código Postal:</span> {currentClient.fiscalInfo.codigoPostal || 'No especificado'}</p>
-                          </div>
-                          <div>
-                            <p><span className="font-medium">Población:</span> {currentClient.fiscalInfo.poblacion || 'No especificada'}</p>
-                            <p><span className="font-medium">Provincia:</span> {currentClient.fiscalInfo.provincia || 'No especificada'}</p>
-                            <p><span className="font-medium">País:</span> {currentClient.fiscalInfo.pais || 'España'}</p>
+                  {/* Grid de información organizada */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Información Fiscal */}
+                    <div className="bg-gradient-to-br from-slate-50 to-gray-100 p-6 rounded-xl border border-gray-200">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-4">🏛️ Información Fiscal</h4>
+                      {currentClient.fiscalInfo && Object.values(currentClient.fiscalInfo).some(value => value && value.trim() !== '') ? (
+                        <div className="bg-white p-4 rounded-lg border border-gray-200">
+                          <div className="space-y-3 text-sm">
+                            {currentClient.fiscalInfo.cif && (
+                              <div className="flex justify-between">
+                                <span className="font-medium text-gray-700">🆔 CIF/NIF:</span>
+                                <span className="text-gray-800 font-semibold">{currentClient.fiscalInfo.cif}</span>
+                              </div>
+                            )}
+                            {currentClient.fiscalInfo.razonSocial && (
+                              <div className="flex justify-between">
+                                <span className="font-medium text-gray-700">🏢 Razón Social:</span>
+                                <span className="text-gray-800">{currentClient.fiscalInfo.razonSocial}</span>
+                              </div>
+                            )}
+                            {currentClient.fiscalInfo.direccion && (
+                              <div>
+                                <span className="font-medium text-gray-700 block mb-1">📍 Dirección:</span>
+                                <p className="text-gray-800 text-xs bg-gray-50 p-2 rounded border">
+                                  {currentClient.fiscalInfo.direccion}
+                                  {currentClient.fiscalInfo.codigoPostal && `, ${currentClient.fiscalInfo.codigoPostal}`}
+                                  {currentClient.fiscalInfo.poblacion && ` ${currentClient.fiscalInfo.poblacion}`}
+                                  {currentClient.fiscalInfo.provincia && `, ${currentClient.fiscalInfo.provincia}`}
+                                  {currentClient.fiscalInfo.pais && ` (${currentClient.fiscalInfo.pais})`}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      )}
-                      {!currentClient.fiscalInfo && (
-                        <p className="text-sm text-gray-500 italic">No hay información fiscal registrada</p>
+                      ) : (
+                        <div className="bg-white p-4 rounded-lg border border-gray-200 text-center">
+                          <div className="text-gray-600 mb-2">📋</div>
+                          <p className="text-sm text-gray-700 italic">No hay información fiscal registrada</p>
+                        </div>
                       )}
                     </div>
-                  </div>
-                  
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Dominios</h4>
-                    {currentClient.domains && currentClient.domains.length > 0 ? (
-                      <ul className="space-y-1">
-                        {currentClient.domains.map((domain, index) => (
-                          <li key={index} className="text-sm bg-gray-50 p-2 rounded">
-                            {domain}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-gray-500 italic">No hay dominios configurados</p>
-                    )}
-                  </div>
-                  
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Plan de Suscripción</h4>
-                    <div className="bg-gray-50 p-3 rounded">
-                      <div className="flex justify-between">
-                      <span className="text-sm font-medium">
-                        {typeof currentClient.subscription?.plan === 'object'
-                          ? currentClient.subscription.plan.name
-                          : currentClient.subscription?.plan || 'Básico'}
-                      </span>
-                        <span className="text-sm text-gray-500">
-                          {currentClient.subscription?.isUnlimited 
-                            ? 'Ilimitado' 
-                            : `Vence: ${new Date(currentClient.subscription?.endDate).toLocaleDateString()}`}
-                        </span>
-                      </div>
-                      <div className="mt-2 text-sm">
-                        <div className="flex justify-between text-gray-600">
-                          <span>Usuarios:</span>
-                          <span>
+
+                    {/* Plan de Suscripción */}
+                    <div className="bg-gradient-to-br from-blue-50 to-sky-100 p-6 rounded-xl border border-blue-200">
+                      <h4 className="text-lg font-semibold text-blue-900 mb-4">💳 Plan de Suscripción</h4>
+                      <div className="bg-white p-4 rounded-lg border border-blue-200">
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-lg font-semibold text-blue-800">
+                            {typeof currentClient.subscription?.plan === 'object'
+                              ? currentClient.subscription.plan.name
+                              : (currentClient.subscription?.plan || 'Básico').toUpperCase()}
+                          </span>
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            currentClient.subscription?.isUnlimited 
+                              ? 'bg-green-100 text-blue-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {currentClient.subscription?.isUnlimited 
+                              ? '∞ Ilimitado' 
+                              : `📅 Vence: ${new Date(currentClient.subscription?.endDate).toLocaleDateString()}`}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-blue-700 font-medium">👥 Usuarios:</span>
+                          <span className="text-blue-800 font-semibold">
                             {currentClient.subscription?.currentUsers || 1} / 
                             {currentClient.subscription?.isUnlimited 
                               ? '∞' 
@@ -926,6 +967,27 @@ const ClientDetailsModal = ({ client, onClose, onToggleStatus, onUpdateClient })
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Dominios */}
+                  <div className="bg-gradient-to-br from-blue-50 to-sky-100 p-6 rounded-xl border border-blue-200">
+                    <h4 className="text-lg font-semibold text-blue-900 mb-4">🌐 Dominios Configurados</h4>
+                    {currentClient.domains && currentClient.domains.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {currentClient.domains.map((domain, index) => (
+                          <div key={index} className="bg-white p-3 rounded-lg border border-blue-200 flex items-center">
+                            <div className="text-blue-600 mr-3">🌐</div>
+                            <span className="text-blue-800 font-medium">{domain}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-white p-6 rounded-lg border border-blue-200 text-center">
+                        <div className="text-4xl mb-2">🌐</div>
+                        <p className="text-blue-700 font-medium">No hay dominios configurados</p>
+                        <p className="text-blue-600 text-sm">Configure dominios para comenzar a usar Cookie21</p>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex justify-between">
@@ -940,7 +1002,7 @@ const ClientDetailsModal = ({ client, onClose, onToggleStatus, onUpdateClient })
                       ) : (
                         <button
                           onClick={() => onToggleStatus(currentClient._id, 'active')}
-                          className="px-3 py-1 border border-green-300 text-green-600 rounded hover:bg-green-50"
+                          className="px-3 py-1 border border-blue-300 text-blue-600 rounded hover:bg-green-50"
                         >
                           Activar
                         </button>
@@ -961,66 +1023,101 @@ const ClientDetailsModal = ({ client, onClose, onToggleStatus, onUpdateClient })
           )}
           
           {activeTab === 'subscription' && (
-            <div>
-              <div className="mb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Configuración de Suscripción</h3>
-                <div className="bg-blue-50 p-3 rounded text-sm text-blue-700 mb-4">
-                  <p>
-                    Puedes asignar un plan de suscripción predefinido o modificar manualmente los parámetros
-                    de la suscripción actual del cliente.
-                  </p>
+            <div className="space-y-6">
+              <div className="flex items-center mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">💳 Configuración de Suscripción</h3>
+              </div>
+              
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-4 rounded-xl border border-blue-200 shadow-sm">
+                <div className="flex items-center mb-2">
+                  <span className="text-2xl mr-2">💡</span>
+                  <p className="text-blue-800 font-medium">Gestión de suscripciones</p>
                 </div>
+                <p className="text-sm text-blue-700">
+                  Puedes asignar un plan de suscripción predefinido o modificar manualmente los parámetros
+                  de la suscripción actual del cliente.
+                </p>
+              </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Plan actual */}
-                  <div className="bg-white p-4 rounded border">
-                    <h4 className="font-medium mb-2">Plan Actual</h4>
-                    <div className="space-y-2 text-sm">
-                      <p>
-                      <span className="font-medium">Plan: </span>
-                      {typeof currentClient.subscription?.plan === 'object' 
-                        ? currentClient.subscription.plan.name 
-                        : currentClient.subscription?.plan || 'Básico'}
-                      </p>
-                      <p>
-                        <span className="font-medium">Estado: </span>
-                        {currentClient.subscription?.isUnlimited ? 'Ilimitado' : 'Limitado'}
-                      </p>
-                      <p>
-                        <span className="font-medium">Usuarios máximos: </span>
-                        {currentClient.subscription?.isUnlimited ? 'Sin límite' : (currentClient.subscription?.maxUsers || 5)}
-                      </p>
-                      <p>
-                        <span className="font-medium">Fecha inicio: </span>
-                        {currentClient.subscription?.startDate ? new Date(currentClient.subscription.startDate).toLocaleDateString() : 'N/A'}
-                      </p>
-                      <p>
-                        <span className="font-medium">Fecha fin: </span>
-                        {currentClient.subscription?.isUnlimited 
-                          ? 'Sin vencimiento' 
-                          : (currentClient.subscription?.endDate ? new Date(currentClient.subscription.endDate).toLocaleDateString() : 'N/A')}
-                      </p>
-                    </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Plan actual */}
+                <div className="bg-gradient-to-br from-blue-50 to-sky-100 p-6 rounded-xl border border-blue-200 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <h4 className="text-lg font-semibold text-blue-900">📋 Plan Actual</h4>
                   </div>
                   
-                  {/* Asignar plan */}
-                  <div className="bg-white p-4 rounded border">
-                    <h4 className="font-medium mb-2">Asignar Nuevo Plan</h4>
-                    
-                    {isLoadingPlans ? (
-                      <div className="flex justify-center items-center h-40">
-                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+                  <div className="bg-white p-4 rounded-lg border border-blue-200">
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-blue-700">📦 Plan:</span>
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-600 text-white">
+                          {typeof currentClient.subscription?.plan === 'object' 
+                            ? currentClient.subscription.plan.name 
+                            : currentClient.subscription?.plan || 'Básico'}
+                        </span>
                       </div>
-                    ) : (
-                      <form onSubmit={handleAssignPlan}>
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Plan de suscripción
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-blue-700">🔄 Estado:</span>
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          currentClient.subscription?.isUnlimited 
+                            ? 'bg-cyan-100 text-cyan-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {currentClient.subscription?.isUnlimited ? '∞ Ilimitado' : '📅 Limitado'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-blue-700">👥 Usuarios máximos:</span>
+                        <span className="text-blue-800 font-semibold">
+                          {currentClient.subscription?.isUnlimited ? '∞ Sin límite' : (currentClient.subscription?.maxUsers || 5)}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-blue-700">📅 Fecha inicio:</span>
+                        <span className="text-blue-800">
+                          {currentClient.subscription?.startDate ? new Date(currentClient.subscription.startDate).toLocaleDateString('es-ES') : 'N/A'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-blue-700">⏰ Fecha fin:</span>
+                        <span className="text-blue-800">
+                          {currentClient.subscription?.isUnlimited 
+                            ? '∞ Sin vencimiento' 
+                            : (currentClient.subscription?.endDate ? new Date(currentClient.subscription.endDate).toLocaleDateString('es-ES') : 'N/A')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Asignar plan */}
+                <div className="bg-gradient-to-br from-cyan-50 to-sky-100 p-6 rounded-xl border border-cyan-200 shadow-sm">
+                  <div className="flex items-center mb-4">
+                    <h4 className="text-lg font-semibold text-cyan-900">🎯 Asignar Nuevo Plan</h4>
+                  </div>
+                    
+                  {isLoadingPlans ? (
+                    <div className="flex justify-center items-center h-40 bg-white rounded-lg border border-cyan-200">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-4 border-cyan-200 border-t-purple-600 mx-auto mb-2"></div>
+                        <p className="text-cyan-600 text-sm">Cargando planes...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white p-4 rounded-lg border border-cyan-200">
+                      <form onSubmit={handleAssignPlan} className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-cyan-700 mb-2">
+                            📦 Plan de suscripción
                           </label>
                           <select
                             value={selectedPlanId}
                             onChange={(e) => handlePlanSelect(e.target.value)}
-                            className="w-full border border-gray-300 p-2 rounded"
+                            className="w-full border border-cyan-300 p-3 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 bg-white"
                             required
                           >
                             <option value="">Seleccionar plan</option>
@@ -1035,124 +1132,148 @@ const ClientDetailsModal = ({ client, onClose, onToggleStatus, onUpdateClient })
                         </div>
                         
                         {selectedPlan && (
-                          <div className="mb-4 bg-gray-50 p-3 rounded">
-                            <p className="text-sm text-gray-600">
-                              <span className="font-medium">Usuarios máximos: </span>
+                          <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-200">
+                            <div className="flex items-center mb-2">
+                              <span className="text-lg mr-2">ℹ️</span>
+                              <span className="font-medium text-cyan-800">Información del plan</span>
+                            </div>
+                            <p className="text-sm text-cyan-700">
+                              <span className="font-medium">👥 Usuarios máximos: </span>
                               {selectedPlan.limits?.isUnlimitedUsers 
-                                ? 'Sin límite' 
+                                ? '∞ Sin límite' 
                                 : selectedPlan.limits?.maxUsers || 5}
                             </p>
                           </div>
                         )}
                         
-                        <div className="mb-4">
-                          <div className="flex items-center mb-2">
+                        <div className="space-y-4">
+                          <div className="flex items-center p-3 bg-cyan-50 rounded-lg border border-cyan-200">
                             <input
                               type="checkbox"
                               name="isUnlimited"
                               id="isUnlimited"
                               checked={subscriptionData.isUnlimited}
                               onChange={handleSubscriptionChange}
-                              className="mr-2"
+                              className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-cyan-300 rounded mr-3"
                             />
-                            <label htmlFor="isUnlimited" className="text-sm font-medium text-gray-700">
-                              Suscripción ilimitada
+                            <label htmlFor="isUnlimited" className="text-sm font-medium text-cyan-700">
+                              ∞ Suscripción ilimitada
                             </label>
                           </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-2 mb-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Fecha de inicio
-                            </label>
-                            <input
-                              type="date"
-                              name="startDate"
-                              value={subscriptionData.startDate}
-                              onChange={handleSubscriptionChange}
-                              className="w-full border border-gray-300 p-2 rounded"
-                            />
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-cyan-700 mb-2">
+                                📅 Fecha de inicio
+                              </label>
+                              <input
+                                type="date"
+                                name="startDate"
+                                value={subscriptionData.startDate}
+                                onChange={handleSubscriptionChange}
+                                className="w-full border border-cyan-300 p-3 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-cyan-700 mb-2">
+                                ⏰ Fecha de fin
+                              </label>
+                              <input
+                                type="date"
+                                name="endDate"
+                                value={subscriptionData.endDate || ''}
+                                onChange={handleSubscriptionChange}
+                                disabled={subscriptionData.isUnlimited}
+                                className={`w-full border border-cyan-300 p-3 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 ${
+                                  subscriptionData.isUnlimited ? 'bg-cyan-100 text-purple-500' : ''
+                                }`}
+                              />
+                            </div>
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Fecha de fin
-                            </label>
-                            <input
-                              type="date"
-                              name="endDate"
-                              value={subscriptionData.endDate || ''}
-                              onChange={handleSubscriptionChange}
-                              disabled={subscriptionData.isUnlimited}
-                              className={`w-full border border-gray-300 p-2 rounded ${subscriptionData.isUnlimited ? 'bg-gray-100' : ''}`}
-                            />
+                          
+                          {!subscriptionData.isUnlimited && (
+                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                              <div className="flex items-center">
+                                <span className="text-lg mr-2">💡</span>
+                                <span className="text-xs text-blue-700">
+                                  La fecha de inicio y fin pueden ser el mismo día para suscripciones de un día.
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="flex justify-end pt-2">
+                            <button
+                              type="submit"
+                              className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-sky-700 text-white rounded-lg hover:from-cyan-700 hover:to-sky-800 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={isSubmittingPlan || !selectedPlanId}
+                            >
+                              {isSubmittingPlan ? '⏳ Asignando...' : '🎯 Asignar Plan'}
+                            </button>
                           </div>
-                        </div>
-                        
-                        {!subscriptionData.isUnlimited && (
-                          <div className="text-xs text-gray-500 mb-3">
-                            💡 La fecha de inicio y fin pueden ser el mismo día para suscripciones de un día.
-                          </div>
-                        )}
-                        
-                        <div className="flex justify-end">
-                          <button
-                            type="submit"
-                            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                            disabled={isSubmittingPlan || !selectedPlanId}
-                          >
-                            {isSubmittingPlan ? 'Asignando...' : 'Asignar Plan'}
-                          </button>
                         </div>
                       </form>
-                    )}
+                    </div>
+                  )}
                   </div>
                 </div>
+              
+              {/* Modificar manualmente */}
+              <div className="bg-gradient-to-br from-slate-50 to-gray-100 p-6 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex items-center mb-4">
+                  <h4 className="text-lg font-semibold text-gray-900">⚙️ Modificar Suscripción Actual</h4>
+                </div>
                 
-                {/* Modificar manualmente */}
-                <div className="mt-6 bg-white p-4 rounded border">
-                  <h4 className="font-medium mb-2">Modificar Suscripción Actual</h4>
-                  <form onSubmit={handleUpdateSubscription}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <div className="flex items-center mb-2">
+                <div className="bg-white p-4 rounded-lg border border-gray-200">
+                  <form onSubmit={handleUpdateSubscription} className="space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
                           <input
                             type="checkbox"
                             name="isUnlimited"
                             id="manualIsUnlimited"
                             checked={subscriptionData.isUnlimited}
                             onChange={handleSubscriptionChange}
-                            className="mr-2"
+                            className="h-4 w-4 text-gray-600 focus:ring-gray-500 border-gray-300 rounded mr-3"
                           />
                           <label htmlFor="manualIsUnlimited" className="text-sm font-medium text-gray-700">
-                            Suscripción ilimitada
+                            ∞ Suscripción ilimitada
                           </label>
                         </div>
                         
                         {/* Nota informativa sobre los usuarios máximos */}
-                        <div className="bg-gray-50 p-2 rounded text-sm text-gray-600 mb-4">
-                          El máximo de usuarios se determina según el plan asignado al cliente.
-                          Para modificar este límite, cambie el plan de suscripción.
+                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                          <div className="flex items-start">
+                            <span className="text-lg mr-2">ℹ️</span>
+                            <div>
+                              <p className="text-sm font-medium text-blue-800 mb-1">Límite de usuarios</p>
+                              <p className="text-xs text-blue-700">
+                                El máximo de usuarios se determina según el plan asignado al cliente.
+                                Para modificar este límite, cambie el plan de suscripción.
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                       
-                      <div>
-                        <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Fecha de inicio
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              📅 Fecha de inicio
                             </label>
                             <input
                               type="date"
                               name="startDate"
                               value={subscriptionData.startDate}
                               onChange={handleSubscriptionChange}
-                              className="w-full border border-gray-300 p-2 rounded"
+                              className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Fecha de fin
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              ⏰ Fecha de fin
                             </label>
                             <input
                               type="date"
@@ -1160,7 +1281,9 @@ const ClientDetailsModal = ({ client, onClose, onToggleStatus, onUpdateClient })
                               value={subscriptionData.endDate || ''}
                               onChange={handleSubscriptionChange}
                               disabled={subscriptionData.isUnlimited}
-                              className={`w-full border border-gray-300 p-2 rounded ${subscriptionData.isUnlimited ? 'bg-gray-100' : ''}`}
+                              className={`w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${
+                                subscriptionData.isUnlimited ? 'bg-gray-100 text-gray-500' : ''
+                              }`}
                             />
                           </div>
                         </div>
@@ -1168,274 +1291,309 @@ const ClientDetailsModal = ({ client, onClose, onToggleStatus, onUpdateClient })
                     </div>
                     
                     {!subscriptionData.isUnlimited && (
-                      <div className="text-xs text-gray-500 mb-3">
-                        💡 La fecha de inicio y fin pueden ser el mismo día para suscripciones de un día.
+                      <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                        <div className="flex items-center">
+                          <span className="text-lg mr-2">💡</span>
+                          <span className="text-xs text-blue-700">
+                            La fecha de inicio y fin pueden ser el mismo día para suscripciones de un día.
+                          </span>
+                        </div>
                       </div>
                     )}
                     
-                    <div className="flex justify-end mt-4">
+                    <div className="flex justify-end pt-2">
                       <button
                         type="submit"
-                        className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                        className="px-6 py-3 bg-gradient-to-r from-gray-600 to-slate-700 text-white rounded-lg hover:from-gray-700 hover:to-slate-800 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         disabled={isSubmittingPlan}
                       >
-                        {isSubmittingPlan ? 'Actualizando...' : 'Actualizar Suscripción'}
+                        {isSubmittingPlan ? '⏳ Actualizando...' : '🔄 Actualizar Suscripción'}
                       </button>
                     </div>
                   </form>
                 </div>
-                
-                {/* Estado y Control de Suscripción - Solo para owners */}
-                {user?.role === 'owner' && currentClient.subscription && (
-                    <div className={`mt-6 p-4 rounded border transition-all duration-300 ease-in-out ${
-                      subscriptionStatus.isActive 
-                        ? 'bg-red-50 border-red-200' 
-                        : 'bg-yellow-50 border-yellow-200'
-                    }`}>
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h4 className={`font-medium mb-1 ${
-                            subscriptionStatus.isActive ? 'text-red-800' : 'text-yellow-800'
-                          }`}>
-                            {subscriptionStatus.isActive ? 'Zona de Peligro' : 'Estado de Suscripción'}
-                          </h4>
-                          <p className={`text-sm mb-1 ${
-                            subscriptionStatus.isActive ? 'text-red-700' : 'text-yellow-700'
-                          }`}>
-                            <strong>Estado actual:</strong> {subscriptionStatus.message}
-                          </p>
-                          {currentClient.subscription.endDate && (
-                            <p className={`text-xs ${
-                              subscriptionStatus.isActive ? 'text-red-600' : 'text-yellow-600'
-                            }`}>
-                              <strong>Vence:</strong> {new Date(currentClient.subscription.endDate).toLocaleDateString('es-ES')}
-                            </p>
-                          )}
-                        </div>
-                        <div className={`px-2 py-1 rounded-full text-xs font-medium transition-all duration-300 ease-in-out ${
-                          subscriptionStatus.isActive 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
+              </div>
+              
+              {/* Estado y Control de Suscripción - Solo para owners */}
+              {user?.role === 'owner' && currentClient.subscription && (
+                <div className={`bg-gradient-to-br p-6 rounded-xl border shadow-sm transition-all duration-300 ease-in-out ${
+                  subscriptionStatus.isActive 
+                    ? 'from-red-50 to-red-100 border-red-200' 
+                    : 'from-yellow-50 to-yellow-100 border-yellow-200'
+                }`}>
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center mb-2">
+                        <span className="text-2xl mr-3">
+                          {subscriptionStatus.isActive ? '⚠️' : '🔄'}
+                        </span>
+                        <h4 className={`text-lg font-semibold ${
+                          subscriptionStatus.isActive ? 'text-red-800' : 'text-yellow-800'
                         }`}>
-                          {subscriptionStatus.isActive ? '✓ Activa' : '✗ Inactiva'}
-                        </div>
+                          {subscriptionStatus.isActive ? 'Zona de Peligro' : 'Estado de Suscripción'}
+                        </h4>
                       </div>
                       
-                      {/* Indicador de procesamiento */}
-                      {(isCancellingSubscription || isReactivatingSubscription) && (
-                        <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-blue-700 text-sm flex items-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                      <div className="bg-white p-4 rounded-lg border border-opacity-30">
+                        <p className={`text-sm mb-2 ${
+                          subscriptionStatus.isActive ? 'text-red-700' : 'text-yellow-700'
+                        }`}>
+                          <strong>Estado actual:</strong> {subscriptionStatus.message}
+                        </p>
+                        {currentClient.subscription.endDate && (
+                          <p className={`text-xs ${
+                            subscriptionStatus.isActive ? 'text-red-600' : 'text-yellow-600'
+                          }`}>
+                            <strong>Vence:</strong> {new Date(currentClient.subscription.endDate).toLocaleDateString('es-ES')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ease-in-out ${
+                      subscriptionStatus.isActive 
+                        ? 'bg-green-100 text-blue-800 border border-blue-200' 
+                        : 'bg-red-100 text-red-800 border border-red-200'
+                    }`}>
+                      {subscriptionStatus.isActive ? '✅ Activa' : '❌ Inactiva'}
+                    </div>
+                  </div>
+                  
+                  {/* Indicador de procesamiento */}
+                  {(isCancellingSubscription || isReactivatingSubscription) && (
+                    <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center text-blue-700">
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-200 border-t-blue-600 mr-3"></div>
+                        <span className="font-medium">
                           {isCancellingSubscription ? 'Cancelando suscripción...' : 'Reactivando suscripción...'}
-                        </div>
-                      )}
-                      
-                      {subscriptionStatus.isActive ? (
-                        <>
-                          <p className="text-sm text-red-700 mb-3">
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {subscriptionStatus.isActive ? (
+                    <div className="space-y-4">
+                      <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                        <div className="flex items-start">
+                          <span className="text-lg mr-2">⚠️</span>
+                          <p className="text-sm text-red-700">
                             Cancelar la suscripción impedirá que el cliente acceda a las funcionalidades del sistema.
                           </p>
-                          <button
-                            onClick={() => setShowCancelModal(true)}
-                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm transition-all duration-200"
-                            disabled={isCancellingSubscription || isReactivatingSubscription}
-                          >
-                            Cancelar Suscripción
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-sm text-yellow-700 mb-3">
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowCancelModal(true)}
+                        className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={isCancellingSubscription || isReactivatingSubscription}
+                      >
+                        🚫 Cancelar Suscripción
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                        <div className="flex items-start">
+                          <span className="text-lg mr-2">📋</span>
+                          <p className="text-sm text-yellow-700">
                             La suscripción está inactiva. {subscriptionStatus.reason === 'CANCELLED' ? 'Fue cancelada.' : subscriptionStatus.reason === 'EXPIRED' ? 'Ha expirado.' : 'Asigna un plan activo.'}
                           </p>
-                          <button
-                            onClick={handleActivateSubscription}
-                            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm disabled:opacity-50 flex items-center transition-all duration-200"
-                            disabled={isReactivatingSubscription || isCancellingSubscription}
-                          >
-                            {isReactivatingSubscription ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                Reactivando...
-                              </>
-                            ) : (
-                              'Activar Suscripción (30 días)'
-                            )}
-                          </button>
-                        </>
-                      )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleActivateSubscription}
+                        className="px-6 py-3 bg-gradient-to-r from-blue-600 to-sky-700 text-white rounded-lg hover:from-blue-700 hover:to-sky-800 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-all duration-200"
+                        disabled={isReactivatingSubscription || isCancellingSubscription}
+                      >
+                        {isReactivatingSubscription ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                            ⏳ Reactivando...
+                          </>
+                        ) : (
+                          '✅ Activar Suscripción (30 días)'
+                        )}
+                      </button>
                     </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
           
           {activeTab === 'metrics' && (
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Métricas del Cliente</h3>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-semibold text-gray-900">📊 Métricas del Cliente</h3>
+                <button
+                  onClick={fetchClientMetrics}
+                  className="px-3 py-1 text-sm bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors duration-200"
+                  disabled={isLoadingMetrics}
+                >
+                  {isLoadingMetrics ? '🔄' : '🔄'} Actualizar
+                </button>
+              </div>
               
               {isLoadingMetrics ? (
-                <div className="flex justify-center items-center h-40">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+                <div className="flex justify-center items-center h-64 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto mb-4"></div>
+                    <p className="text-blue-600 font-medium">Cargando métricas...</p>
+                  </div>
                 </div>
               ) : metrics ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white p-4 rounded border">
-                    <h4 className="font-medium mb-3">Usuarios</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Total:</span>
-                        <span className="text-sm font-semibold">{metrics.users.total}</span>
+                <div className="space-y-6">
+                  {/* Resumen general */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Usuarios */}
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl border border-blue-200 shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-semibold text-blue-900">👥 Usuarios</h4>
+                        <div className="text-2xl font-bold text-blue-600">{metrics?.users?.total || 0}</div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Activos:</span>
-                        <span className="text-sm font-semibold">{metrics.users.active}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Límite:</span>
-                        <span className="text-sm font-semibold">
-                          {metrics.subscription.isUnlimited ? 'Ilimitado' : metrics.users.limit}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Puede añadir más:</span>
-                        <span className={`text-sm font-semibold ${metrics.users.canAddMore ? 'text-green-600' : 'text-red-600'}`}>
-                          {metrics.users.canAddMore ? 'Sí' : 'No'}
-                        </span>
+                      
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-blue-700">Activos:</span>
+                          <span className="font-semibold text-blue-600">{metrics?.users?.active || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-blue-700">Límite:</span>
+                          <span className="font-semibold text-blue-800">
+                            {metrics?.subscription?.isUnlimited ? '∞' : (metrics?.users?.limit || 0)}
+                          </span>
+                        </div>
+                        
+                        {/* Barra de progreso solo si no es ilimitado */}
+                        {!metrics?.subscription?.isUnlimited && (metrics?.users?.limit || 0) > 0 && (
+                          <div className="mt-4">
+                            <div className="flex justify-between text-xs text-blue-700 mb-1">
+                              <span>Uso actual</span>
+                              <span>{Math.round(((metrics?.users?.total || 0) / (metrics?.users?.limit || 1)) * 100)}%</span>
+                            </div>
+                            <div className="h-2 bg-blue-200 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full transition-all duration-500 ${
+                                  (metrics?.users?.total || 0) / (metrics?.users?.limit || 1) > 0.8 
+                                    ? 'bg-gradient-to-r from-red-500 to-red-600' 
+                                    : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                                }`}
+                                style={{ width: `${Math.min(100, ((metrics?.users?.total || 0) / (metrics?.users?.limit || 1)) * 100)}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center justify-center mt-3">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            metrics?.users?.canAddMore 
+                              ? 'bg-green-100 text-blue-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {metrics?.users?.canAddMore ? '✅ Puede agregar más' : '❌ Límite alcanzado'}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    
-                    {!metrics.subscription.isUnlimited && metrics.users.total > 0 && (
-                      <div className="mt-3">
-                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full ${
-                              metrics.users.total / metrics.users.limit > 0.8 ? 'bg-red-500' : 'bg-blue-500'
-                            }`}
-                            style={{ width: `${Math.min(100, (metrics.users.total / metrics.users.limit) * 100)}%` }}
-                          ></div>
+
+                    {/* Dominios */}
+                    <div className="bg-gradient-to-br from-blue-50 to-sky-100 p-6 rounded-xl border border-blue-200 shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-semibold text-blue-900">🌐 Dominios</h4>
+                        <div className="text-2xl font-bold text-blue-600">{metrics?.domains?.total || 0}</div>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-blue-700">Activos:</span>
+                          <span className="font-semibold text-blue-600">{metrics?.domains?.active || 0}</span>
                         </div>
-                        <div className="text-xs text-gray-500 mt-1 text-right">
-                          {Math.round((metrics.users.total / metrics.users.limit) * 100)}% utilizado
+                        
+                        <div className="flex items-center justify-center mt-4">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-blue-800">
+                            ✅ Sin límite
+                          </span>
                         </div>
                       </div>
-                    )}
+                    </div>
+
+                    {/* Banners */}
+                    <div className="bg-gradient-to-br from-cyan-50 to-sky-100 p-6 rounded-xl border border-cyan-200 shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-semibold text-cyan-900">🎨 Banners</h4>
+                        <div className="text-2xl font-bold text-cyan-600">{metrics?.banners?.total || 0}</div>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-cyan-700">Activos:</span>
+                          <span className="font-semibold text-cyan-600">{metrics?.banners?.active || 0}</span>
+                        </div>
+                        
+                        <div className="flex items-center justify-center mt-4">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800">
+                            ✅ Sin límite
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   
-                  <div className="bg-white p-4 rounded border">
-                    <h4 className="font-medium mb-3">Suscripción</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Plan:</span>
-                        <span className="text-sm font-semibold">
-                          {metrics.subscription.plan}
-                          {metrics.subscription.planInfo && (
-                            <span className="ml-1 text-xs text-blue-600">
-                              ({metrics.subscription.planInfo.name})
-                            </span>
-                          )}
-                        </span>
+                  {/* Información detallada */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Resumen del Plan */}
+                    <div className="bg-gradient-to-br from-slate-50 to-gray-100 p-6 rounded-xl border border-gray-200 shadow-sm">
+                      <div className="flex items-center mb-4">
+                        <h4 className="text-lg font-semibold text-gray-900">📋 Resumen del Plan</h4>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Días restantes:</span>
-                        <span className="text-sm font-semibold">
-                          {metrics.subscription.daysRemaining}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Duración:</span>
-                        <span className="text-sm font-semibold">
-                          {metrics.subscription.isUnlimited ? 'Ilimitada' : 'Limitada'}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <h5 className="font-medium text-sm mt-4 mb-2">Características</h5>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                      {metrics.subscription.features ? (
-                        Object.entries(metrics.subscription.features).map(([key, value]) => (
-                          <div key={key} className="flex items-center">
-                            <span className={value ? "text-green-600" : "text-red-600"}>
-                              {value ? (
-                                <svg className="w-4 h-4 mr-1 inline" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                </svg>
-                              ) : (
-                                <svg className="w-4 h-4 mr-1 inline" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                </svg>
-                              )}
-                            </span>
-                            <span className="text-sm">
-                              {key === 'autoTranslate' && 'Traducción automática'}
-                              {key === 'cookieScanning' && 'Escaneo de cookies'}
-                              {key === 'customization' && 'Personalización'}
-                              {key === 'advancedAnalytics' && 'Analytics avanzado'}
-                              {key === 'multiLanguage' && 'Multilenguaje'}
-                              {key === 'apiAccess' && 'Acceso a API'}
-                              {key === 'prioritySupport' && 'Soporte prioritario'}
+                      
+                      <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-sm font-medium text-gray-700">Plan activo:</span>
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gray-600 text-white">
+                            {(metrics?.subscription?.plan || 'N/A').toUpperCase()}
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 gap-3 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Tipo de suscripción:</span>
+                            <span className="font-medium text-gray-800">
+                              {metrics?.subscription?.isUnlimited ? '∞ Ilimitada' : '📅 Con vencimiento'}
                             </span>
                           </div>
-                        ))
-                      ) : (
-                        <div className="col-span-2 text-sm text-gray-500 italic">
-                          No hay información de características
+                          
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Estado:</span>
+                            <span className={`font-medium ${
+                              metrics?.subscription?.status === 'active' ? 'text-blue-600' : 'text-red-600'
+                            }`}>
+                              {metrics?.subscription?.status === 'active' ? '✅ Activo' : '❌ Inactivo'}
+                            </span>
+                          </div>
+                          
+                          <div className="mt-3 p-2 bg-gray-50 rounded text-center">
+                            <span className="text-xs text-gray-600">
+                              💡 Para gestionar suscripciones ir a la pestaña "Suscripción"
+                            </span>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="bg-white p-4 rounded border">
-                    <h4 className="font-medium mb-3">Dominios</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Total:</span>
-                        <span className="text-sm font-semibold">{metrics.domains.count}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Puede añadir más:</span>
-                        <span className={`text-sm font-semibold ${metrics.domains.canAddMore ? 'text-green-600' : 'text-red-600'}`}>
-                          {metrics.domains.canAddMore ? 'Sí' : 'No'}
-                        </span>
                       </div>
                     </div>
-                    
-                    {metrics.domains.list && metrics.domains.list.length > 0 && (
-                      <div className="mt-3">
-                        <h5 className="text-sm font-medium mb-1">Lista de dominios:</h5>
-                        <ul className="text-sm text-gray-600 space-y-1 max-h-32 overflow-y-auto">
-                          {metrics.domains.list.map((domain, index) => (
-                            <li key={index} className="bg-gray-50 p-1 rounded">{domain}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+
                   </div>
 
-                  {/* Nueva sección para mostrar información fiscal en métricas */}
-                  <div className="bg-white p-4 rounded border">
-                    <h4 className="font-medium mb-3">Información Fiscal</h4>
-                    <div className="space-y-2">
-                      {metrics.fiscalInfo ? (
-                        <div className="text-sm text-gray-600">
-                          <p><span className="font-medium">CIF:</span> {metrics.fiscalInfo.cif || 'No especificado'}</p>
-                          <p><span className="font-medium">Razón Social:</span> {metrics.fiscalInfo.razonSocial || 'No especificada'}</p>
-                          <p><span className="font-medium">Dirección:</span> {metrics.fiscalInfo.direccion || 'No especificada'}</p>
-                          <p><span className="font-medium">CP:</span> {metrics.fiscalInfo.codigoPostal || 'No especificado'}</p>
-                          <p><span className="font-medium">Población:</span> {metrics.fiscalInfo.poblacion || 'No especificada'}</p>
-                          <p><span className="font-medium">Provincia:</span> {metrics.fiscalInfo.provincia || 'No especificada'}</p>
-                          <p><span className="font-medium">País:</span> {metrics.fiscalInfo.pais || 'España'}</p>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500 italic">
-                          No hay información fiscal registrada
-                        </p>
-                      )}
-                    </div>
-                  </div>
                 </div>
               ) : (
-                <div className="bg-yellow-50 p-4 rounded text-yellow-700">
-                  <p>No se pudo obtener métricas para este cliente.</p>
+                <div className="bg-gradient-to-br from-red-50 to-red-100 p-8 rounded-xl border border-red-200 shadow-sm text-center">
+                  <div className="text-4xl mb-4">⚠️</div>
+                  <h4 className="text-lg font-semibold text-red-900 mb-2">Error al cargar métricas</h4>
+                  <p className="text-red-700 mb-4">No se pudieron obtener las métricas para este cliente.</p>
+                  <button
+                    onClick={fetchClientMetrics}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200"
+                  >
+                    🔄 Intentar de nuevo
+                  </button>
                 </div>
               )}
             </div>

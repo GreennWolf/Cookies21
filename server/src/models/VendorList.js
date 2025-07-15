@@ -89,7 +89,7 @@ const vendorListSchema = new mongoose.Schema({
     fetchTimestamp: Date,
     ttl: {
       type: Number,
-      default: 86400 // 24 horas en segundos
+      default: 604800 // COMPLIANCE POINT 7: 7 días (una semana) de caché para el GVL según IAB TCF
     },
     status: {
       type: String,

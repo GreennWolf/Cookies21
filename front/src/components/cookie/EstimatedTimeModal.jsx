@@ -21,7 +21,7 @@ const EstimatedTimeModal = ({ isOpen, onClose, onConfirm, config }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
         <h2 className="text-xl font-bold mb-4 text-[#235C88]">Análisis Completo de Cookies</h2>
         

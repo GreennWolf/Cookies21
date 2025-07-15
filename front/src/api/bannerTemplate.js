@@ -632,3 +632,81 @@ export const cleanupDeletedBannersImages = async () => {
     throw new Error(error.response?.data?.message || 'Error al limpiar imágenes de banners eliminados');
   }
 };
+
+/**
+ * Asigna un banner a un cliente específico (solo para owners)
+ * @param {string} bannerId - ID del banner a asignar
+ * @param {string} clientId - ID del cliente al que asignar el banner
+ * @returns {Promise<Object>} - Resultado de la asignación
+ */
+export const assignBannerToClient = async (bannerId, clientId) => {
+  try {
+    console.log(`👥 Asignando banner ${bannerId} al cliente ${clientId}...`);
+    const response = await apiClient.patch(`/api/v1/banner-templates/${bannerId}/assign-client`, {
+      clientId
+    });
+    console.log(`✅ Banner asignado exitosamente`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error al asignar banner a cliente:', error);
+    throw new Error(error.response?.data?.message || 'Error al asignar banner a cliente');
+  }
+};
+
+/**
+ * Desasigna un banner de un cliente (lo convierte en plantilla del sistema)
+ * @param {string} bannerId - ID del banner a desasignar
+ * @returns {Promise<Object>} - Resultado de la desasignación
+ */
+export const unassignBannerFromClient = async (bannerId) => {
+  try {
+    console.log(`🔄 Desasignando banner ${bannerId} de cliente...`);
+    const response = await apiClient.patch(`/api/v1/banner-templates/${bannerId}/unassign-client`);
+    console.log(`✅ Banner desasignado exitosamente`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error al desasignar banner de cliente:', error);
+    throw new Error(error.response?.data?.message || 'Error al desasignar banner de cliente');
+  }
+};
+
+/**
+ * Obtiene banners disponibles para asignación a clientes (solo para owners)
+ * @param {Object} params - Parámetros de filtrado
+ * @param {string} params.search - Término de búsqueda
+ * @param {string} params.type - Tipo de banner (system, custom, all)
+ * @param {string} params.status - Estado del banner (active, draft, archived, all)
+ * @returns {Promise<Object>} - Banners disponibles organizados por categorías
+ */
+export const getAvailableBannersForAssignment = async (params = {}) => {
+  try {
+    console.log(`📋 Obteniendo banners disponibles para asignación...`);
+    const response = await apiClient.get('/api/v1/banner-templates/available-for-assignment', {
+      params
+    });
+    console.log(`✅ ${response.data.data.total} banners encontrados`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error al obtener banners disponibles:', error);
+    throw new Error(error.response?.data?.message || 'Error al obtener banners disponibles');
+  }
+};
+
+/**
+ * Envía el script del banner por email a los usuarios seleccionados
+ * @param {string} bannerId - ID del banner a enviar
+ * @param {Object} data - Datos para el envío
+ * @param {Array} data.recipients - Array de objetos con email y name de los destinatarios
+ * @returns {Promise<Object>} - Resultado del envío
+ */
+export const sendScriptByEmail = async (bannerId, data) => {
+  try {
+    console.log(`📧 Enviando script del banner ${bannerId} por email...`);
+    const response = await apiClient.post(`/api/v1/banner-templates/${bannerId}/send-script-email`, data);
+    console.log(`✅ Script enviado exitosamente a ${data.recipients.length} destinatarios`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error al enviar script por email:', error);
+    throw new Error(error.response?.data?.message || 'Error al enviar script por email');
+  }
+};

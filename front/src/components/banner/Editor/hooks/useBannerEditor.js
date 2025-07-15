@@ -1,5 +1,5 @@
 // src/components/banner/Editor/hooks/useBannerEditor.js
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import apiClient from '../../../../utils/apiClient';
 import {createTemplate, updateTemplate} from '../../../../api/bannerTemplate';
 import {getClients} from '../../../../api/client';
@@ -8,6 +8,7 @@ import { validateChildSize, validateChildPosition, validateContainerChildren } f
 import { BannerConfigHelper } from '../../../../utils/bannerConfigHelper';
 import imageMemoryManager from '../../../../utils/imageMemoryManager';
 import { processImageStyles, imageAspectRatioCache } from '../../../../utils/imageProcessing';
+import { getDimensionManager } from '../../../../services/DimensionManager.js';
 
 const deepCloneWithFiles = (obj) => {
   if (obj === null || typeof obj !== 'object' || obj instanceof File || obj instanceof Blob) {
@@ -100,30 +101,30 @@ const getDefaultStylesForNewComponent = (type, actionType = null) => {
       // Estilos específicos para botones con acciones
       if (actionType === 'accept_all') {
         return {
-          desktop: { borderRadius: '4px', backgroundColor: '#4CAF50', color: '#fff', fontSize: '16px', padding: '8px 16px' },
-          tablet: { borderRadius: '4px', backgroundColor: '#4CAF50', color: '#fff', fontSize: '14px', padding: '6px 12px' },
-          mobile: { borderRadius: '4px', backgroundColor: '#4CAF50', color: '#fff', fontSize: '12px', padding: '4px 8px' }
+          desktop: { borderRadius: '4px', backgroundColor: '#4CAF50', color: '#fff', fontSize: '16px', padding: '8px 16px', textAlign: 'center' },
+          tablet: { borderRadius: '4px', backgroundColor: '#4CAF50', color: '#fff', fontSize: '14px', padding: '6px 12px', textAlign: 'center' },
+          mobile: { borderRadius: '4px', backgroundColor: '#4CAF50', color: '#fff', fontSize: '12px', padding: '4px 8px', textAlign: 'center' }
         };
       }
       if (actionType === 'reject_all') {
         return {
-          desktop: { borderRadius: '4px', backgroundColor: '#f44336', color: '#fff', fontSize: '16px', padding: '8px 16px' },
-          tablet: { borderRadius: '4px', backgroundColor: '#f44336', color: '#fff', fontSize: '14px', padding: '6px 12px' },
-          mobile: { borderRadius: '4px', backgroundColor: '#f44336', color: '#fff', fontSize: '12px', padding: '4px 8px' }
+          desktop: { borderRadius: '4px', backgroundColor: '#f44336', color: '#fff', fontSize: '16px', padding: '8px 16px', textAlign: 'center' },
+          tablet: { borderRadius: '4px', backgroundColor: '#f44336', color: '#fff', fontSize: '14px', padding: '6px 12px', textAlign: 'center' },
+          mobile: { borderRadius: '4px', backgroundColor: '#f44336', color: '#fff', fontSize: '12px', padding: '4px 8px', textAlign: 'center' }
         };
       }
       if (actionType === 'show_preferences') {
         return {
-          desktop: { borderRadius: '4px', backgroundColor: '#2196F3', color: '#fff', fontSize: '16px', padding: '8px 16px' },
-          tablet: { borderRadius: '4px', backgroundColor: '#2196F3', color: '#fff', fontSize: '14px', padding: '6px 12px' },
-          mobile: { borderRadius: '4px', backgroundColor: '#2196F3', color: '#fff', fontSize: '12px', padding: '4px 8px' }
+          desktop: { borderRadius: '4px', backgroundColor: '#2196F3', color: '#fff', fontSize: '16px', padding: '8px 16px', textAlign: 'center' },
+          tablet: { borderRadius: '4px', backgroundColor: '#2196F3', color: '#fff', fontSize: '14px', padding: '6px 12px', textAlign: 'center' },
+          mobile: { borderRadius: '4px', backgroundColor: '#2196F3', color: '#fff', fontSize: '12px', padding: '4px 8px', textAlign: 'center' }
         };
       }
       // Botón genérico
       return {
-        desktop: { borderRadius: '4px', backgroundColor: '#007bff', color: '#fff', fontSize: '16px', padding: '8px 16px' },
-        tablet: { borderRadius: '4px', backgroundColor: '#007bff', color: '#fff', fontSize: '14px', padding: '6px 12px' },
-        mobile: { borderRadius: '4px', backgroundColor: '#007bff', color: '#fff', fontSize: '12px', padding: '4px 8px' }
+        desktop: { borderRadius: '4px', backgroundColor: '#007bff', color: '#fff', fontSize: '16px', padding: '8px 16px', textAlign: 'center' },
+        tablet: { borderRadius: '4px', backgroundColor: '#007bff', color: '#fff', fontSize: '14px', padding: '6px 12px', textAlign: 'center' },
+        mobile: { borderRadius: '4px', backgroundColor: '#007bff', color: '#fff', fontSize: '12px', padding: '4px 8px', textAlign: 'center' }
       };
       
     case 'language-button':
@@ -193,12 +194,16 @@ const getDefaultStylesForNewComponent = (type, actionType = null) => {
         }
       };
       
+      
     default:
       return baseStyles;
   }
 };
 
 export function useBannerEditor() {
+  // Estado para guardar información del cliente
+  const [clientInfo, setClientInfo] = useState(null);
+  
   // Estado inicial con configuración específica para cada dispositivo
   const [bannerConfig, setBannerConfig] = useState({
     name: 'Nuevo Banner',
@@ -323,6 +328,101 @@ export function useBannerEditor() {
     console.log('🌐 Estado inicial de translationConfig:', initialConfig);
     return initialConfig;
   });
+
+  // Instancia del DimensionManager para sincronización bidireccional
+  const dimensionManagerRef = useRef(null);
+  
+  // 🔄 INTEGRACIÓN: Método directo para actualizar desde DimensionManager (Fase 2.2.4)
+  const updateDimensionFromManager = useCallback((componentId, property, value, device) => {
+    console.log(`🔄 useBannerEditor: updateDimensionFromManager(${componentId}, ${property}, ${value}, ${device})`);
+    
+    if (!componentId || !property || !device) {
+      console.error('❌ updateDimensionFromManager: Parámetros requeridos faltantes');
+      return;
+    }
+    
+    // Actualizar estado global SIN triggear eventos adicionales
+    setBannerConfig(prev => {
+      const componentIndex = prev.components.findIndex(comp => comp.id === componentId);
+      if (componentIndex === -1) {
+        console.warn(`🔄 updateDimensionFromManager: Componente no encontrado: ${componentId}`);
+        return prev;
+      }
+      
+      // Crear copia profunda del componente
+      const updatedComponent = JSON.parse(JSON.stringify(prev.components[componentIndex]));
+      
+      // Asegurar estructura de estilos
+      if (!updatedComponent.style) updatedComponent.style = { desktop: {}, tablet: {}, mobile: {} };
+      if (!updatedComponent.style[device]) updatedComponent.style[device] = {};
+      
+      // Actualizar solo la propiedad específica
+      updatedComponent.style[device][property] = value;
+      
+      console.log(`✅ updateDimensionFromManager: ${componentId}.${property} = ${value} (${device})`);
+      
+      // Crear copia del array de componentes
+      const updatedComponents = [...prev.components];
+      updatedComponents[componentIndex] = updatedComponent;
+      
+      return {
+        ...prev,
+        components: updatedComponents
+      };
+    });
+  }, []);
+  
+  // Inicializar DimensionManager al montar el hook
+  useEffect(() => {
+    if (!dimensionManagerRef.current) {
+      dimensionManagerRef.current = getDimensionManager({
+        debug: process.env.NODE_ENV === 'development',
+        enableValidation: true,
+        enableLogging: true
+      });
+      
+      console.log('🔧 useBannerEditor: DimensionManager inicializado', {
+        instance: !!dimensionManagerRef.current,
+        config: dimensionManagerRef.current?.config
+      });
+    }
+    
+    // 🔄 SUSCRIPTOR BIDIRECCIONAL: Escuchar eventos del DimensionManager para sincronización
+    const unsubscribe = dimensionManagerRef.current?.subscribe((event) => {
+      // Prevenir bucles infinitos: No procesar eventos que vienen del propio hook
+      if (event.source === 'state-update') {
+        console.log('🔄 useBannerEditor: Ignorando evento de origen state-update para evitar bucle', event);
+        return;
+      }
+      
+      // Solo procesar eventos de cambio de dimensión que vienen de fuentes externas (ej: drag-resize)
+      if (event.type === 'dimension-changed' && event.componentId && event.property && event.value && event.device) {
+        console.log('🔄 useBannerEditor: Recibiendo cambio de dimensión desde DimensionManager', {
+          componentId: event.componentId,
+          property: event.property,
+          value: event.value,
+          device: event.device,
+          source: event.source
+        });
+        
+        // Crear el objeto de estilo para actualizar
+        const styleUpdate = {
+          [event.property]: event.value
+        };
+        
+        // Usar el método directo que NO genera eventos adicionales
+        updateDimensionFromManager(event.componentId, event.property, event.value, event.device);
+      }
+    });
+    
+    // Cleanup al desmontar
+    return () => {
+      if (dimensionManagerRef.current) {
+        console.log('🧹 useBannerEditor: Limpiando DimensionManager y suscriptor');
+        unsubscribe?.();
+      }
+    };
+  }, [updateDimensionFromManager]);
 
   // Función para generar posición del botón de preferencias según configuración del banner
   const getPreferencesButtonPosition = useCallback((layout, device = 'desktop') => {
@@ -503,9 +603,9 @@ export function useBannerEditor() {
         }
         
         return {
-          desktop: { ...baseStyles, fontSize: '16px', padding: '8px 16px' },
-          tablet: { ...baseStyles, fontSize: '14px', padding: '6px 12px' },
-          mobile: { ...baseStyles, fontSize: '12px', padding: '4px 8px' }
+          desktop: { ...baseStyles, fontSize: '16px', padding: '8px 16px', textAlign: 'center' },
+          tablet: { ...baseStyles, fontSize: '14px', padding: '6px 12px', textAlign: 'center' },
+          mobile: { ...baseStyles, fontSize: '12px', padding: '4px 8px', textAlign: 'center' }
         };
         
       case 'text':
@@ -516,9 +616,9 @@ export function useBannerEditor() {
         };
         
         return {
-          desktop: { ...baseStyles, fontSize: '14px', padding: '8px' },
-          tablet: { ...baseStyles, fontSize: '12px', padding: '6px' },
-          mobile: { ...baseStyles, fontSize: '10px', padding: '4px' }
+          desktop: { ...baseStyles, fontSize: '14px', padding: '8px', textAlign: 'left' },
+          tablet: { ...baseStyles, fontSize: '12px', padding: '6px', textAlign: 'left' },
+          mobile: { ...baseStyles, fontSize: '10px', padding: '4px', textAlign: 'left' }
         };
         
       case 'image':
@@ -643,7 +743,7 @@ export function useBannerEditor() {
     
     // Verificar si la posición está fuera del área visible (0-100%)
     // También considerar un margen para evitar componentes muy pegados al borde
-    const margin = 5; // 5% de margen
+    const margin = 0; // Sin margen - permitir hasta 100%
     const isOutOfBounds = topPercent < 0 || topPercent > (100 - margin) || 
                          leftPercent < 0 || leftPercent > (100 - margin);
     
@@ -760,13 +860,413 @@ export function useBannerEditor() {
   }, [bannerConfig.components, deviceView]);
 
   // Agregar un nuevo componente con soporte para datos iniciales
-  const addComponent = useCallback((componentType, position, initialData = {}) => {
+  // Función para crear presets de componentes
+  const createPreset = useCallback(async (presetType, position, clientInfo = null) => {
+    console.log('🎨 createPreset called:', { presetType, position, clientInfo });
+    console.log('🎨 DEBUG - bannerConfig en createPreset:', bannerConfig);
+    
+    if (presetType === 'texto-legal') {
+      // Crear un contenedor con 4 textos para información legal
+      const containerId = `container-${Date.now()}`;
+      
+      // Posición del contenedor (centrado por defecto)
+      const containerPosition = position || { top: '10%', left: '10%' };
+      
+      // Obtener razón social del cliente propietario del banner
+      let companyName = '{razonSocial}'; // Variable template que se reemplazará
+      
+      try {
+        // MÉTODO 1: Usar clientId pasado como parámetro (más específico)
+        let targetClientId = clientInfo?.clientId;
+        
+        // MÉTODO 2: Intentar obtener clientId del bannerConfig (para banners existentes)
+        if (!targetClientId) {
+          targetClientId = bannerConfig?.clientId;
+        }
+        
+        // MÉTODO 3: Si no hay clientId en bannerConfig, usar el del usuario autenticado 
+        // (para banners nuevos que se están creando por primera vez)
+        if (!targetClientId) {
+          const authUser = JSON.parse(localStorage.getItem('user') || '{}');
+          targetClientId = authUser.clientId;
+          console.log('📝 Banner nuevo: usando clientId del usuario autenticado:', targetClientId);
+          console.log('👤 Datos del usuario autenticado:', {
+            role: authUser.role,
+            clientId: authUser.clientId,
+            name: authUser.name,
+            email: authUser.email
+          });
+        } else {
+          console.log('📋 Banner existente: usando clientId específico:', targetClientId);
+        }
+        
+        if (targetClientId) {
+          console.log('🔍 Intentando obtener datos del cliente con ID:', targetClientId);
+          
+          // SOLUCIÓN: Usar la nueva API de sesión que incluye información del cliente
+          const authUser = JSON.parse(localStorage.getItem('user') || '{}');
+          
+          // MÉTODO 1: Usar información del cliente guardada en el estado (la más rápida)
+          if (clientInfo && clientInfo.fiscalInfo?.razonSocial) {
+            companyName = clientInfo.fiscalInfo.razonSocial;
+            console.log('✅ Nombre empresa desde clientInfo guardado:', companyName);
+          }
+          
+          // MÉTODO 2: Si no tenemos la info guardada, obtenerla de la API de sesión
+          if (!companyName || companyName === '{razonSocial}') {
+            try {
+              const { getSessionInfo } = await import('../../../../api/auth');
+              const sessionData = await getSessionInfo();
+              const sessionUser = sessionData.data.user;
+              
+              if (sessionUser.clientInfo?.fiscalInfo?.razonSocial) {
+                companyName = sessionUser.clientInfo.fiscalInfo.razonSocial;
+                console.log('✅ Nombre empresa desde API de sesión:', companyName);
+                
+                // Guardar la información para uso futuro
+                setClientInfo(sessionUser.clientInfo);
+              } else if (sessionUser.clientInfo?.company) {
+                companyName = sessionUser.clientInfo.company;
+                console.log('✅ Nombre empresa (company) desde API de sesión:', companyName);
+              } else if (sessionUser.clientInfo?.name) {
+                companyName = sessionUser.clientInfo.name;
+                console.log('✅ Nombre empresa (name) desde API de sesión:', companyName);
+              }
+            } catch (error) {
+              console.warn('⚠️ Error obteniendo información de sesión:', error);
+            }
+          }
+          
+          // MÉTODO 3 (FALLBACK): Para owners, usar la API de clientes directamente
+          if ((!companyName || companyName === '{razonSocial}') && authUser.role === 'owner') {
+            try {
+              const { getClient } = await import('../../../../api/client');
+              const clientData = await getClient(targetClientId);
+              
+              companyName = clientData.fiscalInfo?.razonSocial || 
+                           clientData.company || 
+                           clientData.name || 
+                           '{razonSocial}';
+              console.log('✅ Nombre empresa desde API de cliente (owner):', companyName);
+            } catch (error) {
+              console.warn('⚠️ Error al obtener cliente (owner):', error);
+            }
+          }
+          
+          // MÉTODO 4 (ÚLTIMO RECURSO): Usar nombre del usuario
+          if (!companyName || companyName === '{razonSocial}') {
+            companyName = authUser.name || 'Empresa';
+            console.log('✅ Usando nombre del usuario como empresa (último recurso):', companyName);
+          }
+          
+          console.log('🏢 Información del cliente obtenida:', {
+            sourceMethod: clientInfo?.clientId ? 'clientInfo.clientId' : 
+                         bannerConfig?.clientId ? 'bannerConfig.clientId' : 'authUser.clientId',
+            clientId: targetClientId,
+            userRole: authUser.role,
+            companyNameUsed: companyName
+          });
+          console.log('✅ COMPANY NAME FINAL PARA TEXTO 4:', companyName);
+        } else {
+          console.warn('⚠️ No se encontró clientId en bannerConfig ni en usuario autenticado');
+        }
+      } catch (error) {
+        console.error('❌ ERROR COMPLETO al obtener cliente:', error);
+        console.error('❌ Error message:', error.message);
+        console.error('❌ Error response:', error.response);
+        console.error('❌ Error response data:', error.response?.data);
+        console.error('❌ Error status:', error.response?.status);
+        console.warn('⚠️ No se pudo obtener información del cliente, usando valor por defecto:', error.message);
+      }
+      
+      // Crear el contenedor padre con flexbox
+      const containerComponent = {
+        id: containerId,
+        type: 'container',
+        content: '',
+        style: {
+          desktop: { 
+            backgroundColor: 'transparent',
+            border: 'none',
+            width: '100%',
+            height: '100%',
+            padding: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between'
+          },
+          tablet: { 
+            backgroundColor: 'transparent',
+            border: 'none',
+            width: '100%',
+            height: '100%',
+            padding: '15px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between'
+          },
+          mobile: { 
+            backgroundColor: 'transparent',
+            border: 'none',
+            width: '100%',
+            height: '100%',
+            padding: '10px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between'
+          }
+        },
+        position: {
+          desktop: { ...containerPosition },
+          tablet: { ...containerPosition },
+          mobile: { ...containerPosition }
+        },
+        children: [
+          // Texto 1 - Título: Información de cookies
+          {
+            id: `text-${Date.now()}-1`,
+            type: 'text',
+            content: 'Información de cookies',
+            parentId: containerId,
+            style: {
+              desktop: { 
+                fontSize: '18px', 
+                fontWeight: 'bold', 
+                color: '#212529',
+                width: '100%',
+                height: '10%',
+                margin: '0',
+                textAlign: 'center'
+              },
+              tablet: { 
+                fontSize: '16px', 
+                fontWeight: 'bold', 
+                color: '#212529',
+                width: '100%',
+                height: '10%',
+                margin: '0',
+                textAlign: 'center'
+              },
+              mobile: { 
+                fontSize: '14px', 
+                fontWeight: 'bold', 
+                color: '#212529',
+                width: '100%',
+                height: '10%',
+                margin: '0',
+                textAlign: 'center'
+              }
+            },
+            position: {
+              desktop: { top: '0%', left: '0%' },
+              tablet: { top: '0%', left: '0%' },
+              mobile: { top: '0%', left: '0%' }
+            }
+          },
+          // Texto 2 - Descripción general
+          {
+            id: `text-${Date.now()}-2`,
+            type: 'text',
+            content: 'Utilizamos cookies propias y de terceros para analizar nuestros servicios y mostrarte publicidad relacionada con tus preferencias en base a un perfil elaborado a partir de tus hábitos de navegación (por ejemplo, páginas visitadas).',
+            parentId: containerId,
+            style: {
+              desktop: { 
+                fontSize: '14px', 
+                color: '#495057', 
+                lineHeight: '1.5',
+                width: '100%',
+                height: '20%',
+                margin: '0',
+                textAlign: 'justify'
+              },
+              tablet: { 
+                fontSize: '13px', 
+                color: '#495057', 
+                lineHeight: '1.4',
+                width: '100%',
+                height: '20%',
+                margin: '0',
+                textAlign: 'justify'
+              },
+              mobile: { 
+                fontSize: '12px', 
+                color: '#495057', 
+                lineHeight: '1.3',
+                width: '100%',
+                height: '20%',
+                margin: '0',
+                textAlign: 'justify'
+              }
+            },
+            position: {
+              desktop: { top: '15%', left: '0%' },
+              tablet: { top: '15%', left: '0%' },
+              mobile: { top: '15%', left: '0%' }
+            }
+          },
+          // Texto 3 - Opciones de configuración
+          {
+            id: `text-${Date.now()}-3`,
+            type: 'text',
+            content: 'Puedes aceptar todas las cookies pulsando el botón "Aceptar todas" o rechazarlas en el botón "Rechazar todas", y configurarlas en todo momento desde el "panel de configuración", donde encontrarás una explicación y descripción de cada tipo de cookie. En todo momento aceptas las "cookies técnicas/necesarias" para el buen funcionamiento de la web.',
+            parentId: containerId,
+            style: {
+              desktop: { 
+                fontSize: '14px', 
+                color: '#495057', 
+                lineHeight: '1.5',
+                width: '100%',
+                height: '20%',
+                margin: '0',
+                textAlign: 'justify'
+              },
+              tablet: { 
+                fontSize: '13px', 
+                color: '#495057', 
+                lineHeight: '1.4',
+                width: '100%',
+                height: '20%',
+                margin: '0',
+                textAlign: 'justify'
+              },
+              mobile: { 
+                fontSize: '12px', 
+                color: '#495057', 
+                lineHeight: '1.3',
+                width: '100%',
+                height: '20%',
+                margin: '0',
+                textAlign: 'justify'
+              }
+            },
+            position: {
+              desktop: { top: '40%', left: '0%' },
+              tablet: { top: '40%', left: '0%' },
+              mobile: { top: '40%', left: '0%' }
+            }
+          },
+          // Texto 4 - Definición de cookies con razón social dinámica
+          (() => {
+            const texto4Content = `Una cookie es un pequeño archivo de información que se guarda en tu ordenador, smartphone o tableta cada vez que visitas nuestra página web. Algunas pueden ser nuestras de {razonSocial}, y otras pertenecen a empresas externas que prestan servicios para nuestra página web.`;
+            console.log('📝 CREANDO TEXTO 4 CON CONTENIDO:', texto4Content);
+            console.log('📝 COMPANY NAME USADO EN TEXTO 4:', companyName);
+            
+            return {
+              id: `text-${Date.now()}-4`,
+              type: 'text',
+              content: texto4Content,
+              parentId: containerId,
+            style: {
+              desktop: { 
+                fontSize: '14px', 
+                color: '#495057', 
+                lineHeight: '1.5',
+                width: '100%',
+                height: '20%',
+                margin: '0',
+                textAlign: 'justify'
+              },
+              tablet: { 
+                fontSize: '13px', 
+                color: '#495057', 
+                lineHeight: '1.4',
+                width: '100%',
+                height: '20%',
+                margin: '0',
+                textAlign: 'justify'
+              },
+              mobile: { 
+                fontSize: '12px', 
+                color: '#495057', 
+                lineHeight: '1.3',
+                width: '100%',
+                height: '20%',
+                margin: '0',
+                textAlign: 'justify'
+              }
+            },
+            position: {
+              desktop: { top: '65%', left: '0%' },
+              tablet: { top: '65%', left: '0%' },
+              mobile: { top: '65%', left: '0%' }
+            }
+            };
+          })()
+        ],
+        containerConfig: {
+          desktop: {
+            displayMode: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            alignItems: 'stretch',
+            gap: '10px'
+          },
+          tablet: {
+            displayMode: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            alignItems: 'stretch',
+            gap: '8px'
+          },
+          mobile: {
+            displayMode: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            alignItems: 'stretch',
+            gap: '6px'
+          }
+        }
+      };
+      
+      // Agregar el contenedor con todos sus hijos al banner
+      console.log('💾 AGREGANDO CONTENEDOR AL BANNER:', containerComponent);
+      console.log('💾 TEXTO 4 CONTENT EN CONTENEDOR:', containerComponent.children[3]?.content);
+      
+      setBannerConfig(prev => {
+        const newConfig = {
+          ...prev,
+          components: [...prev.components, containerComponent]
+        };
+        console.log('💾 NUEVO BANNER CONFIG:', newConfig);
+        return newConfig;
+      });
+      
+      console.log('✅ PRESET TEXTO LEGAL CREADO CON ID:', containerId);
+      return containerId;
+    }
+    
+    return null;
+  }, [bannerConfig, clientInfo]);
+
+  const addComponent = useCallback(async (componentType, position, initialData = {}) => {
     console.log('🆕 useBannerEditor: addComponent called', {
       componentType,
       position,
       initialData,
       timestamp: Date.now()
     });
+    
+    // Verificar si es un preset
+    if (componentType.startsWith('preset-')) {
+      // Obtener información del cliente actual (si está disponible)
+      // Priorizar clientId de initialData, luego de bannerConfig, luego de clientInfo
+      const clientInfo = {
+        clientId: initialData?.clientId || bannerConfig?.clientId || bannerConfig?.clientInfo?.clientId,
+        ...bannerConfig?.clientInfo,
+        ...initialData?.clientInfo
+      };
+      
+      console.log('🎯 PRESET DETECTADO:', {
+        componentType,
+        presetType: componentType.replace('preset-', ''),
+        position,
+        clientInfo,
+        bannerConfigClientId: bannerConfig?.clientId,
+        initialDataClientId: initialData?.clientId
+      });
+      
+      return await createPreset(componentType.replace('preset-', ''), position, clientInfo);
+    }
     
     // Verificación de parámetros
     if (!componentType) {
@@ -776,17 +1276,20 @@ export function useBannerEditor() {
       return null;
     }
     
+    const finalComponentType = componentType;
+    
     // Crear un ID único para el nuevo componente (o usar el predefinido para botones obligatorios)
     const newId = initialData.id || `comp-${Date.now()}`;
     
     // Estilos predeterminados para el nuevo componente
-    const newStyles = getDefaultStylesForNewComponent(componentType, initialData.action?.type);
+    const newStyles = getDefaultStylesForNewComponent(finalComponentType, initialData.action?.type);
     
-    // Determinar si el componente debe estar bloqueado (botones obligatorios)
-    const shouldBeLocked = componentType === 'button' && initialData.action && 
+    // Determiner si el componente debe estar bloqueado (botones obligatorios)
+    const shouldBeLocked = finalComponentType === 'button' && initialData.action && 
       ['accept_all', 'reject_all', 'show_preferences'].includes(initialData.action.type);
     
     
+    console.log('TIPO RECIBIDO:', componentType, 'TIPO FINAL:', finalComponentType);
     // Para botones obligatorios, usar posición automática si no se especifica una posición precisa
     let finalPosition = position;
     if (shouldBeLocked && initialData.action) {
@@ -822,14 +1325,14 @@ export function useBannerEditor() {
     
     
     // Validar y centrar posición si está fuera del canvas (excepto para botones obligatorios)
-    const validatedPosition = shouldBeLocked ? posWithPercentage : validateAndCenterPosition(posWithPercentage, componentType);
+    const validatedPosition = shouldBeLocked ? posWithPercentage : validateAndCenterPosition(posWithPercentage, finalComponentType);
     
     // Determinar el contenido inicial (puede venir preestablecido)
     let initialContent = initialData.content;
     
     // Si no hay contenido inicial, usar el contenido predeterminado para el tipo
     if (initialContent === undefined) {
-      initialContent = getDefaultContent(componentType, initialData.action?.type);
+      initialContent = getDefaultContent(finalComponentType, initialData.action?.type);
     }
     
     // Aplicar estilos específicos para botones obligatorios
@@ -843,7 +1346,7 @@ export function useBannerEditor() {
     // Crear el nuevo componente
     const newComponent = {
       id: newId,
-      type: componentType,
+      type: finalComponentType,
       content: initialContent,
       style: JSON.parse(JSON.stringify(newStyles)), // Copia profunda para evitar referencias compartidas
       locked: shouldBeLocked,
@@ -855,7 +1358,7 @@ export function useBannerEditor() {
       // Preservar action si existe
       ...(initialData.action && { action: initialData.action }),
       // NUEVO: Configuración inicial para contenedores
-      ...(componentType === 'container' && {
+      ...(finalComponentType === 'container' && {
         children: [], // Array de componentes hijos
         containerConfig: {
           desktop: {
@@ -918,7 +1421,7 @@ export function useBannerEditor() {
     }, 100);
     
     return newId; // Retornar el ID para uso futuro
-  }, [ensurePercentage, getDefaultContent, getDefaultStylesForNewComponent]);
+  }, [ensurePercentage, getDefaultContent, getDefaultStylesForNewComponent, bannerConfig]);
 
   // Función para validar que existen todos los botones obligatorios
   const validateRequiredButtons = useCallback(() => {
@@ -2733,7 +3236,7 @@ export function useBannerEditor() {
       
       return updatedSelectedComponent;
     });
-  }, [findAndUpdateChild, bannerConfig.components, deviceView, validateComponentBounds]);
+  }, [findAndUpdateChild]); // Solo dependencias estables para evitar re-creaciones
 
   // NUEVO: Actualizar posición de componente hijo
   const updateChildPositionForDevice = useCallback((componentId, device, newPosition) => {
@@ -2853,21 +3356,21 @@ export function useBannerEditor() {
 
   // Actualizar estilos - versión mejorada con validación de dimensiones para imágenes
   const updateComponentStyleForDevice = useCallback((componentId, device, newStyle) => {
-    console.group(`📝 EDITOR: updateComponentStyleForDevice`);
+    console.log(`🚨 useBannerEditor RECIBE: ${componentId} ${device}`, newStyle);
     
-    // Validar que newStyle no sea undefined o null
     if (!newStyle || typeof newStyle !== 'object') {
-      console.error('❌ newStyle is undefined, null, or not an object:', newStyle);
+      console.error('❌ newStyle inválido:', newStyle);
       return;
     }
     
-    // Si estamos actualizando dimensiones, validar contra el contenedor padre
-    if (newStyle.width !== undefined || newStyle.height !== undefined) {
-      const validationResult = validateComponentBounds(componentId, {}, newStyle);
-      if (!validationResult.isValid) {
-        newStyle = { ...newStyle, ...validationResult.adjustedSize };
-      }
-    }
+    // TEMPORALMENTE DESACTIVADO: Validación que sobrescribe valores del usuario
+    // if (newStyle.width !== undefined || newStyle.height !== undefined) {
+    //   const validationResult = validateComponentBounds(componentId, {}, newStyle);
+    //   if (!validationResult.isValid) {
+    //     console.warn('⚠️ Dimensiones fuera de límites (no aplicando corrección):', validationResult.warnings);
+    //     // newStyle = { ...newStyle, ...validationResult.adjustedSize }; // NO OVERRIDE
+    //   }
+    // }
     
     setBannerConfig(prev => {
       // Encontrar el componente a actualizar
@@ -2911,34 +3414,13 @@ export function useBannerEditor() {
           let height = parseSize(heightValue);
           
           
-          // Verificar si alguna dimensión no es válida
-          const needsDefaultWidth = width === null || isNaN(width) || width <= 0;
-          const needsDefaultHeight = height === null || isNaN(height) || height <= 0;
+          // DESACTIVADO: Defaults forzados que interfieren con configuración del usuario
+          // Solo aplicar defaults en componentes NUEVOS, no en actualizaciones
+          // const needsDefaultWidth = width === null || isNaN(width) || width <= 0;
+          // const needsDefaultHeight = height === null || isNaN(height) || height <= 0;
           
-          // Si alguna dimensión no es válida, aplicar valores predeterminados
-          if (needsDefaultWidth || needsDefaultHeight) {
-            
-            // Establecer valores predeterminados seguros
-            const DEFAULT_WIDTH = 200;
-            const DEFAULT_HEIGHT = 150;
-            
-            // Si necesitamos ambas dimensiones o solo width
-            if (needsDefaultWidth) {
-              width = DEFAULT_WIDTH;
-              processedNewStyle.width = `${width}px`;
-            }
-            
-            // Si necesitamos ambas dimensiones o solo height
-            if (needsDefaultHeight) {
-              height = DEFAULT_HEIGHT;
-              processedNewStyle.height = `${height}px`;
-            }
-            
-            // Si no hay objectFit, establecerlo
-            if (!currentDeviceStyle.objectFit && !processedNewStyle.objectFit) {
-              processedNewStyle.objectFit = 'contain';
-            }
-          }
+          // Permitir que el usuario configure libremente las dimensiones
+          // Los valores por defecto solo se aplicarán en la creación inicial del componente
         }
       }
       
@@ -2948,11 +3430,9 @@ export function useBannerEditor() {
         ...processedNewStyle
       };
       
-      console.log(`🔄 EDITOR: Actualizando estilo para ${componentId} en ${device}:`, {
-        antes: currentDeviceStyle,
-        nuevo: processedNewStyle,
-        resultado: updatedComponent.style[device]
-      });
+      if (processedNewStyle.width) {
+        console.log(`🚨 FINAL APLICADO: width=${updatedComponent.style[device].width} en ${device}`);
+      }
       
       // IMPORTANTE: Si es componente de imagen y se actualizaron dimensiones, actualizar _imageSettings
       if (isImageComponent && (newStyle.width || newStyle.height || newStyle.objectFit || newStyle.objectPosition)) {
@@ -3010,27 +3490,67 @@ export function useBannerEditor() {
         components: updatedComponents
       };
     });
+
+    // 🔄 INTEGRACIÓN: Emitir eventos del DimensionManager para sincronización bidireccional
+    if (dimensionManagerRef.current) {
+      // Filtrar cambios relacionados con dimensiones para emitir eventos apropiados
+      const dimensionProperties = ['width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight'];
+      const changedDimensions = Object.keys(newStyle).filter(prop => 
+        dimensionProperties.includes(prop)
+      );
+      
+      if (changedDimensions.length > 0) {
+        console.log(`🔄 useBannerEditor: Emitiendo eventos de dimensión para ${componentId} (${device})`, {
+          properties: changedDimensions,
+          values: changedDimensions.reduce((acc, prop) => {
+            acc[prop] = newStyle[prop];
+            return acc;
+          }, {})
+        });
+        
+        // Emitir evento por cada propiedad de dimensión cambiada
+        changedDimensions.forEach(property => {
+          try {
+            const value = newStyle[property];
+            
+            // Usar updateDimension que incluye parsing, validación y eventos
+            dimensionManagerRef.current.updateDimension(
+              componentId,
+              property,
+              value,
+              device,
+              'state-update' // Source indica que viene del estado del hook
+            );
+            
+          } catch (error) {
+            console.error(`🚫 useBannerEditor: Error al emitir evento para ${componentId}.${property}:`, error);
+          }
+        });
+      }
+    }
     
-    // Actualizar también el componente seleccionado si es el mismo
-    setSelectedComponent(prev => {
-      if (!prev || prev.id !== componentId) return prev;
-      
-      console.log(`🔄 EDITOR: Actualizando selectedComponent para ${componentId}`);
-      
-      // Determinar si es un componente de imagen
-      const isImageComponent = prev.type === 'image';
-      
-      // Crear una copia profunda de los estilos
-      const updatedStyle = JSON.parse(JSON.stringify(prev.style || { desktop: {}, tablet: {}, mobile: {} }));
-      
-      // Asegurar que existe el objeto para el dispositivo
-      if (!updatedStyle[device]) updatedStyle[device] = {};
-      
-      // Hacer una copia del estilo actual para ese dispositivo
-      const currentDeviceStyle = { ...updatedStyle[device] };
-      
-      // Procesar las nuevas propiedades de estilo
-      let processedNewStyle = { ...newStyle };
+    // DESACTIVADO: Actualización de selectedComponent que causaba bucle infinito
+    // Solo actualizar selectedComponent si es estrictamente necesario
+    if (false) { // Temporalmente desactivado para evitar bucle infinito
+      setSelectedComponent(prev => {
+        if (!prev || prev.id !== componentId) return prev;
+        
+        console.log(`🔄 EDITOR: Actualizando selectedComponent para ${componentId}`);
+        
+        // Determinar si es un componente de imagen
+        const isImageComponent = prev.type === 'image';
+        
+        // Crear una copia profunda de los estilos
+        const updatedStyle = JSON.parse(JSON.stringify(prev.style || { desktop: {}, tablet: {}, mobile: {} }));
+        
+        // Asegurar que existe el objeto para el dispositivo
+        if (!updatedStyle[device]) updatedStyle[device] = {};
+        
+        // Hacer una copia del estilo actual para ese dispositivo
+        const currentDeviceStyle = { ...updatedStyle[device] };
+        
+        // Procesar las nuevas propiedades de estilo
+        let processedNewStyle = { ...newStyle };
       
       if (isImageComponent) {
         // IMPORTANTE: Validación de dimensiones para componentes de imagen
@@ -3086,7 +3606,8 @@ export function useBannerEditor() {
         ...prev,
         style: updatedStyle
       };
-    });
+      });
+    } // Cerrar el bloque if (false) desactivado
     
     // Importante: Al actualizar dimensiones, también actualizar los estilos para otros dispositivos
     // si es un componente de imagen, para mantener consistencia en el aspecto visual
@@ -3254,6 +3775,27 @@ export function useBannerEditor() {
       
       // Actualizar la propiedad
       updatedLayout[device][prop] = value;
+      
+      return {
+        ...prev,
+        layout: updatedLayout
+      };
+    });
+  }, []);
+
+  // Función batch para múltiples actualizaciones de layout simultáneas
+  const handleBatchUpdateLayoutForDevice = useCallback((device, updates) => {
+    setBannerConfig(prev => {
+      // Crear una copia profunda del layout
+      const updatedLayout = JSON.parse(JSON.stringify(prev.layout || {}));
+      
+      // Asegurar que existe el objeto para el dispositivo
+      if (!updatedLayout[device]) updatedLayout[device] = {};
+      
+      // Aplicar todas las actualizaciones de una vez
+      Object.entries(updates).forEach(([prop, value]) => {
+        updatedLayout[device][prop] = value;
+      });
       
       return {
         ...prev,
@@ -4200,6 +4742,28 @@ const setInitialConfig = useCallback((config, autoSelect = false) => {
   // Hacer copia profunda para evitar referencias compartidas
   const processedConfig = JSON.parse(JSON.stringify(config));
   
+  // Extraer y guardar información del cliente si está disponible
+  if (processedConfig.clientId) {
+    console.log('🏢 Cliente ID encontrado en config:', processedConfig.clientId);
+    
+    // Si viene con datos del cliente populated (solo para owners)
+    if (processedConfig.clientId._id) {
+      setClientInfo({
+        clientId: processedConfig.clientId._id,
+        name: processedConfig.clientId.name,
+        company: processedConfig.clientId.company,
+        fiscalInfo: processedConfig.clientId.fiscalInfo
+      });
+      console.log('✅ Información del cliente guardada desde populate:', processedConfig.clientId);
+    } else {
+      // Solo tenemos el ID
+      setClientInfo({
+        clientId: processedConfig.clientId
+      });
+      console.log('📝 Solo ClientId guardado:', processedConfig.clientId);
+    }
+  }
+  
   // Asegurar estructura completa del banner
   const normalizedConfig = {
     ...processedConfig,
@@ -4232,34 +4796,36 @@ const setInitialConfig = useCallback((config, autoSelect = false) => {
   }
   
   
-  // Asegurar valores correctos según tipo de banner para todos los dispositivos
+  // DESACTIVADO: Lógica que sobrescribe width del usuario según tipo de banner
+  // Esta lógica estaba causando que se reseteen los width configurados por el usuario
+  /*
   ['desktop', 'tablet', 'mobile'].forEach(device => {
     if (normalizedConfig.layout[device]) {
       const bannerType = normalizedConfig.layout[device].type;
       
-      // Ajustar ancho según tipo
-      if (bannerType === 'modal') {
-        normalizedConfig.layout[device].width = '60%';
-        normalizedConfig.layout[device].minWidth = '40%';
-        normalizedConfig.layout[device].maxWidth = '90%';
-        normalizedConfig.layout[device]['data-width'] = '60';
-      } else if (bannerType === 'floating') {
-        normalizedConfig.layout[device].width = '50%';
-        normalizedConfig.layout[device].minWidth = '40%';
-        normalizedConfig.layout[device].maxWidth = '70%';
-        normalizedConfig.layout[device]['data-width'] = '50';
-        // Asegurar que tenga configuración de esquina y margen
+      // Solo aplicar defaults si NO hay width configurado por el usuario
+      if (!normalizedConfig.layout[device].width) {
+        if (bannerType === 'modal') {
+          normalizedConfig.layout[device].width = '60%';
+        } else if (bannerType === 'floating') {
+          normalizedConfig.layout[device].width = '50%';
+        } else {
+          normalizedConfig.layout[device].width = '100%';
+        }
+      }
+      
+      // Solo aplicar esquina y margen para floating si no existen
+      if (bannerType === 'floating') {
         if (!normalizedConfig.layout[device].floatingCorner) {
           normalizedConfig.layout[device].floatingCorner = 'bottom-right';
         }
         if (!normalizedConfig.layout[device].floatingMargin) {
           normalizedConfig.layout[device].floatingMargin = 20;
         }
-      } else { // banner estándar
-        normalizedConfig.layout[device].width = '100%';
       }
     }
   });
+  */
   
   // Si no hay layout para tablet o mobile, copiar de desktop
   if (Object.keys(normalizedConfig.layout.tablet).length === 0) {
@@ -5178,6 +5744,90 @@ const handleImageUpload = async (componentId, file) => {
     return buildHierarchy(bannerConfig.components);
   }, [bannerConfig.components]);
   
+  // Función para actualizar dinámicamente la razón social en componentes de texto legal
+  const updateCompanyName = useCallback((newCompanyName) => {
+    setBannerConfig(prev => {
+      const updateComponentsRecursively = (components) => {
+        return components.map(comp => {
+          // Si el componente es de tipo text y tiene contenido
+          if (comp.type === 'text' && comp.content) {
+            let updatedContent = comp.content;
+            let hasCompanyReference = false;
+            
+            // Caso 1: Contenido es string simple
+            if (typeof comp.content === 'string') {
+              const originalText = comp.content;
+              // Buscar referencias a empresa en español: "de NAT21, S.L." o similares
+              const companyPattern = /\bde\s+[A-Z][A-Za-z0-9\s,\.]+(?:S\.?L\.?|S\.?A\.?|Inc\.?|Ltd\.?|LLC|Corp\.?)\b/gi;
+              
+              if (companyPattern.test(originalText)) {
+                hasCompanyReference = true;
+                updatedContent = originalText.replace(
+                  /\bde\s+[A-Z][A-Za-z0-9\s,\.]+(?:S\.?L\.?|S\.?A\.?|Inc\.?|Ltd\.?|LLC|Corp\.?)\b/gi,
+                  `de ${newCompanyName || '{razonSocial}'}`
+                );
+              }
+            }
+            // Caso 2: Contenido es objeto con texts
+            else if (typeof comp.content === 'object' && comp.content.texts) {
+              const updatedTexts = {};
+              
+              Object.keys(comp.content.texts).forEach(lang => {
+                const originalText = comp.content.texts[lang];
+                const companyPattern = /\bde\s+[A-Z][A-Za-z0-9\s,\.]+(?:S\.?L\.?|S\.?A\.?|Inc\.?|Ltd\.?|LLC|Corp\.?)\b/gi;
+                
+                if (companyPattern.test(originalText)) {
+                  hasCompanyReference = true;
+                  updatedTexts[lang] = originalText.replace(
+                    /\bde\s+[A-Z][A-Za-z0-9\s,\.]+(?:S\.?L\.?|S\.?A\.?|Inc\.?|Ltd\.?|LLC|Corp\.?)\b/gi,
+                    `de ${newCompanyName || '{razonSocial}'}`
+                  );
+                }
+              });
+              
+              if (hasCompanyReference) {
+                updatedContent = {
+                  ...comp.content,
+                  texts: {
+                    ...comp.content.texts,
+                    ...updatedTexts
+                  }
+                };
+              }
+            }
+            
+            // Si encontramos referencias a empresa, actualizar el componente
+            if (hasCompanyReference) {
+              return {
+                ...comp,
+                content: updatedContent
+              };
+            }
+          }
+          
+          // Si es un contenedor, procesar recursivamente sus hijos
+          if (comp.type === 'container' && comp.children && comp.children.length > 0) {
+            return {
+              ...comp,
+              children: updateComponentsRecursively(comp.children)
+            };
+          }
+          
+          return comp;
+        });
+      };
+      
+      return {
+        ...prev,
+        components: updateComponentsRecursively(prev.components),
+        clientInfo: {
+          ...prev.clientInfo,
+          companyName: newCompanyName
+        }
+      };
+    });
+  }, []);
+
   return {
     bannerConfig,
     setBannerConfig,
@@ -5205,6 +5855,7 @@ const handleImageUpload = async (componentId, file) => {
     updateChildPositionForDevice, // Actualizar posición de componente hijo
     updateChildPosition, // NUEVA FUNCIÓN - FASE 4: Actualizar posición de componente hijo
     handleUpdateLayoutForDevice,
+    handleBatchUpdateLayoutForDevice, // NUEVA FUNCIÓN: Actualizar múltiples componentes para un dispositivo específico
     isPreferencesMode,
     setIsPreferencesMode,
     previewData,
@@ -5233,6 +5884,7 @@ const handleImageUpload = async (componentId, file) => {
     handleImageUpload,
     handleImageBase64Upload,
     collectImageFiles, // Nueva función para recopilar archivos de imágenes
+    updateCompanyName, // Nueva función para actualizar razón social dinámicamente
     getAllComponentsFlattened, // NUEVA FUNCIÓN - FASE 4: Para validación de anidamiento
     // Funciones para el panel de capas
     handleToggleComponentVisibility,
@@ -5243,6 +5895,8 @@ const handleImageUpload = async (componentId, file) => {
     handleMoveToContainer,
     validateContainerMove,
     getComponentInfo,
-    getComponentHierarchy
+    getComponentHierarchy,
+    // 🔄 INTEGRACIÓN: Función para actualizaciones directas desde DimensionManager
+    updateDimensionFromManager
   };
 }

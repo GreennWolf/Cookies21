@@ -22,7 +22,7 @@ class DomainAnalysisScheduler {
       // Obtener todos los dominios activos con análisis programado habilitado
       const domains = await Domain.find({
         status: 'active',
-        'analysisSchedule.enabled': true
+        'scanConfig.autoScanEnabled': true
       });
 
       logger.info(`Encontrados ${domains.length} dominios con análisis programado`);
@@ -54,7 +54,7 @@ class DomainAnalysisScheduler {
         this.activeJobs.get(domainId).destroy();
       }
 
-      const cronExpression = this.generateCronExpression(domain.analysisSchedule);
+      const cronExpression = this.generateCronExpression(domain.scanConfig);
       
       if (!cronExpression) {
         logger.warn(`No se pudo generar expresión cron para dominio ${domain.domain}`);
@@ -82,27 +82,24 @@ class DomainAnalysisScheduler {
   }
 
   // Generar expresión cron basada en la configuración del dominio
-  generateCronExpression(schedule) {
-    const [hour, minute] = schedule.time.split(':').map(Number);
-    
-    switch (schedule.frequency) {
-      case 'daily':
-        return `${minute} ${hour} * * *`;
-      
-      case 'weekly':
-        const days = schedule.daysOfWeek && schedule.daysOfWeek.length > 0 
-          ? schedule.daysOfWeek.join(',') 
-          : '0'; // Domingo por defecto
-        return `${minute} ${hour} * * ${days}`;
-      
-      case 'monthly':
-        const dayOfMonth = schedule.dayOfMonth || 1;
-        return `${minute} ${hour} ${dayOfMonth} * *`;
-      
-      default:
-        logger.warn(`Frecuencia no soportada: ${schedule.frequency}`);
-        return null;
+  generateCronExpression(scanConfig) {
+    // Si ya tiene una expresión cron personalizada, usarla
+    if (scanConfig.cronExpression) {
+      return scanConfig.cronExpression;
     }
+    
+    // Generar basado en el intervalo configurado
+    const cronMap = {
+      'hourly': '0 * * * *',
+      'every-2-hours': '0 */2 * * *',
+      'every-6-hours': '0 */6 * * *',
+      'every-12-hours': '0 */12 * * *',
+      'daily': '0 2 * * *',
+      'weekly': '0 2 * * 0',
+      'monthly': '0 2 1 * *'
+    };
+    
+    return cronMap[scanConfig.scanInterval] || '0 2 * * *'; // Default diario
   }
 
   // Ejecutar análisis para un dominio
@@ -114,10 +111,9 @@ class DomainAnalysisScheduler {
       const mockRequest = {
         params: { domainId: domain._id },
         body: {
-          scanType: domain.analysisSchedule.analysisConfig.scanType || 'full',
-          includeSubdomains: domain.analysisSchedule.analysisConfig.includeSubdomains || true,
-          maxUrls: domain.analysisSchedule.analysisConfig.maxUrls || 100,
-          depth: domain.analysisSchedule.analysisConfig.depth || 5
+          scanType: domain.scanConfig.scanType || 'smart',
+          includeSubdomains: domain.scanConfig.includeSubdomains || false,
+          maxDepth: domain.scanConfig.maxDepth || 3
         },
         user: { 
           id: 'system',
@@ -142,8 +138,8 @@ class DomainAnalysisScheduler {
 
       // Actualizar lastRun y nextRun en el dominio
       await Domain.findByIdAndUpdate(domain._id, {
-        'analysisSchedule.lastRun': new Date(),
-        'analysisSchedule.nextRun': this.calculateNextRun(domain.analysisSchedule)
+        'scanConfig.lastScheduledScan': new Date(),
+        'scanConfig.nextScheduledScan': this.calculateNextRun(domain.scanConfig)
       });
 
     } catch (error) {
@@ -152,53 +148,44 @@ class DomainAnalysisScheduler {
   }
 
   // Calcular la próxima fecha de ejecución
-  calculateNextRun(schedule) {
+  calculateNextRun(scanConfig) {
     const now = new Date();
-    const [hour, minute] = schedule.time.split(':').map(Number);
-    
     let nextRun = new Date(now);
-    nextRun.setHours(hour, minute, 0, 0);
+    
+    // Establecer hora por defecto (2 AM)
+    nextRun.setHours(2, 0, 0, 0);
 
-    switch (schedule.frequency) {
+    switch (scanConfig.scanInterval) {
+      case 'hourly':
+        nextRun.setHours(now.getHours() + 1, 0, 0, 0);
+        break;
+      case 'every-2-hours':
+        nextRun.setHours(now.getHours() + 2, 0, 0, 0);
+        break;
+      case 'every-6-hours':
+        nextRun.setHours(now.getHours() + 6, 0, 0, 0);
+        break;
+      case 'every-12-hours':
+        nextRun.setHours(now.getHours() + 12, 0, 0, 0);
+        break;
       case 'daily':
         if (nextRun <= now) {
           nextRun.setDate(nextRun.getDate() + 1);
         }
         break;
-      
       case 'weekly':
-        const targetDays = schedule.daysOfWeek || [0];
-        let found = false;
-        
-        for (let i = 0; i < 7; i++) {
-          const testDate = new Date(nextRun);
-          testDate.setDate(testDate.getDate() + i);
-          
-          if (targetDays.includes(testDate.getDay()) && testDate > now) {
-            nextRun = testDate;
-            found = true;
-            break;
-          }
-        }
-        
-        if (!found) {
-          // Si no encontramos día esta semana, ir a la próxima semana
-          nextRun.setDate(nextRun.getDate() + 7);
-          while (!targetDays.includes(nextRun.getDay())) {
-            nextRun.setDate(nextRun.getDate() + 1);
-          }
-        }
+        nextRun.setDate(nextRun.getDate() + 7);
+        nextRun.setDay(0); // Domingo
         break;
-      
       case 'monthly':
-        const targetDay = schedule.dayOfMonth || 1;
-        nextRun.setDate(targetDay);
-        
-        if (nextRun <= now) {
-          nextRun.setMonth(nextRun.getMonth() + 1);
-          nextRun.setDate(targetDay);
-        }
+        nextRun.setMonth(nextRun.getMonth() + 1);
+        nextRun.setDate(1);
         break;
+      default:
+        // Default: daily
+        if (nextRun <= now) {
+          nextRun.setDate(nextRun.getDate() + 1);
+        }
     }
 
     return nextRun;
@@ -207,9 +194,9 @@ class DomainAnalysisScheduler {
   // Actualizar fecha de próxima ejecución en el dominio
   async updateNextRunDate(domain) {
     try {
-      const nextRun = this.calculateNextRun(domain.analysisSchedule);
+      const nextRun = this.calculateNextRun(domain.scanConfig);
       await Domain.findByIdAndUpdate(domain._id, {
-        'analysisSchedule.nextRun': nextRun
+        'scanConfig.nextScheduledScan': nextRun
       });
     } catch (error) {
       logger.error(`Error actualizando nextRun para dominio ${domain.domain}:`, error);
@@ -224,7 +211,7 @@ class DomainAnalysisScheduler {
       // Obtener dominios activos con análisis programado
       const domains = await Domain.find({
         status: 'active',
-        'analysisSchedule.enabled': true
+        'scanConfig.autoScanEnabled': true
       });
 
       const currentDomainIds = new Set(domains.map(d => d._id.toString()));
@@ -270,7 +257,7 @@ class DomainAnalysisScheduler {
         return;
       }
 
-      if (domain.analysisSchedule.enabled && domain.status === 'active') {
+      if (domain.scanConfig.autoScanEnabled && domain.status === 'active') {
         this.scheduleForDomain(domain);
         logger.info(`Dominio reprogramado: ${domain.domain}`);
       } else {

@@ -619,6 +619,28 @@ const bannerTemplateSchema = new mongoose.Schema({
         default: 'always'
       }
     },
+    floatingIcon: {
+      enabled: { type: Boolean, default: true },
+      position: {
+        type: String,
+        enum: ['bottom-right', 'bottom-left', 'top-right', 'top-left'],
+        default: 'bottom-right'
+      },
+      color: {
+        type: String,
+        default: '#007bff' // Azul por defecto para cuando sea SVG
+      },
+      backgroundColor: {
+        type: String,
+        default: 'transparent' // Sin fondo por defecto
+      },
+      size: {
+        type: Number,
+        default: 40,
+        min: 20,
+        max: 150
+      }
+    },
     responsive: {
       breakpoints: {
         mobile: { type: Number, default: 480 },
@@ -676,6 +698,10 @@ const bannerTemplateSchema = new mongoose.Schema({
       enum: ['basic','advanced','custom'],
       default: 'custom'
     }
+  },
+  showBranding: {
+    type: Boolean,
+    default: true
   },
   status: {
     type: String,

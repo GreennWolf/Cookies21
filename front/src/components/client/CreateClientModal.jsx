@@ -10,6 +10,7 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
   const [availablePlans, setAvailablePlans] = useState([]);
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [formErrors, setFormErrors] = useState({});
   const [formData, setFormData] = useState({
     name: '',
     contactEmail: '',
@@ -50,18 +51,24 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
     setIsLoadingPlans(true);
     try {
       const response = await getSubscriptionPlans({ status: 'active' });
+      console.log('📋 Planes disponibles:', response.data.plans);
       setAvailablePlans(response.data.plans);
       
       // Si hay planes disponibles, seleccionar el primero que sea recomendado o el primero de la lista
       if (response.data.plans.length > 0) {
         const recommendedPlan = response.data.plans.find(plan => plan.metadata?.isRecommended);
         if (recommendedPlan) {
+          console.log('🌟 Seleccionando plan recomendado:', recommendedPlan.name);
           handlePlanSelect(recommendedPlan._id);
         } else {
+          console.log('📌 Seleccionando primer plan:', response.data.plans[0].name);
           handlePlanSelect(response.data.plans[0]._id);
         }
+      } else {
+        console.warn('⚠️ No hay planes disponibles');
       }
     } catch (error) {
+      console.error('❌ Error al cargar planes:', error);
       toast.error('Error al cargar planes disponibles');
     } finally {
       setIsLoadingPlans(false);
@@ -130,10 +137,12 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
   };
 
   const handlePlanSelect = (planId) => {
+    console.log('🎯 Plan seleccionado:', planId);
     // Encontrar el plan seleccionado
     const plan = availablePlans.find(p => p._id === planId);
     
     if (plan) {
+      console.log('✅ Plan encontrado:', plan.name);
       setSelectedPlan(plan);
       
       // Actualizar formData con la información del plan seleccionado
@@ -146,6 +155,8 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
           // Ya no manejamos maxUsers aquí, se obtiene directamente del plan
         }
       }));
+    } else {
+      console.error('❌ Plan no encontrado con ID:', planId);
     }
   };
 
@@ -175,22 +186,59 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
     
     // Validaciones básicas antes de avanzar al siguiente paso
     if (step === 1) {
+      const errors = {};
+      
+      // Solo validar campos del paso 1
       if (!formData.name.trim()) {
-        toast.error('El nombre del cliente es requerido');
-        return;
+        errors.name = 'El nombre del cliente es requerido';
       }
       if (!formData.contactEmail.trim()) {
-        toast.error('El email de contacto es requerido');
+        errors.contactEmail = 'El email de contacto es requerido';
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail)) {
+        errors.contactEmail = 'El email no es válido';
+      }
+      
+      // Si hay errores, mostrarlos y no avanzar
+      if (Object.keys(errors).length > 0) {
+        setFormErrors(errors);
+        toast.error('Por favor complete todos los campos requeridos correctamente');
         return;
       }
       
-      // Ya no requerimos dominios obligatoriamente
-      // La validación se hará después de avanzar al paso 2
+      // Limpiar errores si todo está bien
+      setFormErrors({});
     }
     
-    if (step === 2 && !formData.subscription.planId) {
-      toast.error('Debe seleccionar un plan de suscripción');
-      return;
+    // Validación para el paso 4 (administrador)
+    if (step === 4) {
+      const errors = {};
+      
+      if (!formData.adminUser.name.trim()) {
+        errors.adminUserName = 'El nombre del administrador es requerido';
+      }
+      if (!formData.adminUser.email.trim()) {
+        errors.adminUserEmail = 'El email del administrador es requerido';
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.adminUser.email)) {
+        errors.adminUserEmail = 'El email no es válido';
+      }
+      
+      // Si hay errores, mostrarlos y no avanzar
+      if (Object.keys(errors).length > 0) {
+        setFormErrors(errors);
+        toast.error('Por favor complete todos los campos del administrador');
+        return;
+      }
+      
+      // Limpiar errores si todo está bien
+      setFormErrors({});
+    }
+    
+    if (step === 2) {
+      console.log('🔍 Validando paso 2 - Plan ID:', formData.subscription.planId);
+      if (!formData.subscription.planId) {
+        toast.error('Debe seleccionar un plan de suscripción');
+        return;
+      }
     }
     
     // Si estamos en el paso 2 y no hay dominios válidos, saltar directamente al paso 4 (administrador)
@@ -419,7 +467,21 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
             errorMessage = data.message || 'Datos inválidos. Revise la información e inténtelo nuevamente.';
             break;
           case 409:
+            // Mostrar el mensaje específico del servidor
             errorMessage = data.message || 'Ya existe un cliente con ese email o dominio.';
+            // Si el error es sobre el email, marcarlo en el formulario
+            if (data.message) {
+              if (data.message.includes('email de contacto')) {
+                setFormErrors(prev => ({ ...prev, contactEmail: 'Este email ya está registrado' }));
+                setStep(1); // Volver al primer paso
+              } else if (data.message.includes('usuario con el email')) {
+                setFormErrors(prev => ({ ...prev, adminUserEmail: 'Este email ya está registrado' }));
+                setStep(1); // Volver al primer paso
+              } else if (data.message.includes('dominio')) {
+                // Para dominios, marcar el error de forma general
+                setStep(1); // Volver al primer paso
+              }
+            }
             break;
           case 422:
             errorMessage = data.message || 'Error de validación. Revise todos los campos.';
@@ -458,7 +520,7 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex justify-center items-center">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 flex justify-center items-center">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl m-4 max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white z-10 border-b p-4 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-800">Crear Cliente</h2>
@@ -542,11 +604,20 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
                     type="text"
                     name="name"
                     value={formData.name}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 p-2 rounded"
+                    onChange={(e) => {
+                      handleChange(e);
+                      // Limpiar error cuando el usuario empiece a escribir
+                      if (formErrors.name) {
+                        setFormErrors(prev => ({ ...prev, name: '' }));
+                      }
+                    }}
+                    className={`w-full border ${formErrors.name ? 'border-red-500' : 'border-gray-300'} p-2 rounded`}
                     placeholder="Ingrese el nombre del cliente"
                     required
                   />
+                  {formErrors.name && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.name}</p>
+                  )}
                 </div>
                 
                 <div className="mb-4">
@@ -557,11 +628,20 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
                     type="email"
                     name="contactEmail"
                     value={formData.contactEmail}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 p-2 rounded"
+                    onChange={(e) => {
+                      handleChange(e);
+                      // Limpiar error cuando el usuario empiece a escribir
+                      if (formErrors.contactEmail) {
+                        setFormErrors(prev => ({ ...prev, contactEmail: '' }));
+                      }
+                    }}
+                    className={`w-full border ${formErrors.contactEmail ? 'border-red-500' : 'border-gray-300'} p-2 rounded`}
                     placeholder="contacto@cliente.com"
                     required
                   />
+                  {formErrors.contactEmail && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.contactEmail}</p>
+                  )}
                 </div>
                 
                 <div className="mb-4">
@@ -810,6 +890,7 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
                       }));
                     }}
                     selectedDomain={formData.domains[0] || ''}
+                    client={formData}
                   />
                 )}
                 
@@ -854,11 +935,20 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
                       type="text"
                       name="adminUser.name"
                       value={formData.adminUser.name}
-                      onChange={handleChange}
-                      className="w-full border border-gray-300 p-2 rounded"
+                      onChange={(e) => {
+                        handleChange(e);
+                        // Limpiar error cuando el usuario empiece a escribir
+                        if (formErrors.adminUserName) {
+                          setFormErrors(prev => ({ ...prev, adminUserName: '' }));
+                        }
+                      }}
+                      className={`w-full border ${formErrors.adminUserName ? 'border-red-500' : 'border-gray-300'} p-2 rounded`}
                       placeholder="Nombre completo"
                       required
                     />
+                    {formErrors.adminUserName && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.adminUserName}</p>
+                    )}
                   </div>
                   
                   <div className="mb-4">
@@ -869,11 +959,20 @@ const CreateClientModal = ({ onClose, onClientCreated }) => {
                       type="email"
                       name="adminUser.email"
                       value={formData.adminUser.email}
-                      onChange={handleChange}
-                      className="w-full border border-gray-300 p-2 rounded"
+                      onChange={(e) => {
+                        handleChange(e);
+                        // Limpiar error cuando el usuario empiece a escribir
+                        if (formErrors.adminUserEmail) {
+                          setFormErrors(prev => ({ ...prev, adminUserEmail: '' }));
+                        }
+                      }}
+                      className={`w-full border ${formErrors.adminUserEmail ? 'border-red-500' : 'border-gray-300'} p-2 rounded`}
                       placeholder="admin@empresa.com"
                       required
                     />
+                    {formErrors.adminUserEmail && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.adminUserEmail}</p>
+                    )}
                   </div>
                 </div>
                 

@@ -17,6 +17,7 @@ const DomainList = () => {
   const [subscriptionInfo, setSubscriptionInfo] = useState({});
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState(null);
+  const [editingDomain, setEditingDomain] = useState(null);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -127,9 +128,16 @@ const DomainList = () => {
     setSelectedDomain(domain);
   };
 
+  // Para abrir el modal de edición al hacer clic en "Editar" en la tarjeta
+  const handleEdit = (domain) => {
+    setEditingDomain(domain);
+    setIsCreateModalOpen(true);
+  };
+
   // Cierra el modal de creación; si se creó/actualizó un dominio, refresca la lista
   const handleCreateModalClose = (updatedDomain) => {
     setIsCreateModalOpen(false);
+    setEditingDomain(null); // Limpiar el estado de edición
     if (updatedDomain) {
       fetchDomains();
     }
@@ -157,9 +165,23 @@ const DomainList = () => {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-[#181818] mb-4">
-        {isOwner ? 'Gestión de Dominios' : 'Mis Dominios'}
-      </h1>
+      {/* Header con título y botón de crear */}
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold text-[#181818]">
+          {isOwner ? 'Gestión de Dominios' : 'Mis Dominios'}
+        </h1>
+        
+        {/* Botón de crear dominio siempre visible arriba */}
+        {!subscriptionInfo.subscriptionInactive && (
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="px-4 py-2 bg-[#235C88] text-white rounded hover:bg-[#1e4a6b] transition flex items-center gap-2"
+          >
+            <span className="text-lg">+</span>
+            Crear Dominio
+          </button>
+        )}
+      </div>
 
       {/* Alerta de suscripción */}
       <SubscriptionAlert 
@@ -226,16 +248,24 @@ const DomainList = () => {
       </div>
 
       {loading ? (
-        <p>Cargando dominios...</p>
+        <div className="flex justify-center items-center py-10">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#235C88]"></div>
+          <span className="ml-3 text-gray-600">Cargando dominios...</span>
+        </div>
       ) : domains.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-10">
-          <p className="text-gray-600 mb-4">No hay dominios disponibles.</p>
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="px-4 py-2 bg-[#235C88] text-white rounded hover:bg-[#1e4a6b] transition"
-          >
-            Crear Dominio
-          </button>
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="text-gray-400 mb-4">
+            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
+            </svg>
+          </div>
+          <p className="text-gray-600 text-lg mb-2">No hay dominios disponibles</p>
+          <p className="text-gray-500 text-sm">
+            {subscriptionInfo.subscriptionInactive 
+              ? "Necesitas una suscripción activa para crear dominios"
+              : "Usa el botón 'Crear Dominio' arriba para empezar"
+            }
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -244,28 +274,11 @@ const DomainList = () => {
               key={domain._id}
               domain={domain}
               onDelete={handleDeleteClick}
+              onEdit={handleEdit}
               onViewDetails={handleViewDetails}
               subscriptionInactive={subscriptionInfo.subscriptionInactive}
             />
           ))}
-          <div className="flex items-center justify-center">
-            {!subscriptionInfo.subscriptionInactive ? (
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="px-4 py-2 bg-[#235C88] text-white rounded hover:bg-[#1e4a6b] transition"
-              >
-                Agregar Dominio
-              </button>
-            ) : (
-              <button
-                disabled
-                className="px-4 py-2 bg-gray-400 text-white rounded cursor-not-allowed opacity-50"
-                title="Suscripción requerida para agregar dominios"
-              >
-                Agregar Dominio
-              </button>
-            )}
-          </div>
         </div>
       )}
 
@@ -276,6 +289,7 @@ const DomainList = () => {
           isOwner={isOwner} 
           clients={clients}
           selectedClientId={selectedClientId}
+          editingDomain={editingDomain}
         />
       )}
 

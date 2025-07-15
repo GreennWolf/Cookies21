@@ -18,7 +18,7 @@ function validateImageUrl(imageUrl) {
   }
 
   try {
-    const publicPath = process.env.PUBLIC_PATH || path.join(process.cwd(), 'public');
+    const publicPath = process.env.PUBLIC_PATH || path.join(__dirname, '../../public');
     const fullImagePath = path.join(publicPath, imageUrl);
     const exists = fs.existsSync(fullImagePath);
     

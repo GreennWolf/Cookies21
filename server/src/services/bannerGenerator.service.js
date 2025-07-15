@@ -2,22 +2,59 @@
 
 const cleanCSS = require('clean-css');
 const logger = require('../utils/logger');
+const TemplateVariablesService = require('./templateVariables.service');
 
 class BannerGeneratorService {
   /**
    * Genera el HTML del banner a partir de config.
    */
-  async generateHTML(config) {
+  async generateHTML(config, clientInfo = null) {
     try {
-      const { layout = {}, components = [] } = config;
+      let { layout = {}, components = [] } = config;
       
-      // Usar configuración desktop por defecto
+      console.log('🚀 BannerGenerator.generateHTML - INICIO DEBUG:', {
+        configExists: !!config,
+        layoutExists: !!layout,
+        originalComponentsLength: components.length,
+        clientInfoExists: !!clientInfo,
+        clientName: clientInfo?.name || clientInfo?.businessName
+      });
+      
+      // Procesar componentes con variables del cliente si existe clientInfo
+      if (clientInfo && components.length > 0) {
+        console.log('🔄 BannerGenerator: Procesando variables con clientInfo:', {
+          razonsocial: clientInfo.businessName || clientInfo.razonSocial,
+          email: clientInfo.email
+        });
+        const context = TemplateVariablesService.createContextFromClient(clientInfo);
+        components = TemplateVariablesService.processBannerComponents(components, context);
+        
+        console.log('📋 BannerGenerator: DESPUES de procesar variables:', {
+          processedComponentsLength: components.length,
+          firstComponentType: components[0]?.type,
+          componentsTypes: components.map(c => c.type)
+        });
+        
+        // Debug: Verificar si se procesaron las variables
+        const hasVariables = JSON.stringify(components).includes('{razonsocial}');
+        console.log('✅ BannerGenerator: Variables procesadas, aún contiene {razonsocial}:', hasVariables);
+      }
+      
+      // Usar configuración desktop por defecto, pero considerar todas las configuraciones responsive
       const layoutConfig = layout.desktop || {
         type: 'banner',
         position: 'bottom'
       };
       
+      // También extraer configuraciones de tablet y mobile para datos HTML
+      const tabletConfig = layout.tablet || {};
+      const mobileConfig = layout.mobile || {};
       
+      console.log('🎨 BannerGenerator: Layout config:', {
+        desktop: { type: layoutConfig.type, position: layoutConfig.position },
+        tablet: { type: tabletConfig.type, position: tabletConfig.position },
+        mobile: { type: mobileConfig.type, position: mobileConfig.position }
+      });
       
       
       if (components.length === 0) {
@@ -28,6 +65,10 @@ class BannerGeneratorService {
             id="cmp-banner" 
             class="cmp-banner cmp-banner--${layoutConfig.type}" 
             data-position="${layoutConfig.position}"
+            data-tablet-type="${tabletConfig.type || layoutConfig.type}"
+            data-tablet-position="${tabletConfig.position || layoutConfig.position}"
+            data-mobile-type="${mobileConfig.type || layoutConfig.type}"
+            data-mobile-position="${mobileConfig.position || layoutConfig.position}"
             role="dialog"
             aria-labelledby="cmp-title"
             aria-describedby="cmp-description"
@@ -44,8 +85,13 @@ class BannerGeneratorService {
       }
       
       // Procesar los componentes y generar el HTML
-      const componentsHTML = this._generateComponentsHTML(components);
+      const componentsHTML = this._generateComponentsHTML(components, clientInfo);
       
+      console.log('🏗️ BannerGenerator: HTML de componentes generado:', {
+        componentsHTMLLength: componentsHTML.length,
+        componentsHTMLPreview: componentsHTML.substring(0, 200) + '...',
+        isEmpty: !componentsHTML || componentsHTML.trim() === ''
+      });
       
       // Asegurémonos de que el banner modal tenga una estructura más robusta para mejor centrado
       let baseHtml = '';
@@ -54,6 +100,22 @@ class BannerGeneratorService {
         // SOLUCIÓN MEJORADA PARA MODALES CENTRADOS
         // Estructura simplificada con flexbox para centrado perfecto
         // Añadiendo algunos atributos y estilos adicionales para mejorar el centrado
+        // Determinar posición del modal según la configuración
+        const modalPosition = layoutConfig.position || 'center';
+        let modalContainerStyle = `position:fixed !important; top:0 !important; left:0 !important; right:0 !important; bottom:0 !important; width:100vw !important; height:100vh !important; background-color:rgba(0,0,0,0.5) !important; z-index:2147483646 !important; opacity:1 !important; visibility:visible !important; margin:0 !important; padding:0 !important; pointer-events:auto !important; transform:none !important;`;
+        
+        // Ajustar alineación según la posición configurada
+        if (modalPosition === 'center') {
+          modalContainerStyle += `display:flex !important; align-items:center !important; justify-content:center !important;`;
+        } else if (modalPosition === 'top') {
+          modalContainerStyle += `display:flex !important; align-items:flex-start !important; justify-content:center !important; padding-top:5vh !important;`;
+        } else if (modalPosition === 'bottom') {
+          modalContainerStyle += `display:flex !important; align-items:flex-end !important; justify-content:center !important; padding-bottom:5vh !important;`;
+        } else {
+          // Para posiciones específicas como top-left, top-right, etc.
+          modalContainerStyle += `display:block !important;`;
+        }
+        
         baseHtml = `
           <div 
             id="cmp-modal-container" 
@@ -61,21 +123,34 @@ class BannerGeneratorService {
             data-cmp-role="modal-container"
             data-cmp-z-index="2147483646"
             data-cmp-version="2.0"
-            style="position:fixed !important; top:0 !important; left:0 !important; right:0 !important; bottom:0 !important; width:100vw !important; height:100vh !important; background-color:rgba(0,0,0,0.5) !important; display:flex !important; align-items:center !important; justify-content:center !important; z-index:2147483646 !important; opacity:1 !important; visibility:visible !important; margin:0 !important; padding:0 !important; pointer-events:auto !important; transform:none !important;">
+            data-position="${modalPosition}"
+            style="${modalContainerStyle}">
             <div 
               id="cmp-banner" 
               class="cmp-banner cmp-banner--${layoutConfig.type}"
               data-position="${layoutConfig.position}"
+              data-tablet-type="${tabletConfig.type || layoutConfig.type}"
+              data-tablet-position="${tabletConfig.position || layoutConfig.position}"
+              data-mobile-type="${mobileConfig.type || layoutConfig.type}"
+              data-mobile-position="${mobileConfig.position || layoutConfig.position}"
               data-cmp-role="modal-content"
               data-cmp-z-index="2147483647"
               role="dialog"
               aria-modal="true"
               aria-labelledby="cmp-title"
               aria-describedby="cmp-description"
-              style="background-color:#ffffff !important; border-radius:8px !important; box-shadow:0 4px 20px rgba(0,0,0,0.4) !important; width:60% !important; min-width:40% !important; max-width:90% !important; padding:20px !important; position:relative !important; z-index:2147483647 !important; opacity:1 !important; visibility:visible !important; display:block !important; max-height:90vh !important; overflow-y:auto !important; margin:0 auto !important; left:auto !important; right:auto !important; top:auto !important; bottom:auto !important; transform:none !important; text-align:center !important; pointer-events:auto !important;"
+              style="border-radius:8px !important; box-shadow:0 4px 20px rgba(0,0,0,0.4) !important; width:60% !important; min-width:40% !important; max-width:90% !important; padding:20px !important; position:relative !important; z-index:2147483647 !important; opacity:1 !important; visibility:visible !important; display:block !important; max-height:90vh !important; overflow-y:auto !important; margin:0 auto !important; left:auto !important; right:auto !important; top:auto !important; bottom:auto !important; transform:none !important; text-align:center !important; pointer-events:auto !important;"
               data-width="60"
             >
-              ${componentsHTML}
+              <div class="cmp-banner-content-wrapper">
+                ${componentsHTML}
+              </div>
+              ${config.showBranding !== false ? `
+                <div class="cmp-branding-footer">
+                  <span>Desarrollado por </span>
+                  <a href="https://cookie21.com" target="_blank" rel="noopener">Cookie21</a>
+                </div>
+              ` : ''}
             </div>
           </div>
         `;
@@ -145,7 +220,7 @@ class BannerGeneratorService {
           // Estilos base para banners flotantes - SOLO ESTILOS ESTÉTICOS
           // El posicionamiento será aplicado ÚNICAMENTE por ensureFloatingPosition.js
           // NO incluimos position:fixed aquí para evitar conflictos
-          bannerStyle = 'width:50% !important; min-width:40% !important; max-width:70% !important; background-color:#ffffff !important; border-radius:8px !important; box-shadow:0 4px 20px rgba(0,0,0,0.4) !important;';
+          bannerStyle = 'width:50% !important; min-width:40% !important; max-width:70% !important; border-radius:8px !important; box-shadow:0 4px 20px rgba(0,0,0,0.4) !important;';
           
           // Importante: NO aplicamos posicionamiento aquí
           // Esto evita conflictos con el wrapper que implementa el posicionamiento
@@ -154,7 +229,7 @@ class BannerGeneratorService {
           // Esto permite que el script cliente determine completamente la posición
         } else {
           // Banner estándar (no modal, no flotante)
-          bannerStyle = 'width:100% !important; min-width:100% !important; max-width:100% !important; background-color:#ffffff !important;';
+          bannerStyle = 'width:100% !important; min-width:100% !important; max-width:100% !important;';
         }
         
         // Para banners flotantes, creamos un HTML con estilo mínimo para evitar conflictos
@@ -164,14 +239,26 @@ class BannerGeneratorService {
               id="cmp-banner" 
               class="cmp-banner cmp-banner--${layoutConfig.type}" 
               data-position="${layoutConfig.position}"
+              data-tablet-type="${tabletConfig.type || layoutConfig.type}"
+              data-tablet-position="${tabletConfig.position || layoutConfig.position}"
+              data-mobile-type="${mobileConfig.type || layoutConfig.type}"
+              data-mobile-position="${mobileConfig.position || layoutConfig.position}"
               ${extraAttributes}
               role="dialog"
               aria-labelledby="cmp-title"
               aria-describedby="cmp-description"
-              style="background-color:#ffffff; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.4);"
+              style="border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.4);"
               data-width="50"
             >
-              ${componentsHTML}
+              <div class="cmp-banner-content-wrapper">
+                ${componentsHTML}
+              </div>
+              ${config.showBranding !== false ? `
+                <div class="cmp-branding-footer">
+                  <span>Desarrollado por </span>
+                  <a href="https://cookie21.com" target="_blank" rel="noopener">Cookie21</a>
+                </div>
+              ` : ''}
             </div>
           `;
         } else {
@@ -181,6 +268,10 @@ class BannerGeneratorService {
               id="cmp-banner" 
               class="cmp-banner cmp-banner--${layoutConfig.type}" 
               data-position="${layoutConfig.position}"
+              data-tablet-type="${tabletConfig.type || layoutConfig.type}"
+              data-tablet-position="${tabletConfig.position || layoutConfig.position}"
+              data-mobile-type="${mobileConfig.type || layoutConfig.type}"
+              data-mobile-position="${mobileConfig.position || layoutConfig.position}"
               ${extraAttributes}
               role="dialog"
               aria-labelledby="cmp-title"
@@ -188,14 +279,32 @@ class BannerGeneratorService {
               style="${bannerStyle}"
               data-width="${layoutConfig.type === 'modal' ? '60' : '100'}"
             >
-              ${componentsHTML}
+              <div class="cmp-banner-content-wrapper">
+                ${componentsHTML}
+              </div>
+              ${config.showBranding !== false ? `
+                <div class="cmp-branding-footer">
+                  <span>Desarrollado por </span>
+                  <a href="https://cookie21.com" target="_blank" rel="noopener">Cookie21</a>
+                </div>
+              ` : ''}
             </div>
           `;
         }
       }
       
+      console.log('📏 BannerGenerator: HTML base antes de minificar:', {
+        baseHtmlLength: baseHtml.length,
+        baseHtmlPreview: baseHtml.substring(0, 300) + '...',
+        isEmpty: !baseHtml || baseHtml.trim() === ''
+      });
+      
       const minifiedHtml = this._minifyHTML(baseHtml);
       
+      console.log('📦 BannerGenerator: HTML final minificado:', {
+        minifiedHtmlLength: minifiedHtml.length,
+        minifiedHtmlPreview: minifiedHtml.substring(0, 200) + '...'
+      });
       
       return minifiedHtml;
     } catch (error) {
@@ -236,6 +345,7 @@ class BannerGeneratorService {
       const animationStyles = this._generateAnimationStyles(config.settings?.animation);
       const accessibilityStyles = this._generateAccessibilityStyles();
       const responsiveHelpers = this._generateResponsiveHelpers();
+      const brandingStyles = this._generateBrandingStyles(config, theme, layout);
 
       const css = [
         baseStyles,
@@ -243,7 +353,8 @@ class BannerGeneratorService {
         componentStyles,
         animationStyles,
         accessibilityStyles,
-        responsiveHelpers
+        responsiveHelpers,
+        brandingStyles
       ].join('\n');
 
       return new cleanCSS({ level: 2, compatibility: 'ie11' }).minify(css).styles;
@@ -256,12 +367,19 @@ class BannerGeneratorService {
   /**
    * Transforma un array de componentes en HTML.
    */
-  _generateComponentsHTML(components) {
+  _generateComponentsHTML(components, clientInfo = null) {
     if (!components || !Array.isArray(components)) {
       return '';
     }
     
-    return components.map(c => {
+    // Procesar componentes con variables del cliente si existe clientInfo
+    let processedComponents = components;
+    if (clientInfo) {
+      const context = TemplateVariablesService.createContextFromClient(clientInfo);
+      processedComponents = TemplateVariablesService.processBannerComponents(components, context);
+    }
+    
+    return processedComponents.map(c => {
       if (!c) return '';
       
       // Extraer el contenido de texto
@@ -275,6 +393,11 @@ class BannerGeneratorService {
       } else if (c.content && c.content.text) {
         // Si ya tiene text (posiblemente procesado por _applyLanguagePreference)
         contentText = c.content.text;
+      }
+      
+      // Procesar variables de cliente en el contenido
+      if (contentText && clientInfo) {
+        contentText = this._processClientVariables(contentText, clientInfo);
       }
       
       // Usar clase adicional 'locked' para componentes bloqueados
@@ -504,7 +627,7 @@ class BannerGeneratorService {
               data-children-count="${c.children?.length || 0}"
               ${extraAttributes}
             >
-              ${c.children ? this._generateComponentsHTML(c.children) : ''}
+              ${c.children ? this._generateComponentsHTML(c.children, clientInfo) : ''}
             </div>
           `;
         case 'panel':
@@ -515,7 +638,7 @@ class BannerGeneratorService {
             >
               <div class="cmp-panel-header">${contentText}</div>
               <div class="cmp-panel-body">
-                ${c.children ? this._generateComponentsHTML(c.children) : ''}
+                ${c.children ? this._generateComponentsHTML(c.children, clientInfo) : ''}
               </div>
             </div>
           `;
@@ -818,8 +941,9 @@ class BannerGeneratorService {
             max-height: 100vh;
             overflow-y: auto;
           `;
-          // Si es un banner top o bottom con 100%, debe ocupar toda la pantalla
-          if (desktop.type === 'banner') {
+          // Para banners con 100% altura, dejar que el posMap maneje el posicionamiento
+          // Solo agregar posicionamiento adicional para modalse o casos especiales sin posMap
+          if (desktop.type === 'modal') {
             heightStyles += 'top: 0; bottom: 0;';
           }
         } else {
@@ -867,6 +991,51 @@ class BannerGeneratorService {
             transform: none !important;
             box-sizing: border-box !important;
             pointer-events: auto !important;
+          }
+          
+          /* Posicionamiento específico basado en data-position */
+          #cmp-modal-container[data-position="center"], .cmp-modal-container[data-position="center"] {
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 0 !important;
+          }
+          
+          #cmp-modal-container[data-position="top"], .cmp-modal-container[data-position="top"] {
+            align-items: flex-start !important;
+            justify-content: center !important;
+            padding-top: 5vh !important;
+            padding-bottom: 0 !important;
+          }
+          
+          #cmp-modal-container[data-position="bottom"], .cmp-modal-container[data-position="bottom"] {
+            align-items: flex-end !important;
+            justify-content: center !important;
+            padding-bottom: 5vh !important;
+            padding-top: 0 !important;
+          }
+          
+          #cmp-modal-container[data-position="top-left"], .cmp-modal-container[data-position="top-left"] {
+            align-items: flex-start !important;
+            justify-content: flex-start !important;
+            padding: 5vh !important;
+          }
+          
+          #cmp-modal-container[data-position="top-right"], .cmp-modal-container[data-position="top-right"] {
+            align-items: flex-start !important;
+            justify-content: flex-end !important;
+            padding: 5vh !important;
+          }
+          
+          #cmp-modal-container[data-position="bottom-left"], .cmp-modal-container[data-position="bottom-left"] {
+            align-items: flex-end !important;
+            justify-content: flex-start !important;
+            padding: 5vh !important;
+          }
+          
+          #cmp-modal-container[data-position="bottom-right"], .cmp-modal-container[data-position="bottom-right"] {
+            align-items: flex-end !important;
+            justify-content: flex-end !important;
+            padding: 5vh !important;
           }
           
           /* El banner modal en sí - mejorado para resolver problemas de ancho */
@@ -943,26 +1112,37 @@ class BannerGeneratorService {
     if (layout.tablet) {
       const tablet = layout.tablet;
       
-      // Solo aplicar estilos de tablet si tienen configuración específica
-      // No heredar automáticamente de desktop
-      if (tablet.type && (tablet.position || tablet.width || tablet.height || tablet.backgroundColor || tablet.minHeight)) {
+      // Aplicar estilos de tablet si tienen configuración específica O si desktop tiene altura 100%
+      if (tablet.type && (tablet.position || tablet.width || tablet.height || tablet.backgroundColor || tablet.minHeight) ||
+          (layout.desktop?.height === '100%' || layout.desktop?.height === '100vh')) {
         const tabletPosCSS = posMap[tablet.position] || '';
 
-        // Manejar altura para tablet
+        // Manejar altura para tablet - con herencia de desktop
         let tabletHeightStyles = '';
         if (tablet.height) {
           if (tablet.height === '100%' || tablet.height === '100vh') {
             tabletHeightStyles = `
-              height: 100vh;
-              height: 100dvh;
-              max-height: 100vh;
+              height: 100vh !important;
+              height: 100dvh !important;
+              max-height: 100vh !important;
               overflow-y: auto;
             `;
-            if (tablet.type === 'banner') {
+            if (tablet.type === 'modal') {
               tabletHeightStyles += ' top: 0; bottom: 0;';
             }
           } else {
             tabletHeightStyles = `height: ${tablet.height};`;
+          }
+        } else if (layout.desktop?.height === '100%' || layout.desktop?.height === '100vh') {
+          // Heredar configuración de altura 100% de desktop si tablet no está configurado
+          tabletHeightStyles = `
+            height: 100vh !important;
+            height: 100dvh !important;
+            max-height: 100vh !important;
+            overflow-y: auto;
+          `;
+          if ((tablet.type || layout.desktop.type) === 'modal') {
+            tabletHeightStyles += ' top: 0; bottom: 0;';
           }
         }
 
@@ -977,7 +1157,18 @@ class BannerGeneratorService {
             }
             
             /* Ajustes específicos para tablet según el tipo */
-            ${tablet.type === 'modal' ? `
+            ${tablet.type === 'modal' || (!tablet.type && layout.desktop.type === 'modal') ? `
+              /* Modal específico para tablet */
+              #cmp-modal-container {
+                align-items: ${(tablet.position === 'top' || (!tablet.position && layout.desktop.position === 'top')) ? 'flex-start' : 
+                              (tablet.position === 'bottom' || (!tablet.position && layout.desktop.position === 'bottom')) ? 'flex-end' :
+                              'center'} !important;
+                justify-content: center !important;
+                ${(tablet.position === 'top' || (!tablet.position && layout.desktop.position === 'top')) ? 'padding-top: 3vh !important;' : 
+                  (tablet.position === 'bottom' || (!tablet.position && layout.desktop.position === 'bottom')) ? 'padding-bottom: 3vh !important;' : 
+                  'padding: 0 !important;'}
+              }
+              
               .cmp-banner--modal {
                 margin: 0 !important;
                 padding: 25px !important;
@@ -985,15 +1176,9 @@ class BannerGeneratorService {
                 flex-direction: column !important;
                 justify-content: flex-start !important;
                 align-items: center !important;
-                position: fixed !important;
-                left: 50% !important;
-                top: 50% !important;
-                transform: translate(-50%, -50%) !important;
                 width: 90% !important;
                 max-width: 550px !important;
                 z-index: 999999 !important;
-                right: auto !important;
-                bottom: auto !important;
               }
             ` : ''}
             
@@ -1012,21 +1197,32 @@ class BannerGeneratorService {
       const mobile = layout.mobile;
       const mobilePosCSS = posMap[mobile.position] || '';
 
-      // Manejar altura para mobile
+      // Manejar altura para mobile - con herencia de desktop
       let mobileHeightStyles = '';
       if (mobile.height) {
         if (mobile.height === '100%' || mobile.height === '100vh') {
           mobileHeightStyles = `
-            height: 100vh;
-            height: 100dvh;
-            max-height: 100vh;
+            height: 100vh !important;
+            height: 100dvh !important;
+            max-height: 100vh !important;
             overflow-y: auto;
           `;
-          if ((mobile.type || layout.desktop.type) === 'banner') {
+          if ((mobile.type || layout.desktop.type) === 'modal') {
             mobileHeightStyles += ' top: 0; bottom: 0;';
           }
         } else {
           mobileHeightStyles = `height: ${mobile.height};`;
+        }
+      } else if (layout.desktop?.height === '100%' || layout.desktop?.height === '100vh') {
+        // Heredar configuración de altura 100% de desktop si móvil no está configurado
+        mobileHeightStyles = `
+          height: 100vh !important;
+          height: 100dvh !important;
+          max-height: 100vh !important;
+          overflow-y: auto;
+        `;
+        if (layout.desktop.type === 'modal') {
+          mobileHeightStyles += ' top: 0; bottom: 0;';
         }
       }
 
@@ -1041,24 +1237,30 @@ class BannerGeneratorService {
           }
           
           /* Ajustes específicos para móvil */
-          .cmp-banner--modal {
-            margin: 0 !important;
-            padding: 20px !important;
-            display: flex !important;
-            flex-direction: column !important;
-            justify-content: flex-start !important;
-            align-items: center !important;
-            position: fixed !important;
-            left: 50% !important;
-            top: 50% !important;
-            transform: translate(-50%, -50%) !important;
-            width: 95% !important;
-            max-width: 400px !important;
-            max-height: 80vh !important;
-            z-index: 999999 !important;
-            right: auto !important;
-            bottom: auto !important;
-          }
+          ${(mobile.type === 'modal' || (!mobile.type && layout.desktop.type === 'modal')) ? `
+            /* Modal específico para móvil */
+            #cmp-modal-container {
+              align-items: ${(mobile.position === 'top' || (!mobile.position && layout.desktop.position === 'top')) ? 'flex-start' : 
+                            (mobile.position === 'bottom' || (!mobile.position && layout.desktop.position === 'bottom')) ? 'flex-end' :
+                            'center'} !important;
+              justify-content: center !important;
+              ${(mobile.position === 'top' || (!mobile.position && layout.desktop.position === 'top')) ? 'padding-top: 2vh !important;' : 
+                (mobile.position === 'bottom' || (!mobile.position && layout.desktop.position === 'bottom')) ? 'padding-bottom: 2vh !important;' : 
+                'padding: 0 !important;'}
+            }
+            
+            .cmp-banner--modal {
+              margin: 0 !important;
+              padding: 20px !important;
+              display: flex !important;
+              flex-direction: column !important;
+              justify-content: flex-start !important;
+              align-items: center !important;
+              width: 95% !important;
+              /* REMOVIDO: max-width: 400px !important; - No limitar ancho para banners 100% */
+              z-index: 999999 !important;
+            }
+          ` : ''}
           
           .cmp-banner--floating {
             width: calc(100% - 20px);
@@ -1976,6 +2178,69 @@ class BannerGeneratorService {
   }
   
   /**
+   * Procesa variables de cliente en el contenido de texto
+   * @param {string} content - Contenido de texto que puede contener variables
+   * @param {object} clientInfo - Información del cliente
+   * @returns {string} - Contenido con variables reemplazadas
+   */
+  _processClientVariables(content, clientInfo) {
+    if (!content || !clientInfo) return content;
+    
+    let processedContent = content;
+    
+    // Reemplazar variable de nombre de la empresa
+    // Priorizar razón social sobre otros nombres
+    const companyName = clientInfo.fiscalInfo?.razonSocial || 
+                       clientInfo.companyName || 
+                       clientInfo.businessName || 
+                       clientInfo.name;
+    
+    if (companyName) {
+      // Nueva variable para razón social (formato principal)
+      processedContent = processedContent.replace(/\{razonSocial\}/g, companyName);
+      
+      // Variable alternativa para nombre de empresa
+      processedContent = processedContent.replace(/\{nombreEmpresa\}/g, companyName);
+      
+      // Variables existentes para compatibilidad
+      processedContent = processedContent.replace(/\{\{CompanyName\}\}/g, companyName);
+      processedContent = processedContent.replace(/\{\{LegalName\}\}/g, companyName);
+      processedContent = processedContent.replace(/\{\{clientCompanyName\}\}/g, companyName);
+    }
+    
+    // Reemplazar CIF si está disponible
+    const cif = clientInfo.fiscalInfo?.cif;
+    if (cif) {
+      processedContent = processedContent.replace(/\{cif\}/g, cif);
+    }
+    
+    // Reemplazar dirección si está disponible
+    const direccion = clientInfo.fiscalInfo?.direccion;
+    if (direccion) {
+      processedContent = processedContent.replace(/\{direccion\}/g, direccion);
+    }
+    
+    // Reemplazar otras variables del cliente si están disponibles
+    if (clientInfo.domain) {
+      processedContent = processedContent.replace(/\{\{clientDomain\}\}/g, clientInfo.domain);
+    }
+    
+    if (clientInfo.email) {
+      processedContent = processedContent.replace(/\{\{clientEmail\}\}/g, clientInfo.email);
+    }
+    
+    console.log('🔄 Variables procesadas en contenido:', {
+      originalContent: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+      hasCompanyName: !!companyName,
+      hasCif: !!cif,
+      hasDireccion: !!direccion,
+      replacementsCount: (content.match(/\{[^}]+\}/g) || []).length
+    });
+    
+    return processedContent;
+  }
+
+  /**
    * Encuentra un contenedor padre por su ID
    */
   _findParentContainer(parentId, components) {
@@ -2021,6 +2286,135 @@ class BannerGeneratorService {
     
     // Convertir de nuevo a hex
     return `#${adjustedR.toString(16).padStart(2, '0')}${adjustedG.toString(16).padStart(2, '0')}${adjustedB.toString(16).padStart(2, '0')}`;
+  }
+
+  /**
+   * Genera estilos para el branding de Cookie21
+   */
+  _generateBrandingStyles(config, theme, layout = {}) {
+    // Si showBranding es false, no generar estilos
+    if (config.showBranding === false) {
+      return '';
+    }
+
+    // Obtener altura base del banner desde el layout
+    const desktop = layout.desktop || {};
+    let heightAdjustment = '';
+    
+    if (desktop.height) {
+      // TEMPORALMENTE DESACTIVADO: No aplicar branding automático para evitar conflictos con altura 100%
+      // El usuario puede configurar manualmente el espacio para branding si lo necesita
+      heightAdjustment = '';
+      
+      /* LÓGICA ORIGINAL DESACTIVADA:
+      if (!desktop.height.includes('%') && !desktop.height.includes('vh') && !desktop.height.includes('auto')) {
+        // Si hay una altura específica en px, añadir el branding SOLO si no es una configuración especial
+        const heightValue = parseInt(desktop.height);
+        if (!isNaN(heightValue) && heightValue !== 100) { // No aplicar branding para height: 100px que podría ser una configuración especial
+          const brandingExtra = desktop.type === 'modal' ? 32 : (desktop.type === 'floating' ? 24 : 28);
+          heightAdjustment = `
+            .cmp-banner--${desktop.type || 'banner'} {
+              height: ${heightValue + brandingExtra}px !important;
+            }
+          `;
+        }
+      } else if (desktop.height === '100%' || desktop.height === '100vh') {
+        // Para altura completa, usar calc() para mantener la altura completa pero reservar espacio para branding si es necesario
+        const brandingExtra = desktop.type === 'modal' ? 32 : (desktop.type === 'floating' ? 24 : 28);
+        heightAdjustment = `
+          .cmp-banner--${desktop.type || 'banner'} {
+            height: calc(100vh - ${brandingExtra}px) !important;
+            min-height: calc(100vh - ${brandingExtra}px) !important;
+          }
+        `;
+      } else {
+        // Para porcentajes, vh, auto, etc. - no modificar la altura original del layout
+        heightAdjustment = '';
+      }
+      */
+    } else if (false && desktop.minHeight && !desktop.minHeight.includes('%') && !desktop.minHeight.includes('vh')) {
+      // TEMPORALMENTE DESACTIVADO: Si hay un min-height específico en px, añadir el branding
+      const minHeightValue = parseInt(desktop.minHeight);
+      if (!isNaN(minHeightValue)) {
+        const brandingExtra = desktop.type === 'modal' ? 32 : (desktop.type === 'floating' ? 24 : 28);
+        heightAdjustment = `
+          .cmp-banner--${desktop.type || 'banner'} {
+            min-height: ${minHeightValue + brandingExtra}px !important;
+          }
+        `;
+      }
+    }
+
+    return `
+      /* Ajustar altura del banner para incluir branding */
+      .cmp-banner {
+        position: relative !important;
+      }
+      
+      ${heightAdjustment}
+
+      /* Estilos para el branding de Cookie21 */
+      .cmp-branding-footer {
+        position: absolute !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        padding: 6px 8px !important;
+        font-size: 10px !important;
+        line-height: 1.2 !important;
+        color: #666666 !important;
+        background-color: transparent !important;
+        height: 28px !important;
+        box-sizing: border-box !important;
+        z-index: 1000 !important;
+      }
+
+      .cmp-branding-footer span {
+        margin-right: 4px;
+      }
+
+      .cmp-branding-footer a {
+        color: ${theme?.primaryColor || '#007bff'};
+        text-decoration: none;
+        font-weight: 600;
+        transition: color 0.2s ease;
+      }
+
+      .cmp-branding-footer a:hover {
+        color: ${this._adjustColor(theme?.primaryColor || '#007bff', -30)};
+        text-decoration: underline;
+      }
+
+      /* Ajustes específicos para modal */
+      .cmp-banner--modal .cmp-branding-footer {
+        height: 32px !important;
+        padding: 8px !important;
+        font-size: 11px !important;
+      }
+
+      /* Ajustes específicos para floating */
+      .cmp-banner--floating .cmp-branding-footer {
+        height: 24px !important;
+        padding: 4px 6px !important;
+        font-size: 9px !important;
+      }
+
+      /* Responsive */
+      @media (max-width: 480px) {
+        .cmp-branding-footer {
+          font-size: 10px;
+          padding: 6px 0;
+        }
+
+        .cmp-banner--floating .cmp-branding-footer {
+          font-size: 9px;
+        }
+      }
+    `;
   }
 }
 

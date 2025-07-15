@@ -22,6 +22,7 @@ import SubscriptionPlanManagementPage from './pages/SubscriptionPlanManagementPa
 import AcceptInvitationPage from './pages/AcceptInvitationPage';
 import AccountSettingsPage from './pages/AccountSettingsPage';
 import Documentation from './pages/Documentation';
+import ExperimentalCookieAnalysis from './pages/ExperimentalCookieAnalysis';
 
 // Componente para redirigir el editor normal al de pantalla completa
 function RedirectToFullscreen() {
@@ -167,6 +168,16 @@ function App() {
                 <Route 
                   path="settings" 
                   element={<AccountSettingsPage />}
+                />
+                
+                {/* Ruta experimental (solo para owners) */}
+                <Route 
+                  path="experimental/cookie-analysis" 
+                  element={
+                    <ProtectedRoute requiredRole="owner">
+                      <ExperimentalCookieAnalysis />
+                    </ProtectedRoute>
+                  } 
                 />
               </Route>
               

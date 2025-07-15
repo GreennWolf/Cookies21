@@ -6,14 +6,26 @@ global.XMLHttpRequest = require('xhr2');
 
 const { TCModel, TCString, GVL } = require('@iabtcf/core');
 const logger = require('../utils/logger');
+const { createCMPConfig } = require('../config/cmp.config');
 
 /**
  * Servicio para generar TC Strings válidos usando la biblioteca oficial IAB
+ * Usa configuración unificada del CMP
  */
 class TCStringGeneratorService {
   constructor() {
     this.gvl = null;
     this.initialized = false;
+    // Usar configuración unificada
+    this.cmpConfig = createCMPConfig();
+    this.tcConfig = this.cmpConfig.getTCStringConfig();
+    
+    logger.info('🏗️ TCStringGenerator inicializado con configuración unificada:', {
+      cmpId: this.tcConfig.cmpId,
+      cmpVersion: this.tcConfig.cmpVersion,
+      tcfVersion: this.tcConfig.tcfVersion,
+      vendorListVersion: this.tcConfig.vendorListVersion
+    });
   }
 
   /**
@@ -41,10 +53,10 @@ class TCStringGeneratorService {
    * @returns {Object} GVL mínima
    */
   createMinimalGVL() {
-    // Crear estructura GVL mínima pero válida
+    // Usar valores de configuración unificada - ACTUALIZADO PARA COMPLIANCE
     const gvl = {
-      vendorListVersion: 3,
-      tcfPolicyVersion: 4,
+      vendorListVersion: this.tcConfig.vendorListVersion, // Versión actual o penúltima GVL
+      tcfPolicyVersion: this.tcConfig.tcfPolicyVersion, // Policy version actual desde configuración unificada
       lastUpdated: new Date().toISOString(),
       purposes: {
         1: { id: 1, name: "Store and/or access information on a device" },
@@ -112,6 +124,38 @@ class TCStringGeneratorService {
   }
 
   /**
+   * Limpia vendor signals para vendors que han sido eliminados del GVL
+   * COMPLIANCE POINT 12: IAB requiere que vendors eliminados tengan signals = 0
+   * @param {TCModel} tcModel - Modelo TC para limpiar
+   */
+  async cleanDeletedVendorSignals(tcModel) {
+    try {
+      // Obtener IDs de vendors activos en el GVL actual
+      const activeVendorIds = Object.keys(this.gvl.vendors).map(id => parseInt(id, 10));
+      const maxVendorId = Math.max(...activeVendorIds, tcModel.maxVendorId || 0);
+      
+      logger.info(`🧹 Limpiando vendor signals. Active vendors: ${activeVendorIds.length}, Max vendor ID: ${maxVendorId}`);
+      
+      // Para cada vendor ID posible, verificar si está activo
+      for (let vendorId = 1; vendorId <= maxVendorId; vendorId++) {
+        if (!activeVendorIds.includes(vendorId)) {
+          // Vendor eliminado - establecer signals a 0 (false)
+          tcModel.vendorConsents.set(vendorId, false);
+          tcModel.vendorLegitimateInterests.set(vendorId, false);
+          logger.debug(`🗑️ Vendor ${vendorId} eliminado del GVL - signals establecidos a 0`);
+        }
+      }
+      
+      // Actualizar maxVendorId al valor actual
+      tcModel.maxVendorId = Math.max(...activeVendorIds);
+      
+      logger.info(`✅ Vendor signals limpiados. Max vendor ID actualizado a: ${tcModel.maxVendorId}`);
+    } catch (error) {
+      logger.error('❌ Error limpiando vendor signals:', error);
+    }
+  }
+
+  /**
    * Genera un TC String válido basado en consentimientos
    * @param {Object} options - Opciones de configuración
    * @param {Object} options.consents - Consentimientos por propósito {purposeId: boolean}
@@ -137,6 +181,11 @@ class TCStringGeneratorService {
       tcModel.isServiceSpecific = true;
       tcModel.useNonStandardStacks = false;
       tcModel.purposeOneTreatment = false;
+      
+      // COMPLIANCE POINT 10: Created y LastUpdated DEBEN tener el mismo valor
+      const now = Math.floor(Date.now() / 100); // Decisegundos desde epoch Unix
+      tcModel.created = now;
+      tcModel.lastUpdated = now; // MISMO VALOR que created según IAB validator
 
       // Configurar consentimientos de propósitos
       if (options.consents) {
@@ -184,6 +233,9 @@ class TCStringGeneratorService {
         });
       }
 
+      // COMPLIANCE POINT 12: Limpiar vendor signals para vendors eliminados del GVL
+      await this.cleanDeletedVendorSignals(tcModel);
+
       // Configurar consentimientos del publisher
       if (options.publisherConsents) {
         Object.entries(options.publisherConsents).forEach(([purposeId, consent]) => {
@@ -222,8 +274,17 @@ class TCStringGeneratorService {
         6: true, 7: true, 8: true, 9: true, 10: true
       },
       legitimateInterests: {
-        2: true, 3: true, 4: true, 5: true, 6: true,
-        7: true, 8: true, 9: true, 10: true
+        // COMPLIANCE POINT 9: Purposes 1,3,4,5,6 SIEMPRE false para LI según IAB
+        1: false, // Store/access info - SIEMPRE false para LI
+        2: true,  // Select basic ads - puede ser true
+        3: false, // Personalized ads profile - SIEMPRE false para LI  
+        4: false, // Select personalized ads - SIEMPRE false para LI
+        5: false, // Personalized content profile - SIEMPRE false para LI
+        6: false, // Select personalized content - SIEMPRE false para LI
+        7: true,  // Measure ad performance - puede ser true
+        8: true,  // Measure content performance - puede ser true
+        9: true,  // Market research - puede ser true
+        10: true  // Develop products - puede ser true
       },
       vendors: {
         // Vendors críticos para testing

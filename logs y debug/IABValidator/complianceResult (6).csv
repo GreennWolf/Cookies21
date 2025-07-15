@@ -1,0 +1,100 @@
+"Id","Compliance Check Name","Result"
+,"SUMMARY",
+,,
+,"CMP Found: Google LLC",
+,"CMP Id: 300",
+,"CMP Version: 1",
+,"TCF API Version: 2.2",
+,"TCF Policy Version: 5",
+,"GDPR Applies: true",
+,"Technical Compliance Checks passed: 4 failed: 5 to do: 3",
+,"Policy Compliance Checks passed: 0 failed: 0 to do: 32",
+,"The user has expressed consent for all purposes",
+,"The user did not object to the use of legitimate interest for all purposes!",
+,"The user expressed consent for all special features!",
+,"Number of vendors the user has expressed consent for: 0",
+,"Number of vendors the user agreed to the use of legitimate interest: 0",
+,,
+,"TECHNICAL COMPLIANCE CHECKS","Incomplete"
+,,
+1,"Are consent signals in the TC String created after affirmative action by the user","Manual check was not executed"
+2,"If a 'Reject All' option is provided in the user interface-when the user clicks on it-are all consent signals for purposes and vendors set to 'off'?","Manual check was not executed"
+3,"Does the API return an updated TC string after a change of users’ choices made in the CMP UI?","Manual check was not executed"
+4,"Did all CMP API required commands return a correct response?","Failed"
+5,"Is the CMP registered?","Passed"
+6,"Is the GVL version format correct?","Passed"
+7,"Is the current or penultimate version of the GVL being used?","Failed"
+8,"Is the max vendor id less than or equal to the highest id in the GVL?","Passed"
+9,"Are purposes 1-3-4-5-and 6 set to 'no' for legitimate interest?","Failed"
+10,"Do the Created and LastUpdated fields have the same value?","Failed"
+11,"Are the Created and LastUpdated timestamps imprecise?","Passed"
+12,"Are all vendor signals for deleted vendors set to 0?","Failed"
+,,
+,"POLICY COMPLIANCE CHECKS","Incomplete"
+,,
+1,"Is the UI prominently displayed-covering most of the website content?","Manual check was not executed"
+2,"Is the UI displayed separately from other information such as terms and conditions or the privacy policy?","Manual check was not executed"
+3,"Does the 1st layer of the UI provide information about the storage and access of information from the user’s device by third-party vendors?","Manual check was not executed"
+4,"Does the 1st layer of the UI provide information about the processing of personal data by third party Vendors?","Manual check was not executed"
+5,"Does the 1st layer of the UI provide an example of personal data processed?","Manual check was not executed"
+6,"Is there a direct link to the list of third parties in the 1st layer of the UI?","Manual check was not executed"
+7,"Does the 1st layer of the UI provide information about the Purposes and/or Stacks and Special Features used by third parties?","Manual check was not executed"
+8,"Does the 1st layer of the UI provide information about the scope of the consent choice-i.e. service-specific consent or group-specific consent?","Manual check was not executed"
+9,"Does the 1st layer of the UI inform the user that they can withdraw their consent at any time and how to do so?","Manual check was not executed"
+10,"Are there calls to action in the 1st layer for users to express consent (e.g. “accept”) and customise their choices (e.g. ’manage options’)?","Manual check was not executed"
+11,"Do the two primary calls to action on the 1st layer have matching text treatment and-for each-a minimum contrast ratio of 5:1?","Manual check was not executed"
+12,"Does the 1st layer of the UI show the number of the third party Vendors?","Manual check was not executed"
+13,"If the 1st layer of the UI provides information about the Purposes and Special Features used by Vendors using modified Stack descriptions-is the UseNonStandardTexts flag set to 1?","Manual check was not executed"
+14,"Does the UI show Purposes and Features with their standard names or Stacks?","Manual check was not executed"
+15,"Can users review the standard user-friendly texts and illustrations?","Manual check was not executed"
+16,"If the UI includes non-TCF Vendors-are they presented separately?","Manual check was not executed"
+17,"Does the UI provide information about third party Vendors processing personal data based on legitimate interest (if any)?","Manual check was not executed"
+18,"Does the UI advise the user of their right to object to their personal data being processed on the basis of legitimate interest (if any)?","Manual check was not executed"
+19,"Is the user able to review the list of Vendors-their Purposes-Special Purposes-Features-Special","Manual check was not executed"
+," Features-associated Legal Bases-and a link to their privacy policy-as well as make granular choices per Purpose and per Vendor (when applicable)?",
+20,"Does the 2nd layer allow users to make granular and specific opt-in choices with respect to each Special Feature (when applicable)?","Manual check was not executed"
+21,"Are user choices set to 'off' by default?","Manual check was not executed"
+22,"If legitimate interest is used by any Vendors as a legal basis-does the information in the 2nd layer specify the nature of processed information and its scope?","Manual check was not executed"
+23,"If legitimate interest is used by any Vendors as a legal basis-does the 2nd layer allow users to object to the processing of their personal data-per Purpose and per Vendor?","Manual check was not executed"
+24,"Does the 2nd UI layer provide information about Vendors' maximum device storage duration includ","Manual check was not executed"
+,"ing whether such duration may be refreshed and-where applicable-additional purpose-specific storage?",
+25,"Does the secondary layer show the number of Vendors seeking consent or relying on legitimate interest for each Purpose?","Manual check was not executed"
+26,"Does the secondary layer allow users to access Vendors’ information about their legitimate interest at stake-where applicable?","Manual check was not executed"
+27,"Does the secondary layer provide information about Vendors' retention periods?","Manual check was not executed"
+28,"Does the secondary layer disclose the categories of data collected and/or already held by Vendors?","Manual check was not executed"
+29,"If the secondary layer of the UI provides modified or additional illustrations about the Purposes and Special Purposes used by Vendors-is the UseNonStandardTexts flag set to 1?","Manual check was not executed"
+30,"Does the secondary layer of the UI disclose the storage and access information relating to the ","Manual check was not executed"
+,"CMP’s recording of signals-including the maximum device storage duration where applicable?",
+31,"Is the user able to resurface the CMP UI easily?","Manual check was not executed"
+32,"Is the user able to withdraw their consent as easily as they were able to give consent?","Manual check was not executed"
+,,
+,"CMP AND TCF API CHECK",
+,,
+,"CMP Information",
+,,
+,"CMP id:",300
+,"CMP is commercial:","true"
+,"CMP API",
+,,
+,"__tcfapi found:","true"
+,"__tcfapiLocator found:","true"
+,"ping response:","true"
+,"addEventListener response:","true"
+,"removeEventListener response:",
+,"getInAppTCData response (optional):","true"
+,"getVendorList response (optional):","true"
+,"CMP API Ping",
+,,
+,"cmpLoaded:","true"
+,"gdprApplies:","true"
+,"CMP status:","loaded"
+,"Display status:","hidden"
+,,
+,"TC String check",
+,,
+,"TC String (via CMP API)",
+,"COtybn4PA_zT4KjACBENAPCIAEBAAECAAIAAAAAAAAAA",
+,"44 bytes",
+," ",
+,"TC String manual check","Incomplete"
+,"0 bytes",

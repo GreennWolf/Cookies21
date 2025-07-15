@@ -1,5 +1,5 @@
 /* LanguageButton.css */
-
+@import "tailwindcss";
 .language-button-editor {
   position: relative;
   border: 2px dashed #e0e0e0;

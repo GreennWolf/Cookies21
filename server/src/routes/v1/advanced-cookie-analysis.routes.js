@@ -17,6 +17,28 @@ router.post(
   AdvancedCookieAnalysisController.startAdvancedAnalysis
 );
 
+// Nuevas rutas para análisis inteligente
+router.post(
+  '/domain/:domainId/intelligent/start',
+  checkDomainAccess,
+  validateRequest(advancedAnalysisValidation.startIntelligentAnalysis),
+  AdvancedCookieAnalysisController.startIntelligentAnalysis
+);
+
+router.get(
+  '/domain/:domainId/intelligent/results',
+  checkDomainAccess,
+  validateRequest(advancedAnalysisValidation.getIntelligentResults),
+  AdvancedCookieAnalysisController.getIntelligentAnalysisResults
+);
+
+router.get(
+  '/domain/:domainId/intelligent/compliance-report',
+  checkDomainAccess,
+  validateRequest(advancedAnalysisValidation.getComplianceReport),
+  AdvancedCookieAnalysisController.generateComplianceReport
+);
+
 router.get(
   '/analysis/:analysisId/status',
   validateRequest(advancedAnalysisValidation.getAnalysisStatus),

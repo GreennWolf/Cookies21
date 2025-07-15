@@ -475,7 +475,12 @@ class AuthController {
             id: client._id,
             name: client.name,
             email: client.email,
-            role: 'client'
+            role: 'client',
+            clientInfo: {
+              name: client.name,
+              company: client.company,
+              fiscalInfo: client.fiscalInfo
+            }
           }
         }
       });
@@ -490,6 +495,23 @@ class AuthController {
       return next(new AppError('User not found', 404));
     }
 
+    // Para usuarios no-owner, obtener también información del cliente
+    let clientInfo = null;
+    if (user.role !== 'owner' && user.clientId) {
+      try {
+        const client = await Client.findById(user.clientId).select('name company fiscalInfo');
+        if (client) {
+          clientInfo = {
+            name: client.name,
+            company: client.company,
+            fiscalInfo: client.fiscalInfo
+          };
+        }
+      } catch (error) {
+        console.warn('⚠️ Error obteniendo información del cliente:', error.message);
+      }
+    }
+
     console.log('✅ Información de usuario obtenida');
     return res.status(200).json({
       status: 'success',
@@ -499,7 +521,8 @@ class AuthController {
           name: user.name,
           email: user.email,
           role: user.role,
-          clientId: user.role !== 'owner' ? user.clientId : null
+          clientId: user.role !== 'owner' ? user.clientId : null,
+          clientInfo: clientInfo
         }
       }
     });

@@ -130,8 +130,8 @@ class ImageProcessorService {
       const fileName = `img_${componentId}_${timestamp}.${extension}`;
       console.log(`📄 PROCESADOR BASE64: Nombre de archivo generado: ${fileName}`);
       
-      // Crear directorio para las imágenes
-      const uploadDir = path.join(process.cwd(), 'public', 'templates', 'images', bannerId);
+      // Crear directorio para las imágenes - usar ruta absoluta desde raíz del proyecto
+      const uploadDir = path.join(__dirname, '../../public', 'templates', 'images', bannerId);
       console.log(`📁 PROCESADOR BASE64: Creando directorio: ${uploadDir}`);
       
       // Crear directorio de forma simple, sin helpers
@@ -275,8 +275,8 @@ class ImageProcessorService {
       
       logger.info('Iniciando limpieza de imágenes de banners eliminados');
       
-      // Ruta al directorio de imágenes de templates
-      const imagesDir = path.join(process.cwd(), '/../public', 'templates', 'images');
+      // Ruta al directorio de imágenes de templates - usar ruta absoluta desde raíz del proyecto
+      const imagesDir = path.join(__dirname, '../../public', 'templates', 'images');
       
       // Verificar si el directorio existe
       try {

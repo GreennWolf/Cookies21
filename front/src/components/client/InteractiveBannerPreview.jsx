@@ -294,21 +294,21 @@ function InteractiveBannerPreview({
   // Función simplificada para obtener URL de imagen
   const getImageUrlSimple = useCallback((component) => {
     try {
-      // PRIORIDAD 1: Usar _previewUrl si existe (es la imagen actualizada)
-      if (component.style?.[deviceView]?._previewUrl) {
-        const previewUrl = component.style[deviceView]._previewUrl;
-        // console.log('✅ Usando _previewUrl actualizada:', previewUrl);
-        return previewUrl;
-      }
-      
-      // PRIORIDAD 2: Usar content directo (URL del servidor original)
-      if (typeof component.content === 'string') {
+      // PRIORIDAD 1: Usar content directo (URL del servidor - más confiable)
+      if (typeof component.content === 'string' && component.content.trim() !== '') {
         let contentUrl = component.content;
         
         // URLs del servidor (más estables)
         if (contentUrl.startsWith('http')) {
-          // console.log('✅ Usando URL del servidor:', contentUrl);
+          console.log('✅ [InteractiveBannerPreview] Usando content URL del servidor:', contentUrl);
           return contentUrl;
+        }
+        
+        // Construir URL completa para rutas del servidor
+        if (contentUrl.startsWith('/templates/images/')) {
+          const fullUrl = `http://localhost:3000${contentUrl}`;
+          console.log('✅ [InteractiveBannerPreview] Construyendo URL desde content:', fullUrl);
+          return fullUrl;
         }
         
         // Data URLs (base64) son estables
@@ -316,16 +316,25 @@ function InteractiveBannerPreview({
           return contentUrl;
         }
         
-        // Construir URL completa para rutas del servidor
-        if (contentUrl.startsWith('/')) {
-          // Para rutas absolutas del backend
-          return `http://localhost:3000${contentUrl}`;
+        // Para rutas relativas que contienen templates/images
+        if (!contentUrl.startsWith('http') && !contentUrl.startsWith('blob:') && contentUrl.includes('templates/images')) {
+          const fullUrl = `http://localhost:3000/${contentUrl}`;
+          console.log('✅ [InteractiveBannerPreview] Construyendo URL relativa desde content:', fullUrl);
+          return fullUrl;
         }
         
-        // Para rutas relativas, asumir que son del servidor backend
-        if (!contentUrl.startsWith('http') && !contentUrl.startsWith('blob:')) {
-          return `http://localhost:3000/${contentUrl}`;
+        // Si content no es __IMAGE_REF__ pero es una string válida
+        if (!contentUrl.startsWith('__IMAGE_REF__') && contentUrl.length > 3) {
+          console.log('⚠️ [InteractiveBannerPreview] Content no reconocido, intentando URL directa:', contentUrl);
+          return contentUrl.startsWith('/') ? `http://localhost:3000${contentUrl}` : contentUrl;
         }
+      }
+      
+      // PRIORIDAD 2: Usar _previewUrl como fallback
+      if (component.style?.[deviceView]?._previewUrl) {
+        const previewUrl = component.style[deviceView]._previewUrl;
+        console.log('⚠️ [InteractiveBannerPreview] Usando _previewUrl como fallback:', previewUrl);
+        return previewUrl;
       }
       
       // Placeholder por defecto

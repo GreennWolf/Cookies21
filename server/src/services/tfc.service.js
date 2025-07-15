@@ -3,6 +3,7 @@
 const { Buffer } = require('buffer');
 const logger = require('../utils/logger');
 const { simpleTCStringGenerator } = require('./simpleTCStringGenerator.service');
+const { tcStringGenerator } = require('./tcStringGenerator.service');
 
 /**
  * Clase principal para servicios TCF unificados con soporte especial para validador
@@ -53,7 +54,7 @@ class TCFService {
       // Versiones TCF
       tcfVersion: parseInt(process.env.TCF_VERSION || '2', 10),
       tcfApiVersion: process.env.TCF_API_VERSION || '2.2',
-      tcfPolicyVersion: parseInt(process.env.TCF_POLICY_VERSION || '4', 10),
+      tcfPolicyVersion: parseInt(process.env.TCF_POLICY_VERSION || '5', 10), // COMPLIANCE POINT 7: TCF Policy Version 5 según GVL real
       
       // Identificadores CMP
       cmpId: parseInt(process.env.IAB_CMP_ID || '28', 10), 
@@ -67,8 +68,8 @@ class TCFService {
       isServiceSpecific: process.env.IS_SERVICE_SPECIFIC !== 'false',
       
       // Lista de vendors
-      vendorListVersion: parseInt(process.env.VENDOR_LIST_VERSION || '3', 10),
-      vendorListTTL: parseInt(process.env.VENDOR_LIST_TTL || '86400000', 10), // 24 horas por defecto
+      vendorListVersion: parseInt(process.env.VENDOR_LIST_VERSION || '284', 10), // COMPLIANCE POINT 7: GVL versión actual 284 (2024)
+      vendorListTTL: parseInt(process.env.VENDOR_LIST_TTL || '604800000', 10), // COMPLIANCE POINT 7: 7 días por defecto
       
       // Eventos y estados
       defaultEventStatus: process.env.DEFAULT_EVENT_STATUS || 'tcloaded',
@@ -76,9 +77,7 @@ class TCFService {
       // URLs para obtener listas de vendors (con fallbacks)
       vendorListUrls: [
         process.env.VENDOR_LIST_URL, 
-        'https://vendor-list.consensu.org/v2/vendor-list.json',
-        'https://vendorlist.consensu.org/v2/vendor-list.json',
-        'https://iabeurope.eu/vendor-list-tcf-v2-0/'
+        'https://vendor-list.consensu.org/v3/vendor-list.json'
       ].filter(Boolean),
       
       // Tiempo de caducidad de consentimiento
@@ -118,7 +117,8 @@ class TCFService {
         publisherConsents: consentData.publisherConsents || {}
       };
 
-      return simpleTCStringGenerator.generateTCString(options);
+      // Usar el generador oficial IAB con @iabtcf/core para máxima precisión
+      return await tcStringGenerator.generateTCString(options);
     } catch (error) {
       logger.error('Error generando TC String válido:', error);
       throw error;
@@ -135,7 +135,8 @@ class TCFService {
         return this.validatorTCString;
       }
 
-      this.validatorTCString = simpleTCStringGenerator.generateValidatorTCString();
+      // Usar el generador oficial IAB para validador
+      this.validatorTCString = await tcStringGenerator.generateValidatorTCString();
       logger.info('✅ TC String para validador generado:', this.validatorTCString);
       
       return this.validatorTCString;
@@ -143,7 +144,7 @@ class TCFService {
       logger.error('Error generando TC String para validador:', error);
       // Fallback a un TC String mínimo
       try {
-        this.validatorTCString = simpleTCStringGenerator.generateMinimalTCString();
+        this.validatorTCString = await tcStringGenerator.generateMinimalTCString();
         return this.validatorTCString;
       } catch (fallbackError) {
         logger.error('Error generando TC String fallback:', fallbackError);
@@ -159,7 +160,7 @@ class TCFService {
    */
   async validateAndFixTCString(tcString) {
     try {
-      const isValid = simpleTCStringGenerator.validateTCStringFormat(tcString);
+      const isValid = await tcStringGenerator.validateTCString(tcString);
       if (isValid) {
         return tcString;
       }
@@ -244,6 +245,7 @@ class TCFService {
       
       // TC String generado dinámicamente usando herramientas IAB oficiales
       var VALIDATOR_TCSTRING = "${validatorTCString}";
+      
       
       // Debug: Log el TC String que se está usando
       console.log("[CMP] VALIDATOR_TCSTRING actual:", VALIDATOR_TCSTRING);
@@ -597,6 +599,18 @@ class TCFService {
             case 'updateTC':
               console.log("[DEBUG] TCF-API: Procesando updateTC");
               handleUpdateTC(callback, parameter);
+              break;
+            
+            // COMPLIANCE POINT 4: Implementar comando setPurposeOneTreatment
+            case 'setPurposeOneTreatment':
+              console.log("[DEBUG] TCF-API: Procesando setPurposeOneTreatment");
+              // Solo aplica en países específicos de la UE
+              if (parameter === true && CMP_CONFIG.publisherCC === 'DE') {
+                window.CMP.purposeOneTreatment = true;
+              } else {
+                window.CMP.purposeOneTreatment = false;
+              }
+              callback({purposeOneTreatment: window.CMP.purposeOneTreatment}, true);
               break;
               
             default:
@@ -1751,7 +1765,10 @@ class TCFService {
           return VALIDATOR_TCSTRING || "${validatorTCString}";
         } catch (error) {
           // Fallback hardcodeado solo en caso de emergencia
-          return "COtybn4PA_zT4KjACBENAPCIAEBAAECAAIAAAAAAAAAA";
+          // COMPLIANCE: Generar TC String dinámico en lugar de hardcoded
+          return window.CMP.generateLocalCompliantTCString ? 
+            window.CMP.generateLocalCompliantTCString(window.CMP.consent || {}) : 
+            null;
         }
       }
       
@@ -2532,7 +2549,10 @@ class TCFService {
             tcData.tcString = window.CMP.consent.tcString;
           } else {
             // Usar fallback, para validador uno específico
-            tcData.tcString = window.CMP.validatorTCString || "COtybn4PA_zT4KjACBENAPCIAEBAAECAAIAAAAAAAAAA";
+            // COMPLIANCE: Generar TC String dinámico basado en consentimiento actual
+            tcData.tcString = window.CMP.generateLocalCompliantTCString ? 
+              window.CMP.generateLocalCompliantTCString(window.CMP.consent || {}) : 
+              (window.CMP.validatorTCString || null);
           }
         }
         
@@ -2786,7 +2806,7 @@ class TCFService {
               
               // Crear respuesta completa para el validador
               var validatorResponse = {
-                tcString: window.CMP.validatorTCString || "COtybn4PA_zT4KjACBENAPCIAEBAAECAAIAAAAAAAAAA",
+                tcString: window.CMP.generateLocalCompliantTCString ? window.CMP.generateLocalCompliantTCString(window.CMP.consent || {}) : null,
                 tcfPolicyVersion: CMP_CONFIG.tcfPolicyVersion,
                 cmpId: CMP_CONFIG.cmpId,
                 cmpVersion: CMP_CONFIG.cmpVersion,
@@ -2918,7 +2938,7 @@ class TCFService {
             
             // Si estamos en validador, inicializar con datos para validador
             if (window.CMP.isValidatorEnvironment()) {
-              window.CMP.consent.tcString = window.CMP.validatorTCString || "COtybn4PA_zT4KjACBENAPCIAEBAAECAAIAAAAAAAAAA";
+              window.CMP.consent.tcString = window.CMP.generateLocalCompliantTCString ? window.CMP.generateLocalCompliantTCString(window.CMP.consent || {}) : null;
               Object.assign(window.CMP.consent, VALIDATOR_DATA);
               
               // Aceptar todos los propósitos para validador
@@ -3171,9 +3191,10 @@ async generateTCString(config = {}) {
    * Crea un segmento de vendors
    * @private
    * @param {Object} vendorDecisions - Decisiones en formato {id: boolean}
+   * @param {Object} gvlVendors - Lista de vendors válidos del GVL
    * @returns {Object} - Objeto con datos de vendors
    */
-  _createVendorSegment(vendorDecisions) {
+  _createVendorSegment(vendorDecisions, gvlVendors = null) {
     // Si no hay decisiones, devolver un segmento mínimo válido
     if (!vendorDecisions || Object.keys(vendorDecisions).length === 0) {
       return {
@@ -3182,8 +3203,19 @@ async generateTCString(config = {}) {
       };
     }
     
+    // COMPLIANCE POINT 12: Filtrar vendors que ya no existen en el GVL
+    let filteredDecisions = {...vendorDecisions};
+    if (gvlVendors) {
+      Object.keys(filteredDecisions).forEach(vendorId => {
+        if (!gvlVendors[vendorId]) {
+          delete filteredDecisions[vendorId];
+          logger.info(`COMPLIANCE: Vendor ${vendorId} eliminado del TC String (no existe en GVL)`);
+        }
+      });
+    }
+    
     // Obtener el ID mayor, filtrando IDs inválidos (0 o negativos)
-    const vendorIds = Object.keys(vendorDecisions).map(id => parseInt(id, 10)).filter(id => !isNaN(id) && id > 0);
+    const vendorIds = Object.keys(filteredDecisions).map(id => parseInt(id, 10)).filter(id => !isNaN(id) && id > 0);
     const maxVendorId = vendorIds.length > 0 ? Math.max(...vendorIds) : 1;  // Usar 1 como mínimo, nunca 0
     
     // Crear bitfield para consentimiento de vendors
@@ -3191,7 +3223,7 @@ async generateTCString(config = {}) {
     
     // Llenar el bitfield según las decisiones
     vendorIds.forEach(id => {
-      if (id > 0 && id <= maxVendorId && vendorDecisions[id] === true) {
+      if (id > 0 && id <= maxVendorId && filteredDecisions[id] === true) {
         vendorConsent[id - 1] = 1;
       }
     });
@@ -3348,7 +3380,7 @@ normalizeDecisions(decisions, targetFormat = 'client', options = {}) {
       
       // PASO 2: Crear estado de consentimiento inicial optimizado para validador
       window.CMP.consent = {
-        tcString: window.CMP.validatorTCString || "COtybn4PA_zT4KjACBENAPCIAEBAAECAAIAAAAAAAAAA",
+        tcString: window.CMP.generateLocalCompliantTCString ? window.CMP.generateLocalCompliantTCString(window.CMP.consent || {}) : null,
         created: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
         purposes: {},
@@ -3401,7 +3433,7 @@ normalizeDecisions(decisions, targetFormat = 'client', options = {}) {
             
             // Crear respuesta completa con todos los campos que requiere el validador
             var validatorResponse = {
-              tcString: window.CMP.validatorTCString || "COtybn4PA_zT4KjACBENAPCIAEBAAECAAIAAAAAAAAAA",
+              tcString: window.CMP.generateLocalCompliantTCString ? window.CMP.generateLocalCompliantTCString(window.CMP.consent || {}) : null,
               tcfPolicyVersion: CMP_CONFIG.tcfPolicyVersion,
               cmpId: CMP_CONFIG.cmpId,
               cmpVersion: CMP_CONFIG.cmpVersion,
@@ -3476,7 +3508,7 @@ normalizeDecisions(decisions, targetFormat = 'client', options = {}) {
             case 'getTCData':
               // Generar TCData dinámico con todos los campos requeridos
               var tcData = {
-                tcString: window.CMP.validatorTCString || "COtybn4PA_zT4KjACBENAPCIAEBAAECAAIAAAAAAAAAA",
+                tcString: window.CMP.generateLocalCompliantTCString ? window.CMP.generateLocalCompliantTCString(window.CMP.consent || {}) : null,
                 tcfPolicyVersion: CMP_CONFIG.tcfPolicyVersion,
                 cmpId: CMP_CONFIG.cmpId,
                 cmpVersion: CMP_CONFIG.cmpVersion,
@@ -3809,7 +3841,7 @@ normalizeDecisions(decisions, targetFormat = 'client', options = {}) {
        */
       function generateTCData() {
         return {
-          tcString: window.CMP.validatorTCString || "COtybn4PA_zT4KjACBENAPCIAEBAAECAAIAAAAAAAAAA",
+          tcString: window.CMP.generateLocalCompliantTCString ? window.CMP.generateLocalCompliantTCString(window.CMP.consent || {}) : null,
           tcfPolicyVersion: CMP_CONFIG.tcfPolicyVersion,
           cmpId: CMP_CONFIG.cmpId,
           cmpVersion: CMP_CONFIG.cmpVersion,

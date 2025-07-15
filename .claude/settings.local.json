@@ -54,8 +54,21 @@
       "Bash(true)",
       "Bash(yarn build)",
       "Bash(yarn test:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "WebFetch(domain:vendor-list.consensu.org)",
+      "Bash(git add:*)",
+      "Bash(yarn dev:*)",
+      "Bash(npx babel:*)",
+      "Bash(echo:*)",
+      "Bash(yarn start)",
+      "Bash(ss:*)",
+      "Bash(kill:*)",
+      "Bash(PORT=3001 timeout 8 node src/server.js)",
+      "Bash(npm run:*)",
+      "Bash(taskkill:*)",
+      "Bash(wmic process:*)"
     ],
     "deny": []
-  }
+  },
+  "enableAllProjectMcpServers": false
 }

@@ -119,22 +119,29 @@ const CookieAnalysisModal = ({ isOpen, onClose, domainName, analysisId }) => {
     }
   };
 
+  // Función para cerrar el modal (siempre disponible)
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    }
+  };
+
   const canClose = status === 'completed' || status === 'error';
+  const isActive = status === 'pending' || status === 'running';
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl relative">
-        {/* Botón de cerrar - solo disponible cuando no está ejecutándose */}
-        {canClose && (
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 text-2xl"
-          >
-            &times;
-          </button>
-        )}
+        {/* Botón de cerrar - siempre disponible */}
+        <button
+          onClick={handleClose}
+          className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 text-2xl transition-colors"
+          title={isActive ? "Cerrar ventana (el análisis continuará en segundo plano)" : "Cerrar"}
+        >
+          &times;
+        </button>
 
         {/* Header */}
         <div className="mb-6">
@@ -219,6 +226,22 @@ const CookieAnalysisModal = ({ isOpen, onClose, domainName, analysisId }) => {
               ❌ Error en el análisis
             </h3>
             <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
+
+        {/* Nota informativa cuando el análisis está activo */}
+        {isActive && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+            <div className="flex items-start space-x-2">
+              <svg className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-sm text-blue-800">
+                  <strong>Puedes cerrar esta ventana sin problema.</strong> El análisis continuará ejecutándose en segundo plano y recibirás una notificación cuando termine.
+                </p>
+              </div>
+            </div>
           </div>
         )}
 

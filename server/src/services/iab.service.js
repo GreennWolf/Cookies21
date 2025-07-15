@@ -2,15 +2,29 @@ const axios = require('axios');
 const VendorList = require('../models/VendorList');
 const { cache } = require('../config/redis');
 const logger = require('../utils/logger');
+const { createCMPConfig } = require('../config/cmp.config');
 
 class IABService {
   constructor() {
-    this.GVL_BASE_URL = 'https://vendor-list.consensu.org/v2';
-    this.LANGUAGE_BASE_URL = 'https://vendor-list.consensu.org/purposes';
+    // Usar configuración unificada
+    this.cmpConfig = createCMPConfig();
+    const gvlConfig = this.cmpConfig.getGVLConfig();
+    
+    this.GVL_BASE_URL = gvlConfig.gvlBaseUrl;
+    this.LANGUAGE_BASE_URL = gvlConfig.gvlLanguageUrl;
     this.VENDOR_LIST_CACHE_KEY = 'iab:gvl:latest';
     this.TRANSLATION_CACHE_PREFIX = 'iab:translations:';
-    this.CACHE_TTL = 86400; // 24 horas
-    this.TCF_VERSION = '2.2';
+    this.CACHE_TTL = gvlConfig.cacheTTL; // Viene de configuración unificada
+    this.TCF_VERSION = gvlConfig.tcfVersion;
+    this.VENDOR_LIST_VERSION = gvlConfig.vendorListVersion;
+    this.TCF_POLICY_VERSION = gvlConfig.tcfPolicyVersion;
+    
+    logger.info('🏗️ IABService inicializado con configuración unificada:', {
+      gvlBaseUrl: this.GVL_BASE_URL,
+      vendorListVersion: this.VENDOR_LIST_VERSION,
+      tcfVersion: this.TCF_VERSION,
+      cacheTTL: this.CACHE_TTL
+    });
   }
 
   // Obtener y actualizar Global Vendor List
@@ -381,6 +395,26 @@ class IABService {
       return data;
     } catch (error) {
       logger.error('Error getting latest GVL version:', error);
+      throw error;
+    }
+  }
+
+  // COMPLIANCE POINT 7: Método para obtener datos directos del GVL v3
+  async fetchCurrentGVLData() {
+    try {
+      const { data } = await axios.get(`${this.GVL_BASE_URL}/vendor-list.json`);
+      
+      // Console.log para debug de datos GVL
+      console.log('=== DATOS GVL v3 OBTENIDOS ===');
+      console.log('gvlSpecificationVersion:', data.gvlSpecificationVersion);
+      console.log('vendorListVersion:', data.vendorListVersion);
+      console.log('tcfPolicyVersion:', data.tcfPolicyVersion);
+      console.log('lastUpdated:', data.lastUpdated);
+      console.log('================================');
+      
+      return data;
+    } catch (error) {
+      logger.error('Error fetching current GVL data:', error);
       throw error;
     }
   }

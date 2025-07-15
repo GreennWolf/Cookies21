@@ -2,6 +2,8 @@ const puppeteer = require('puppeteer');
 const { URL } = require('url');
 const logger = require('../utils/logger');
 const CookieAnalysis = require('../models/CookieAnalysis');
+const IntelligentCookieResult = require('../models/IntelligentCookieResult');
+const IntelligentCookieAnalyzer = require('./intelligentCookieAnalyzer.service');
 const providerService = require('./provider.service');
 
 class AdvancedCookieAnalyzer {
@@ -1259,6 +1261,262 @@ class AdvancedCookieAnalyzer {
     }
     
     analysis.recommendations = recommendations;
+  }
+
+  /**
+   * Análisis inteligente con clasificación automática y detección de vendors
+   */
+  async performIntelligentAnalysis(domainId, clientId, domainUrl, analysisId, config = {}) {
+    logger.info(`🧠 Iniciando análisis inteligente para: ${domainUrl}`);
+    
+    try {
+      // Crear instancia del analizador inteligente
+      const intelligentAnalyzer = new IntelligentCookieAnalyzer();
+      
+      // Realizar el análisis
+      const analysisResult = await intelligentAnalyzer.analyzeDomain(domainUrl, config);
+      
+      // Calcular métricas de compliance
+      const complianceRate = this.calculateComplianceRate(analysisResult.cookies);
+      analysisResult.summary.compliance.complianceRate = complianceRate;
+      
+      // Generar recomendaciones específicas
+      const recommendations = this.generateIntelligentRecommendations(analysisResult);
+      
+      // Preparar datos para guardar en BD
+      const resultData = {
+        analysisId,
+        domainId,
+        clientId,
+        domain: analysisResult.domain,
+        url: domainUrl,
+        summary: {
+          ...analysisResult.summary,
+          avgConfidence: this.calculateAverageConfidence(analysisResult.cookies),
+          thirdPartyCookies: analysisResult.cookies.filter(c => c.domainType === 'third-party' || (c.features && c.features.domainType === 'third-party')).length,
+          sessionCookies: analysisResult.cookies.filter(c => c.duration === -1 || (c.features && c.features.duration === -1)).length,
+          persistentCookies: analysisResult.cookies.filter(c => c.duration > 0 || (c.features && c.features.duration > 0)).length,
+          topVendors: this.getTopVendors(analysisResult.cookies),
+          criticalIssues: this.getCriticalIssues(analysisResult.cookies)
+        },
+        cookies: analysisResult.cookies.map(cookie => ({
+          features: cookie,
+          classification: cookie.classification,
+          vendor: cookie.vendor,
+          compliance: {
+            ...cookie.compliance,
+            complianceScore: this.calculateCookieComplianceScore(cookie),
+            recommendations: this.getCookieRecommendations(cookie)
+          },
+          analysisTimestamp: new Date(),
+          classificationChanged: false, // Se calculará comparando con análisis previo
+          lastUpdated: new Date()
+        })),
+        metadata: analysisResult.metadata,
+        status: 'completed'
+      };
+      
+      // Guardar en base de datos
+      const savedResult = await IntelligentCookieResult.create(resultData);
+      
+      // Cerrar analizador
+      await intelligentAnalyzer.close();
+      
+      logger.info(`✅ Análisis inteligente completado. Guardado con ID: ${savedResult._id}`);
+      
+      return {
+        resultId: savedResult._id,
+        summary: savedResult.summary,
+        totalCookies: savedResult.cookies.length,
+        complianceRate: complianceRate,
+        riskLevel: savedResult.summary.riskAssessment,
+        recommendations: recommendations.slice(0, 5) // Top 5 recomendaciones
+      };
+      
+    } catch (error) {
+      logger.error(`❌ Error en análisis inteligente: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Calcula la tasa de cumplimiento general
+   */
+  calculateComplianceRate(cookies) {
+    if (cookies.length === 0) return 100;
+    
+    const compliantCookies = cookies.filter(cookie => cookie.compliance.isCompliant).length;
+    return Math.round((compliantCookies / cookies.length) * 100);
+  }
+
+  /**
+   * Calcula la confianza promedio de las clasificaciones
+   */
+  calculateAverageConfidence(cookies) {
+    if (cookies.length === 0) return 0;
+    
+    const totalConfidence = cookies.reduce((sum, cookie) => sum + cookie.classification.confidence, 0);
+    return totalConfidence / cookies.length;
+  }
+
+  /**
+   * Obtiene los vendors más frecuentes
+   */
+  getTopVendors(cookies) {
+    const vendorCounts = {};
+    const vendorPurposes = {};
+    
+    cookies.forEach(cookie => {
+      const vendorName = cookie.vendor.name;
+      if (vendorName !== 'Unknown Vendor') {
+        vendorCounts[vendorName] = (vendorCounts[vendorName] || 0) + 1;
+        vendorPurposes[vendorName] = cookie.vendor.purposes;
+      }
+    });
+    
+    return Object.entries(vendorCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 10)
+      .map(([name, count]) => ({
+        name,
+        count,
+        purposes: vendorPurposes[name] || []
+      }));
+  }
+
+  /**
+   * Identifica problemas críticos
+   */
+  getCriticalIssues(cookies) {
+    const issues = {};
+    
+    cookies.forEach(cookie => {
+      cookie.compliance.violations.forEach(violation => {
+        const key = violation.type;
+        if (!issues[key]) {
+          issues[key] = {
+            type: key,
+            count: 0,
+            description: violation.message
+          };
+        }
+        issues[key].count++;
+      });
+    });
+    
+    return Object.values(issues)
+      .filter(issue => issue.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }
+
+  /**
+   * Calcula puntuación de compliance por cookie
+   */
+  calculateCookieComplianceScore(cookie) {
+    let score = 100;
+    
+    // Penalizar violaciones
+    cookie.compliance.violations.forEach(violation => {
+      switch (violation.severity) {
+        case 'high': score -= 30; break;
+        case 'medium': score -= 15; break;
+        case 'low': score -= 5; break;
+      }
+    });
+    
+    // Penalizar warnings
+    cookie.compliance.warnings.forEach(warning => {
+      switch (warning.severity) {
+        case 'high': score -= 15; break;
+        case 'medium': score -= 8; break;
+        case 'low': score -= 3; break;
+      }
+    });
+    
+    return Math.max(0, score);
+  }
+
+  /**
+   * Genera recomendaciones específicas por cookie
+   */
+  getCookieRecommendations(cookie) {
+    const recommendations = [];
+    
+    cookie.compliance.violations.forEach(violation => {
+      recommendations.push({
+        priority: violation.severity === 'high' ? 'critical' : 'high',
+        action: `Corregir ${violation.type}`,
+        description: violation.message,
+        impact: 'Cumplimiento GDPR'
+      });
+    });
+    
+    cookie.compliance.warnings.forEach(warning => {
+      recommendations.push({
+        priority: 'medium',
+        action: `Revisar ${warning.type}`,
+        description: warning.message,
+        impact: 'Mejora de compliance'
+      });
+    });
+    
+    return recommendations;
+  }
+
+  /**
+   * Genera recomendaciones generales del análisis
+   */
+  generateIntelligentRecommendations(analysisResult) {
+    const recommendations = [];
+    
+    // Recomendaciones basadas en el resumen
+    const summary = analysisResult.summary;
+    
+    if (summary.compliance.violations > 0) {
+      recommendations.push({
+        priority: 'critical',
+        title: 'Corregir violaciones GDPR',
+        description: `Detectadas ${summary.compliance.violations} violaciones de cumplimiento`,
+        action: 'Revisar cookies con violaciones y aplicar correcciones',
+        impact: 'Evitar sanciones regulatorias'
+      });
+    }
+    
+    if (summary.byPurpose.unknown > 0) {
+      recommendations.push({
+        priority: 'high',
+        title: 'Clasificar cookies sin propósito',
+        description: `${summary.byPurpose.unknown} cookies necesitan clasificación manual`,
+        action: 'Definir propósito para cookies no clasificadas',
+        impact: 'Transparencia para usuarios'
+      });
+    }
+    
+    if (summary.byPurpose.advertising > summary.byPurpose.necessary) {
+      recommendations.push({
+        priority: 'medium',
+        title: 'Optimizar uso de cookies publicitarias',
+        description: 'Alto número de cookies publicitarias detectadas',
+        action: 'Revisar necesidad de todas las cookies publicitarias',
+        impact: 'Mejorar experiencia de usuario'
+      });
+    }
+    
+    const unknownVendors = Object.entries(summary.byVendor)
+      .filter(([name]) => name === 'Unknown Vendor')
+      .reduce((sum, [, count]) => sum + count, 0);
+    
+    if (unknownVendors > 0) {
+      recommendations.push({
+        priority: 'medium',
+        title: 'Identificar vendors desconocidos',
+        description: `${unknownVendors} cookies de vendors no identificados`,
+        action: 'Documentar y registrar vendors en uso',
+        impact: 'Transparencia y control de terceros'
+      });
+    }
+    
+    return recommendations;
   }
 
   async closeBrowser() {

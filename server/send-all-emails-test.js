@@ -77,7 +77,7 @@ async function sendAllEmails() {
       email: TEST_EMAIL,
       name: TEST_NAME,
       website: 'www.ejemplo.com',
-      configUrl: 'https://app.cookie21.com/panel/configuracion',
+      configUrl: 'https://api.cookie21.com/panel/configuracion',
       clientName: 'Cookie21'
     });
     results.push({ type: 'Configuración Cookies', ...cookieConfigResult });
@@ -120,7 +120,7 @@ async function sendAllEmails() {
       clientName: 'Cookie21 Combo',
       invitationInfo: {
         token: 'combo-invitation-token-' + Date.now(),
-        url: 'https://app.cookie21.com/invitacion/combo-token-123'
+        url: 'https://api.cookie21.com/invitacion/combo-token-123'
       },
       sendDirect: true // Forzar envío real
     });

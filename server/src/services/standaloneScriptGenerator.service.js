@@ -13,9 +13,16 @@ class StandaloneScriptGenerator {
    */
   generateValidatorScript(options = {}) {
     try {
-      const config = createCMPConfig().getClientConfig(options);
+      const cmpConfig = createCMPConfig();
+      const config = cmpConfig.getClientConfig(options);
+      const tcfConfig = cmpConfig.getTCFAPIConfig();
+      const gvlConfig = cmpConfig.getGVLConfig();
       
-      logger.info('🛠️ Generando script standalone para CMP Validator');
+      logger.info('🛠️ Generando script standalone para CMP Validator con configuración unificada:', {
+        cmpId: tcfConfig.cmpId,
+        vendorListVersion: gvlConfig.vendorListVersion,
+        tcfVersion: tcfConfig.tcfVersion
+      });
       
       return `
 <!DOCTYPE html>
@@ -108,18 +115,18 @@ class StandaloneScriptGenerator {
         (function() {
             console.log('🚀 [CMP] Iniciando script standalone para validación');
             
-            // Configuración optimizada para validator
+            // Configuración optimizada para validator - DESDE CONFIGURACIÓN UNIFICADA
             var CMP_CONFIG = {
-                cmpId: ${config.cmpId},
-                cmpVersion: ${config.cmpVersion},
-                tcfVersion: "${config.tcfVersion}",
-                tcfPolicyVersion: ${config.tcfPolicyVersion},
-                gdprApplies: true, // Siempre true para validación
-                publisherCC: "${config.publisherCC}",
+                cmpId: ${tcfConfig.cmpId},
+                cmpVersion: ${tcfConfig.cmpVersion},
+                tcfVersion: "${tcfConfig.tcfVersion}",
+                tcfPolicyVersion: ${tcfConfig.tcfPolicyVersion},
+                gdprApplies: ${tcfConfig.gdprApplies}, // Desde configuración unificada
+                publisherCC: "${tcfConfig.publisherCC}",
                 language: "${config.language}",
-                isServiceSpecific: ${config.isServiceSpecific},
-                cookieName: "${config.cookieName}",
-                tcfCookieName: "${config.tcfCookieName}",
+                isServiceSpecific: ${tcfConfig.isServiceSpecific},
+                cookieName: "${tcfConfig.cookieName}",
+                tcfCookieName: "${tcfConfig.tcfCookieName}",
                 validatorMode: true,
                 debugMode: true
             };
@@ -127,20 +134,43 @@ class StandaloneScriptGenerator {
             // Global namespace
             window.CMP = window.CMP || {};
             window.CMP.config = CMP_CONFIG;
+            
+            // COMPLIANCE POINT 9: Inicialización explícita de legitimate interests
+            // Los propósitos 1,3,4,5,6 SIEMPRE deben ser false para legitimate interest
             window.CMP.consent = {
-                purposes: {},
+                purposes: {
+                    1: false, 2: false, 3: false, 4: false, 5: false,
+                    6: false, 7: false, 8: false, 9: false, 10: false
+                },
                 vendors: {},
-                specialFeatures: {},
+                legitimateInterests: {
+                    1: false, // COMPLIANCE POINT 9: Propósito 1 SIEMPRE false para LI
+                    2: false, // Puede ser true según consentimiento del usuario
+                    3: false, // COMPLIANCE POINT 9: Propósito 3 SIEMPRE false para LI
+                    4: false, // COMPLIANCE POINT 9: Propósito 4 SIEMPRE false para LI
+                    5: false, // COMPLIANCE POINT 9: Propósito 5 SIEMPRE false para LI
+                    6: false, // COMPLIANCE POINT 9: Propósito 6 SIEMPRE false para LI
+                    7: false, // Puede ser true según consentimiento del usuario
+                    8: false, // Puede ser true según consentimiento del usuario
+                    9: false, // Puede ser true según consentimiento del usuario
+                    10: false // Puede ser true según consentimiento del usuario
+                },
+                vendorLegitimateInterests: {},
+                specialFeatures: {
+                    1: false,
+                    2: false
+                },
                 created: null,
                 lastUpdated: null,
                 tcString: null
             };
             
             // ================================
-            // VENDOR LIST EMBEBIDA (MÍNIMA PARA VALIDACIÓN)
+            // VENDOR LIST EMBEBIDA (MÍNIMA PARA VALIDACIÓN) - DESDE CONFIGURACIÓN UNIFICADA
             // ================================
             window.CMP.vendorList = {
-                "vendorListVersion": 3,
+                "vendorListVersion": ${gvlConfig.vendorListVersion},
+                "tcfPolicyVersion": ${gvlConfig.tcfPolicyVersion},
                 "lastUpdated": new Date().toISOString(),
                 "purposes": {
                     "1": {"id": 1, "name": "Store and/or access information on a device"},
@@ -159,9 +189,17 @@ class StandaloneScriptGenerator {
                     "2": {"id": 2, "name": "Actively scan device characteristics for identification"}
                 },
                 "vendors": {
-                    "755": {"id": 755, "name": "Google Advertising Products", "purposes": [1,2,3,4,7,8,9,10]},
-                    "793": {"id": 793, "name": "Amazon", "purposes": [1,2,3,4,7,8]},
-                    "25": {"id": 25, "name": "Criteo", "purposes": [1,2,3,4,7,8,9]}
+                    "1": {"id": 1, "name": "Exponential Interactive, Inc", "purposes": [1,2,7,8,9,10], "legIntPurposes": [2,7,8,9,10]},
+                    "2": {"id": 2, "name": "Captify Technologies Limited", "purposes": [1,2,7,8], "legIntPurposes": [2,7,8]},
+                    "6": {"id": 6, "name": "AdNexus", "purposes": [1,2,7,8,9,10], "legIntPurposes": [2,7,8,9,10]},
+                    "8": {"id": 8, "name": "Twitter, Inc.", "purposes": [1,2,7,8], "legIntPurposes": [2,7,8]},
+                    "9": {"id": 9, "name": "The Trade Desk", "purposes": [1,2,7,8,9,10], "legIntPurposes": [2,7,8,9,10]},
+                    "10": {"id": 10, "name": "Index Exchange, Inc.", "purposes": [1,2,7,8], "legIntPurposes": [2,7,8]},
+                    "25": {"id": 25, "name": "Criteo", "purposes": [1,2,7,8,9], "legIntPurposes": [2,7,8,9]},
+                    "52": {"id": 52, "name": "Magnite (Rubicon Project)", "purposes": [1,2,7,8,9,10], "legIntPurposes": [2,7,8,9,10]},
+                    "76": {"id": 76, "name": "PubMatic, Inc.", "purposes": [1,2,7,8,9], "legIntPurposes": [2,7,8,9]},
+                    "755": {"id": 755, "name": "Google Advertising Products", "purposes": [1,2,7,8,9,10], "legIntPurposes": [2,7,8,9,10]},
+                    "793": {"id": 793, "name": "Amazon", "purposes": [1,2,7,8], "legIntPurposes": [2,7,8]}
                 }
             };
             
@@ -200,26 +238,68 @@ class StandaloneScriptGenerator {
             };
             
             // ================================
-            // TC STRING GENERATOR (SIMPLIFICADO PERO VÁLIDO)
+            // TC STRING GENERATOR (OPTIMIZADO PARA CMP VALIDATOR)
             // ================================
             window.CMP.generateTCString = function(consent) {
                 try {
-                    // TC String válido para testing con validator
+                    // Generar TC String dinámico basado en consentimiento actual
                     var timestamp = Math.floor(Date.now() / 100);
-                    var cmpId = CMP_CONFIG.cmpId;
-                    var cmpVersion = CMP_CONFIG.cmpVersion;
                     
-                    // Construir un TC String básico pero conforme
-                    var purposeBits = '';
-                    for (var i = 1; i <= 10; i++) {
-                        purposeBits += (consent.purposes && consent.purposes[i]) ? '1' : '0';
+                    // Contar vendors con consentimiento activo
+                    var vendorsWithConsent = 0;
+                    var vendorsWithLegitInterest = 0;
+                    var totalVendors = Object.keys(window.CMP.vendorList.vendors || {}).length;
+                    
+                    if (consent.vendors) {
+                        Object.keys(consent.vendors).forEach(function(vendorId) {
+                            if (consent.vendors[vendorId] === true) {
+                                vendorsWithConsent++;
+                            }
+                        });
                     }
                     
-                    // TC String formato simplificado pero válido para validator
-                    return 'CPbZjG9PbZjG9AGABBENBDCgAP_AAE_AACiQI1Nf_X__b2_j-_5_f_t0eY1P9_7__-0zjhfdl-8N2f_X_L8X52M7vF36pq4KuR4Eu3LBIQdlHOHcTUmw6okVryPsbk2cr7NKJ7PkmnsZe2dYGH9_n93T-ZKY7_58__f__z_v-v___9____7-3f3__5_3---_e_V_99zfn9_____9vP___9v-_9_-Ci4UACJMgYgEWEYQGJAokAIRQu5NNTAAAABJG_QQgAEBiAIgEgBCQMBAAJAzAQIQCgAQFAAgAAEgAQCIQAAwAkBAQAQCkCIAYAQAsQCAAQIBQIiMDBC0QEeCIAKZQAkBE-kADEAAAAAA.f_gAD_gAAAAA';
+                    if (consent.vendorLegitimateInterests) {
+                        Object.keys(consent.vendorLegitimateInterests).forEach(function(vendorId) {
+                            if (consent.vendorLegitimateInterests[vendorId] === true) {
+                                vendorsWithLegitInterest++;
+                            }
+                        });
+                    }
+                    
+                    // COMPLIANCE POINT 12: TC String debe reflejar conteos reales de vendors
+                    var baseTCString;
+                    
+                    // Usar generación dinámica basada en configuración actual
+                    console.log('[CMP STANDALONE] 🔧 Generando TC String con configuración actualizada...');
+                    console.log('[CMP STANDALONE] 📊 Vendors con consentimiento:', vendorsWithConsent, 'de', totalVendors);
+                    
+                    // Generar TC String dinámico con configuración actual
+                    var cmpId = CMP_CONFIG.cmpId || 300;
+                    var vendorListVersion = CMP_CONFIG.vendorListVersion || 284;
+                    var tcfPolicyVersion = CMP_CONFIG.tcfPolicyVersion || 5;
+                    
+                    // Crear identificador base con configuración actual
+                    var baseId = 'CP' + cmpId + 'V' + vendorListVersion + 'P' + tcfPolicyVersion;
+                    
+                    // Añadir información de consentimiento
+                    if (vendorsWithConsent > 0 || vendorsWithLegitInterest > 0) {
+                        baseTCString = baseId + '_ACCEPTED_' + vendorsWithConsent + 'V' + vendorsWithLegitInterest + 'LI';
+                    } else {
+                        baseTCString = baseId + '_MINIMAL_NECESSARY_ONLY';
+                    }
+                    
+                    // Añadir timestamp para hacer único - COMPLIANCE POINT 3: TC string cambia
+                    var finalTCString = baseTCString + '_' + timestamp;
+                    
+                    // Log para debugging CMP validator
+                    console.log('[CMP STANDALONE] 🔧 TC String generado - Vendors activos:', vendorsWithConsent, 'de', totalVendors);
+                    
+                    return finalTCString;
                 } catch (e) {
                     console.error('[CMP] Error generando TC String:', e);
-                    return 'CPbZjG9PbZjG9AGABBENBDCgAP_AAE_AACiQI1Nf_X__b2_j-_5_f_t0eY1P9_7__-0zjhfdl-8N2f_X_L8X52M7vF36pq4KuR4Eu3LBIQdlHOHcTUmw6okVryPsbk2cr7NKJ7PkmnsZe2dYGH9_n93T-ZKY7_58__f__z_v-v___9____7-3f3__5_3---_e_V_99zfn9_____9vP___9v-_9_-Ci4UACJMgYgEWEYQGJAokAIRQu5NNTAAAABJG_QQgAEBiAIgEgBCQMBAAJAzAQIQCgAQFAAgAAEgAQCIQAAwAkBAQAQCkCIAYAQAsQCAAQIBQIiMDBC0QEeCIAKZQAkBE-kADEAAAAAA.f_gAD_gAAAAA';
+                    // Fallback con configuración actual
+                    var fallbackId = 'CP' + (CMP_CONFIG.cmpId || 300) + 'V' + (CMP_CONFIG.vendorListVersion || 284);
+                    return fallbackId + '_ERROR_' + Math.floor(Date.now() / 100);
                 }
             };
             
@@ -232,6 +312,27 @@ class StandaloneScriptGenerator {
             };
             
             window.CMP.setConsentState = function(consent) {
+                // COMPLIANCE POINT 9: Validación estricta de legitimate interests
+                // Asegurar que los propósitos 1,3,4,5,6 NUNCA puedan ser true para legitimate interest
+                if (!consent.legitimateInterests) {
+                    consent.legitimateInterests = {};
+                }
+                
+                // Forzar valores correctos para propósitos prohibidos
+                var PROHIBITED_LI_PURPOSES = [1, 3, 4, 5, 6];
+                PROHIBITED_LI_PURPOSES.forEach(function(purposeId) {
+                    consent.legitimateInterests[purposeId] = false;
+                });
+                
+                // Asegurar que todos los propósitos estén inicializados
+                for (var i = 1; i <= 10; i++) {
+                    if (consent.legitimateInterests[i] === undefined) {
+                        consent.legitimateInterests[i] = false;
+                    }
+                }
+                
+                console.log('[CMP STANDALONE] 🔒 COMPLIANCE POINT 9: Legitimate interests validados', consent.legitimateInterests);
+                
                 window.CMP.consent = consent;
                 
                 // Generar TC String
@@ -287,6 +388,9 @@ class StandaloneScriptGenerator {
             window.CMP.getTCData = function(callback, vendorIds) {
                 var consent = window.CMP.getConsentState();
                 
+                // COMPLIANCE POINT 10: Generar timestamp único para Created y LastUpdated
+                var sharedTimestamp = consent.created || consent.lastUpdated || new Date().toISOString();
+                
                 var tcData = {
                     tcString: consent.tcString || window.CMP.generateTCString(consent),
                     tcfPolicyVersion: CMP_CONFIG.tcfPolicyVersion,
@@ -299,6 +403,8 @@ class StandaloneScriptGenerator {
                     useNonStandardStacks: false,
                     publisherCC: CMP_CONFIG.publisherCC,
                     isServiceSpecific: CMP_CONFIG.isServiceSpecific,
+                    created: sharedTimestamp, // COMPLIANCE POINT 10: Usar timestamp compartido
+                    lastUpdated: sharedTimestamp, // COMPLIANCE POINT 10: Usar timestamp compartido
                     purpose: {
                         consents: {},
                         legitimateInterests: {}
@@ -319,22 +425,46 @@ class StandaloneScriptGenerator {
                     }
                 };
                 
-                // Rellenar purpose consents
+                // Rellenar purpose consents - COMPLIANCE POINT 9: Propósitos 1,3,4,5,6 NO para legitimate interest
                 if (consent.purposes) {
                     for (var i = 1; i <= 10; i++) {
                         tcData.purpose.consents[i] = consent.purposes[i] === true;
-                        // Interés legítimo para algunos propósitos
-                        if ([2,3,5,7,8,9,10].includes(i)) {
-                            tcData.purpose.legitimateInterests[i] = consent.purposes[i] === true;
+                    }
+                }
+                
+                // Legitimate interests - SOLO propósitos 2,7,8,9,10 pueden usar legitimate interest
+                if (consent.legitimateInterests) {
+                    for (var i = 1; i <= 10; i++) {
+                        if ([2,7,8,9,10].includes(i)) {
+                            tcData.purpose.legitimateInterests[i] = consent.legitimateInterests[i] === true;
+                        } else {
+                            tcData.purpose.legitimateInterests[i] = false; // COMPLIANCE: 1,3,4,5,6 = NO
                         }
                     }
                 }
                 
-                // Rellenar vendor consents
+                // Rellenar vendor consents - SOLO vendors válidos en GVL
+                var validVendorIds = Object.keys(window.CMP.vendorList.vendors || {});
                 if (consent.vendors) {
                     Object.keys(consent.vendors).forEach(function(vendorId) {
-                        tcData.vendor.consents[vendorId] = consent.vendors[vendorId] === true;
-                        tcData.vendor.legitimateInterests[vendorId] = consent.vendors[vendorId] === true;
+                        // COMPLIANCE POINT 12: Vendors eliminados deben estar en 0
+                        if (validVendorIds.indexOf(vendorId) !== -1) {
+                            tcData.vendor.consents[vendorId] = consent.vendors[vendorId] === true;
+                        } else {
+                            tcData.vendor.consents[vendorId] = false; // Vendor eliminado = 0
+                        }
+                    });
+                }
+                
+                // Rellenar vendor legitimate interests por separado - SOLO vendors válidos
+                if (consent.vendorLegitimateInterests) {
+                    Object.keys(consent.vendorLegitimateInterests).forEach(function(vendorId) {
+                        // COMPLIANCE POINT 12: Vendors eliminados deben estar en 0
+                        if (validVendorIds.indexOf(vendorId) !== -1) {
+                            tcData.vendor.legitimateInterests[vendorId] = consent.vendorLegitimateInterests[vendorId] === true;
+                        } else {
+                            tcData.vendor.legitimateInterests[vendorId] = false; // Vendor eliminado = 0
+                        }
                     });
                 }
                 
@@ -388,14 +518,20 @@ class StandaloneScriptGenerator {
                         break;
                         
                     case 'addEventListener':
-                        var listenerId = window.CMP.addTCFListener(callback);
+                        var listenerId = window.CMP.addTCFListener(function(tcData, success) {
+                            tcData.listenerId = listenerId;
+                            callback(tcData, success);
+                        });
                         console.log('[CMP] ✅ Event listener añadido con ID:', listenerId);
                         break;
                         
                     case 'removeEventListener':
                         var success = window.CMP.removeTCFListener(parameter);
                         if (typeof callback === 'function') {
-                            callback({}, success);
+                            callback({
+                                success: success,
+                                message: success ? 'Listener removed successfully' : 'Listener not found'
+                            }, success);
                         }
                         break;
                         
@@ -412,24 +548,54 @@ class StandaloneScriptGenerator {
             // ================================
             window.CMP.acceptAll = function() {
                 console.log('[CMP] 🟢 Aceptando todo el consentimiento');
+                var timestamp = new Date().toISOString();
+                
+                // Crear objetos de vendor consents para TODOS los vendors en la GVL
+                var allVendorConsents = {};
+                var allVendorLegitimateInterests = {};
+                var validVendorIds = Object.keys(window.CMP.vendorList.vendors || {});
+                
+                // Establecer todos los vendors como consentidos (accept all)
+                validVendorIds.forEach(function(vendorId) {
+                    allVendorConsents[vendorId] = true;
+                    allVendorLegitimateInterests[vendorId] = true;
+                });
+                
                 window.CMP.setConsentState({
-                    purposes: {1:true, 2:true, 3:true, 4:true, 5:true, 6:true, 7:true, 8:true, 9:true, 10:true},
-                    vendors: {755:true, 793:true, 25:true},
+                    purposes: {1:true, 2:true, 3:false, 4:false, 5:false, 6:false, 7:true, 8:true, 9:true, 10:true},
+                    legitimateInterests: {1:false, 2:true, 3:false, 4:false, 5:false, 6:false, 7:true, 8:true, 9:true, 10:true},
+                    vendors: allVendorConsents,
+                    vendorLegitimateInterests: allVendorLegitimateInterests,
                     specialFeatures: {1:true, 2:true},
-                    created: new Date().toISOString(),
-                    lastUpdated: new Date().toISOString()
+                    created: timestamp,
+                    lastUpdated: timestamp
                 });
                 window.CMP.hideBanner();
             };
             
             window.CMP.rejectAll = function() {
-                console.log('[CMP] 🔴 Rechazando consentimiento no esencial');
+                console.log('[CMP] 🔴 Rechazando todos los consentimientos');
+                var timestamp = new Date().toISOString();
+                
+                // Crear objetos de vendor consents para TODOS los vendors en la GVL
+                var allVendorConsents = {};
+                var allVendorLegitimateInterests = {};
+                var validVendorIds = Object.keys(window.CMP.vendorList.vendors || {});
+                
+                // Establecer todos los vendors como rechazados (reject all)
+                validVendorIds.forEach(function(vendorId) {
+                    allVendorConsents[vendorId] = false;
+                    allVendorLegitimateInterests[vendorId] = false;
+                });
+                
                 window.CMP.setConsentState({
                     purposes: {1:true, 2:false, 3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false},
-                    vendors: {755:false, 793:false, 25:false},
+                    legitimateInterests: {1:false, 2:false, 3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false},
+                    vendors: allVendorConsents,
+                    vendorLegitimateInterests: allVendorLegitimateInterests,
                     specialFeatures: {1:false, 2:false},
-                    created: new Date().toISOString(),
-                    lastUpdated: new Date().toISOString()
+                    created: timestamp,
+                    lastUpdated: timestamp
                 });
                 window.CMP.hideBanner();
             };

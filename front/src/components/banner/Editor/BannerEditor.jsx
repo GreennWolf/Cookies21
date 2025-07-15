@@ -11,9 +11,12 @@ import { Save, Eye, Undo, Redo, Monitor, Smartphone, Tablet, ChevronLeft, X, Cod
 import { exportEmbeddableScript } from '../../../api/bannerTemplate';
 import { useAuth } from '../../../contexts/AuthContext';
 import SimplePanelConfigModal from './SimplePanelConfigModal';
+import FloatingIconConfigModal from './FloatingIconConfigModal';
+import GeneralSettingsModal from './GeneralSettingsModal';
 import LanguageSelector from '../LanguageSelector';
 import TranslationConfigPanel from './TranslationConfigPanel';
 import { useTranslations } from '../../../hooks/useTranslations';
+import { DimensionProvider } from '../../../contexts/DimensionContext.jsx';
 
 function parseDimension(dim) {
   if (!dim || dim === 'auto') return { value: '', unit: 'auto' };
@@ -32,6 +35,7 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
   
   const {
     bannerConfig,
+    setBannerConfig,
     setInitialConfig,
     selectedComponent,
     setSelectedComponent,
@@ -105,6 +109,14 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
   const [scriptExport, setScriptExport] = useState({ show: false, script: '' });
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
   
+  // Estados para configuración del icono flotante
+  const [floatingIconEnabled, setFloatingIconEnabled] = useState(true);
+  const [floatingIconPosition, setFloatingIconPosition] = useState('bottom-right');
+  const [floatingIconColor, setFloatingIconColor] = useState('#007bff');
+  const [floatingIconBackgroundColor, setFloatingIconBackgroundColor] = useState('transparent');
+  const [floatingIconSize, setFloatingIconSize] = useState(40);
+  const [showFloatingIconModal, setShowFloatingIconModal] = useState(false);
+  
   // Refs para evitar problemas
   const saveInProgressRef = useRef(false);
   const dimensionsInitializedRef = useRef(false);
@@ -151,23 +163,37 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
     dimensionsInitializedRef.current = false;
   }, [deviceView]);
   
-  // Este efecto actualiza las dimensiones cuando cambia bannerConfig
+  // Este efecto actualiza las dimensiones cuando cambia el dispositivo
   useEffect(() => {
+    console.log(`🔄 BannerEditor useEffect: deviceView cambió a ${deviceView}`);
     if (!bannerConfig?.layout?.[deviceView]) return;
     
     // Extraer valores actuales
     const currentLayout = bannerConfig.layout[deviceView];
     
-    // Procesar dimensiones (siempre, para que funcione el cambio de dispositivo)
-    const parsedWidth = parseDimension(currentLayout?.width);
-    setWidthValue(parsedWidth.value);
-    setWidthUnit(parsedWidth.unit);
+    // Procesar dimensiones SOLO cuando el layout tiene valores válidos definidos
+    // Evitar procesar si el layout tiene valores vacíos que forzarían 'auto'
+    if (currentLayout?.width && currentLayout.width !== '' && currentLayout.width !== 'auto') {
+      const parsedWidth = parseDimension(currentLayout.width);
+      setWidthValue(parsedWidth.value);
+      setWidthUnit(parsedWidth.unit);
+    } else if (currentLayout?.width === 'auto') {
+      // Solo cambiar a auto si explícitamente está configurado como auto
+      setWidthValue('');
+      setWidthUnit('auto');
+    }
 
-    const parsedHeight = parseDimension(currentLayout?.height);
-    setHeightValue(parsedHeight.value);
-    setHeightUnit(parsedHeight.unit);
+    if (currentLayout?.height && currentLayout.height !== '' && currentLayout.height !== 'auto') {
+      const parsedHeight = parseDimension(currentLayout.height);
+      setHeightValue(parsedHeight.value);
+      setHeightUnit(parsedHeight.unit);
+    } else if (currentLayout?.height === 'auto') {
+      // Solo cambiar a auto si explícitamente está configurado como auto
+      setHeightValue('');
+      setHeightUnit('auto');
+    }
     
-    // Para banners flotantes, actualizar posición y margen
+    // Para banners flotantes, actualizar estados locales sin modificar bannerConfig
     let cornerValue = currentLayout?.floatingCorner;
     
     // Si no hay floatingCorner, buscar en position si es válido
@@ -187,26 +213,23 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
     const currentFloatingMargin = currentLayout?.floatingMargin || 
                                  currentLayout?.['data-floating-margin'] || '20';
     
-    // Actualizar estados locales
+    // Actualizar SOLO estados locales, NO el bannerConfig para evitar bucles
     setFloatingMargin(currentFloatingMargin);
     setFloatingCorner(cornerValue);
     
-    // Solo realizar sincronización de valores una vez, para evitar ciclos infinitos
-    if (currentLayout?.type === 'floating' && !dimensionsInitializedRef.current) {
-      // Marcar que ya se inicializó
-      dimensionsInitializedRef.current = true;
-      
-      // Usar un timeout para agrupar estos cambios y reducir la cantidad de re-renders
-      setTimeout(() => {
-        // Estos handleUpdateLayoutForDevice no deberían ejecutarse en cada render
-        handleUpdateLayoutForDevice(deviceView, 'floatingCorner', cornerValue);
-        handleUpdateLayoutForDevice(deviceView, 'data-floating-corner', cornerValue);
-        handleUpdateLayoutForDevice(deviceView, 'position', cornerValue);
-        handleUpdateLayoutForDevice(deviceView, 'floatingMargin', currentFloatingMargin);
-        handleUpdateLayoutForDevice(deviceView, 'data-floating-margin', currentFloatingMargin);
-      }, 0);
+  }, [deviceView]); // SOLO deviceView como dependencia para evitar bucles infinitos
+
+  // Este efecto inicializa los estados del icono flotante
+  useEffect(() => {
+    if (bannerConfig?.settings?.floatingIcon) {
+      const { enabled, position, color, backgroundColor, size } = bannerConfig.settings.floatingIcon;
+      setFloatingIconEnabled(enabled !== false);
+      setFloatingIconPosition(position || 'bottom-right');
+      setFloatingIconColor(color || '#007bff');
+      setFloatingIconBackgroundColor(backgroundColor || 'transparent');
+      setFloatingIconSize(size || 40);
     }
-  }, [bannerConfig.layout, deviceView]);
+  }, [bannerConfig?.settings?.floatingIcon]);
 
   // Este efecto cambia el modo del sidebar cuando se selecciona un componente
   useEffect(() => {
@@ -260,7 +283,8 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
       } else if (bannerType === 'floating') {
         fixedWidthPercent = 40;
       } else { // banner estándar
-        fixedWidthPercent = 100;
+        // Para banners estándar, mantener el valor actual o usar 100% como predeterminado solo si no hay valor
+        fixedWidthPercent = widthValue && !isNaN(parseFloat(widthValue)) ? parseFloat(widthValue) : 100;
       }
       
       setWidthValue(fixedWidthPercent.toString());
@@ -324,11 +348,7 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
       } else if (bannerType === 'floating') {
         defaultHeightPercent = 40;
       } else { // banner estándar
-        defaultHeightPercent = 'auto';
-        
-        // Para banners estándar, configurar auto manteniendo la unidad como % en la interfaz
-        handleUpdateLayoutForDevice(deviceView, 'height', 'auto');
-        return;
+        defaultHeightPercent = 100; // Permitir 100% para banners estándar
       }
       
       setHeightValue(defaultHeightPercent.toString());
@@ -373,24 +393,30 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
       if (heightUnit === '%') {
         const numValue = parseInt(value);
         
-        if (bannerType === 'modal') {
-          // Limitar entre 20% y 90%
-          const limitedValue = Math.max(20, Math.min(90, numValue || 60));
-          setHeightValue(limitedValue.toString());
-          handleUpdateLayoutForDevice(deviceView, 'height', `${limitedValue}%`);
-          handleUpdateLayoutForDevice(deviceView, 'data-height', limitedValue.toString());
-        } else if (bannerType === 'floating') {
-          // Limitar entre 20% y 70%
-          const limitedValue = Math.max(20, Math.min(70, numValue || 40));
-          setHeightValue(limitedValue.toString());
-          handleUpdateLayoutForDevice(deviceView, 'height', `${limitedValue}%`);
-          handleUpdateLayoutForDevice(deviceView, 'data-height', limitedValue.toString());
-        } else { // Banner estándar
-          // Permitir cualquier porcentaje entre 10% y 100%
-          const limitedValue = Math.max(10, Math.min(100, numValue || 100));
-          setHeightValue(limitedValue.toString());
-          handleUpdateLayoutForDevice(deviceView, 'height', `${limitedValue}%`);
-          handleUpdateLayoutForDevice(deviceView, 'data-height', limitedValue.toString());
+        // Permitir campo vacío para edición
+        if (value === '' || value === '0') {
+          setHeightValue(value);
+          // No actualizar layout cuando está vacío, mantener estado anterior
+        } else if (!isNaN(numValue)) {
+          if (bannerType === 'modal') {
+            // Limitar entre 20% y 90%
+            const limitedValue = Math.max(20, Math.min(90, numValue));
+            setHeightValue(limitedValue.toString());
+            handleUpdateLayoutForDevice(deviceView, 'height', `${limitedValue}%`);
+            handleUpdateLayoutForDevice(deviceView, 'data-height', limitedValue.toString());
+          } else if (bannerType === 'floating') {
+            // Limitar entre 20% y 70%
+            const limitedValue = Math.max(20, Math.min(70, numValue));
+            setHeightValue(limitedValue.toString());
+            handleUpdateLayoutForDevice(deviceView, 'height', `${limitedValue}%`);
+            handleUpdateLayoutForDevice(deviceView, 'data-height', limitedValue.toString());
+          } else { // Banner estándar
+            // Permitir cualquier porcentaje entre 1% y 100%
+            const limitedValue = Math.max(1, Math.min(100, numValue));
+            setHeightValue(limitedValue.toString());
+            handleUpdateLayoutForDevice(deviceView, 'height', `${limitedValue}%`);
+            handleUpdateLayoutForDevice(deviceView, 'data-height', limitedValue.toString());
+          }
         }
       } else {
         // Para píxeles, validar que sea un número positivo
@@ -467,6 +493,73 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
     // 3. En formato position para compatibilidad
     handleUpdateLayoutForDevice(deviceView, 'position', value);
     
+  };
+
+  // Funciones para manejar la configuración del icono flotante
+  const handleFloatingIconEnabledChange = (enabled) => {
+    setFloatingIconEnabled(enabled);
+    updateBannerSettings('floatingIcon', {
+      ...bannerConfig.settings?.floatingIcon,
+      enabled
+    });
+  };
+
+  const handleFloatingIconPositionChange = (position) => {
+    setFloatingIconPosition(position);
+    updateBannerSettings('floatingIcon', {
+      ...bannerConfig.settings?.floatingIcon,
+      position
+    });
+  };
+
+  const handleFloatingIconColorChange = (color) => {
+    setFloatingIconColor(color);
+    updateBannerSettings('floatingIcon', {
+      ...bannerConfig.settings?.floatingIcon,
+      color
+    });
+  };
+
+  const handleFloatingIconBackgroundColorChange = (backgroundColor) => {
+    setFloatingIconBackgroundColor(backgroundColor);
+    updateBannerSettings('floatingIcon', {
+      ...bannerConfig.settings?.floatingIcon,
+      backgroundColor
+    });
+  };
+
+  const handleFloatingIconSizeChange = (size) => {
+    setFloatingIconSize(size);
+    updateBannerSettings('floatingIcon', {
+      ...bannerConfig.settings?.floatingIcon,
+      size
+    });
+  };
+
+  // Función para actualizar toda la configuración del icono flotante de una vez
+  const handleFloatingIconChange = (config) => {
+    // Actualizar todos los estados locales
+    if (config.position !== undefined) setFloatingIconPosition(config.position);
+    if (config.color !== undefined) setFloatingIconColor(config.color);
+    if (config.backgroundColor !== undefined) setFloatingIconBackgroundColor(config.backgroundColor);
+    if (config.size !== undefined) setFloatingIconSize(config.size);
+    
+    // Actualizar la configuración del banner
+    updateBannerSettings('floatingIcon', {
+      enabled: floatingIconEnabled,
+      ...bannerConfig.settings?.floatingIcon,
+      ...config
+    });
+  };
+
+  const updateBannerSettings = (key, value) => {
+    setBannerConfig(prev => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        [key]: value
+      }
+    }));
   };
 
   const onAddChild = (gridId) => {
@@ -847,7 +940,8 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
 {/* Diseño alternativo para fullscreen */}
   if (isFullscreen) {
     return (
-      <div className="flex flex-col h-screen w-screen overflow-hidden bg-white">
+      <DimensionProvider options={{ debug: process.env.NODE_ENV === 'development' }}>
+        <div className="flex flex-col h-screen w-screen overflow-hidden bg-white">
         {/* Barra superior con configuración en fullscreen */}
         <div className="bg-white border-b shadow-sm">
           <div className="flex items-center justify-between px-4 h-14">
@@ -855,7 +949,7 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
               Editor de Banner (Pantalla Completa)
             </div>
             <div className="flex items-center gap-2">
-              <div className="flex items-center border rounded">
+              <div className="flex border rounded">
                 <button 
                   className={`p-2 hover:bg-gray-50 ${deviceView === 'desktop' ? 'bg-gray-100' : ''}`}
                   onClick={() => setDeviceView('desktop')}
@@ -1104,7 +1198,13 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
                   type="number"
                   value={widthValue}
                   onChange={handleWidthValueChange}
-                  className="w-20 text-sm border rounded px-2 py-1"
+                  className={`w-20 text-sm border rounded px-2 py-1 ${
+                    widthValue === '' || 
+                    (widthUnit === 'px' && (parseInt(widthValue) < 1 || parseInt(widthValue) > 9999)) ||
+                    (widthUnit === '%' && (parseFloat(widthValue) < 1 || parseFloat(widthValue) > 100))
+                      ? 'border-red-400 bg-red-50'
+                      : 'border-gray-300'
+                  }`}
                   placeholder="ej: 500"
                   min={bannerConfig.layout[deviceView]?.type === 'modal' || bannerConfig.layout[deviceView]?.type === 'floating' ? 40 : 1}
                   max={bannerConfig.layout[deviceView]?.type === 'modal' ? 90 : 
@@ -1131,17 +1231,30 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
                     value={heightValue}
                     onChange={handleHeightValueChange}
                     className={`w-20 text-sm border rounded px-2 py-1 ${
-                      heightUnit === 'px' && parseInt(heightValue) < 30 && parseInt(heightValue) > 0 
-                        ? 'border-yellow-400 bg-yellow-50' 
-                        : ''
+                      heightValue === '' ||
+                      (heightUnit === 'px' && (parseInt(heightValue) < 1 || parseInt(heightValue) > 9999)) ||
+                      (heightUnit === '%' && (parseFloat(heightValue) < 1 || parseFloat(heightValue) > 100))
+                        ? 'border-red-400 bg-red-50'
+                        : heightUnit === 'px' && parseInt(heightValue) < 30 && parseInt(heightValue) >= 1
+                          ? 'border-yellow-400 bg-yellow-50'
+                          : 'border-gray-300'
                     }`}
                     placeholder="ej: 200"
                   />
-                  {heightUnit === 'px' && parseInt(heightValue) < 30 && parseInt(heightValue) > 0 && (
+                  {heightValue === '' ? (
+                    <div className="absolute -bottom-6 left-0 text-xs text-red-600 whitespace-nowrap">
+                      ❌ Valor requerido
+                    </div>
+                  ) : (heightUnit === 'px' && (parseInt(heightValue) < 1 || parseInt(heightValue) > 9999)) ||
+                      (heightUnit === '%' && (parseFloat(heightValue) < 1 || parseFloat(heightValue) > 100)) ? (
+                    <div className="absolute -bottom-6 left-0 text-xs text-red-600 whitespace-nowrap">
+                      ❌ Valor inválido
+                    </div>
+                  ) : heightUnit === 'px' && parseInt(heightValue) < 30 && parseInt(heightValue) >= 1 ? (
                     <div className="absolute -bottom-6 left-0 text-xs text-yellow-600 whitespace-nowrap">
                       ⚠️ Menor a 30px
                     </div>
-                  )}
+                  ) : null}
                 </div>
               )}
             </div>
@@ -1163,6 +1276,96 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
               </div>
             )}
             
+            {/* Configuraciones del icono flotante */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Icono:</label>
+              <input
+                type="checkbox"
+                checked={floatingIconEnabled}
+                onChange={(e) => handleFloatingIconEnabledChange(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+            </div>
+            
+            {floatingIconEnabled && (
+              <>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Posición:</label>
+                  <select
+                    value={floatingIconPosition}
+                    onChange={(e) => handleFloatingIconPositionChange(e.target.value)}
+                    className="text-sm border rounded px-2 py-1"
+                  >
+                    <option value="bottom-right">Abajo Derecha</option>
+                    <option value="bottom-left">Abajo Izquierda</option>
+                    <option value="top-right">Arriba Derecha</option>
+                    <option value="top-left">Arriba Izquierda</option>
+                  </select>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Color:</label>
+                  <input
+                    type="color"
+                    value={floatingIconColor}
+                    onChange={(e) => handleFloatingIconColorChange(e.target.value)}
+                    className="w-8 h-8 border rounded cursor-pointer"
+                    title="Color del icono (solo funciona con SVG)"
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Fondo:</label>
+                  <input
+                    type="color"
+                    value={floatingIconBackgroundColor === 'transparent' ? '#ffffff' : floatingIconBackgroundColor}
+                    onChange={(e) => handleFloatingIconBackgroundColorChange(e.target.value)}
+                    className="w-8 h-8 border rounded cursor-pointer"
+                    disabled={floatingIconBackgroundColor === 'transparent'}
+                    title="Color de fondo del icono"
+                  />
+                  <input
+                    type="text"
+                    value={floatingIconBackgroundColor}
+                    onChange={(e) => handleFloatingIconBackgroundColorChange(e.target.value)}
+                    className="text-xs border rounded px-2 py-1 w-20"
+                    placeholder="transparent"
+                  />
+                  <label className="flex items-center gap-1 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={floatingIconBackgroundColor === 'transparent'}
+                      onChange={(e) => handleFloatingIconBackgroundColorChange(e.target.checked ? 'transparent' : '#ffffff')}
+                    />
+                    Sin fondo
+                  </label>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Tamaño:</label>
+                  <input
+                    type="range"
+                    min="20"
+                    max="150"
+                    step="5"
+                    value={floatingIconSize}
+                    onChange={(e) => handleFloatingIconSizeChange(parseInt(e.target.value))}
+                    className="flex-1"
+                  />
+                  <input
+                    type="number"
+                    min="20"
+                    max="150"
+                    step="5"
+                    value={floatingIconSize}
+                    onChange={(e) => handleFloatingIconSizeChange(parseInt(e.target.value) || 40)}
+                    className="text-sm border rounded px-2 py-1 w-16"
+                  />
+                  <span className="text-xs">px</span>
+                </div>
+              </>
+            )}
+            
             {isOwner && (
               <div className="flex items-center ml-2">
                 <input
@@ -1177,6 +1380,7 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
                 </label>
               </div>
             )}
+            
           </div>
           
           {/* Alertas y mensajes */}
@@ -1271,7 +1475,7 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
         
         {/* Modal para exportar script */}
         {scriptExport.show && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl">
               <div className="flex justify-between items-center p-4 border-b">
                 <h3 className="font-medium">Exportar Script</h3>
@@ -1357,13 +1561,15 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
             z-index: 1000;
           }
         `}</style>
-      </div>
+        </div>
+      </DimensionProvider>
     );
   }
 
   // Diseño original para modo normal (no fullscreen)
   return (
-    <div className="h-screen flex flex-col bg-gray-100">
+    <DimensionProvider options={{ debug: process.env.NODE_ENV === 'development' }}>
+      <div className="h-screen flex flex-col bg-gray-100">
       {/* Barra superior */}
       <div className="bg-white border-b shadow-sm">
         <div className="flex items-center justify-between px-4 h-14">
@@ -1642,9 +1848,11 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
                   setFloatingCorner(cornerValue);
                   setFloatingMargin(marginValue);
                 } else { // banner estándar
+                  // Para banners estándar, mantener valores existentes o usar 100% como predeterminado
+                  const currentWidthValue = widthValue && !isNaN(parseFloat(widthValue)) ? widthValue : '100';
                   setWidthUnit('%');
-                  setWidthValue('100');
-                  handleUpdateLayoutForDevice(deviceView, 'width', '100%');
+                  setWidthValue(currentWidthValue);
+                  handleUpdateLayoutForDevice(deviceView, 'width', `${currentWidthValue}%`);
                 }
               }}
               className="text-sm border rounded px-2 py-1"
@@ -1725,8 +1933,6 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
                 placeholder="ej: 500"
                 readOnly={false}
                 min={bannerConfig.layout[deviceView]?.type === 'modal' || bannerConfig.layout[deviceView]?.type === 'floating' ? 40 : 1}
-                max={bannerConfig.layout[deviceView]?.type === 'modal' ? 90 : 
-                     bannerConfig.layout[deviceView]?.type === 'floating' ? 70 : 100}
               />
             )}
             {bannerConfig.layout[deviceView]?.type === 'modal' && widthUnit === '%' && (
@@ -1736,7 +1942,7 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
               <span className="text-xs text-blue-600">Los flotantes tienen entre 40% y 70% de ancho</span>
             )}
             {bannerConfig.layout[deviceView]?.type === 'banner' && widthUnit === '%' && (
-              <span className="text-xs text-blue-600">Los banners siempre tienen 100% de ancho</span>
+              <span className="text-xs text-blue-600">Ancho relativo al canvas del banner</span>
             )}
           </div>
 
@@ -1778,6 +1984,96 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
               <span className="text-xs">px</span>
               <span className="text-xs text-blue-600">Distancia desde el borde de la pantalla</span>
             </div>
+          )}
+          
+          {/* Configuraciones del icono flotante */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Icono:</label>
+            <input
+              type="checkbox"
+              checked={floatingIconEnabled}
+              onChange={(e) => handleFloatingIconEnabledChange(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+          </div>
+          
+          {floatingIconEnabled && (
+            <>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Posición:</label>
+                <select
+                  value={floatingIconPosition}
+                  onChange={(e) => handleFloatingIconPositionChange(e.target.value)}
+                  className="text-sm border rounded px-2 py-1"
+                >
+                  <option value="bottom-right">Abajo Derecha</option>
+                  <option value="bottom-left">Abajo Izquierda</option>
+                  <option value="top-right">Arriba Derecha</option>
+                  <option value="top-left">Arriba Izquierda</option>
+                </select>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Color:</label>
+                <input
+                  type="color"
+                  value={floatingIconColor}
+                  onChange={(e) => handleFloatingIconColorChange(e.target.value)}
+                  className="w-8 h-8 border rounded cursor-pointer"
+                  title="Color del icono (solo funciona con SVG)"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Fondo:</label>
+                <input
+                  type="color"
+                  value={floatingIconBackgroundColor === 'transparent' ? '#ffffff' : floatingIconBackgroundColor}
+                  onChange={(e) => handleFloatingIconBackgroundColorChange(e.target.value)}
+                  className="w-8 h-8 border rounded cursor-pointer"
+                  disabled={floatingIconBackgroundColor === 'transparent'}
+                  title="Color de fondo del icono"
+                />
+                <input
+                  type="text"
+                  value={floatingIconBackgroundColor}
+                  onChange={(e) => handleFloatingIconBackgroundColorChange(e.target.value)}
+                  className="text-xs border rounded px-2 py-1 w-20"
+                  placeholder="transparent"
+                />
+                <label className="flex items-center gap-1 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={floatingIconBackgroundColor === 'transparent'}
+                    onChange={(e) => handleFloatingIconBackgroundColorChange(e.target.checked ? 'transparent' : '#ffffff')}
+                  />
+                  Sin fondo
+                </label>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Tamaño:</label>
+                <input
+                  type="range"
+                  min="20"
+                  max="150"
+                  step="5"
+                  value={floatingIconSize}
+                  onChange={(e) => handleFloatingIconSizeChange(parseInt(e.target.value))}
+                  className="flex-1"
+                />
+                <input
+                  type="number"
+                  min="20"
+                  max="150"
+                  step="5"
+                  value={floatingIconSize}
+                  onChange={(e) => handleFloatingIconSizeChange(parseInt(e.target.value) || 40)}
+                  className="text-sm border rounded px-2 py-1 w-16"
+                />
+                <span className="text-xs">px</span>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -1893,7 +2189,7 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
 
       {/* Modal para exportar script */}
       {scriptExport.show && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl">
             <div className="flex justify-between items-center p-4 border-b">
               <h3 className="font-medium">Exportar Script</h3>
@@ -1952,6 +2248,29 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
         onClose={() => setPanelConfigOpen(false)}
       />
       
+      {/* Modal para configuración de icono flotante */}
+      <FloatingIconConfigModal
+        isOpen={showFloatingIconModal}
+        onClose={() => setShowFloatingIconModal(false)}
+        position={floatingIconPosition}
+        onPositionChange={setFloatingIconPosition}
+        color={floatingIconColor}
+        onColorChange={setFloatingIconColor}
+        backgroundColor={floatingIconBackgroundColor}
+        onBackgroundColorChange={setFloatingIconBackgroundColor}
+        size={floatingIconSize}
+        onSizeChange={setFloatingIconSize}
+        onSave={() => {
+          handleFloatingIconChange({
+            position: floatingIconPosition,
+            color: floatingIconColor,
+            backgroundColor: floatingIconBackgroundColor,
+            size: floatingIconSize
+          });
+          setShowFloatingIconModal(false);
+        }}
+      />
+      
       {/* Estilos CSS para componentes hijos */}
       <style jsx>{`
         .child-component {
@@ -1996,7 +2315,9 @@ function BannerEditor({ initialConfig, onSave, isFullscreen = false }) {
           overflow: hidden;
         }
       `}</style>
-    </div>
+      
+      </div>
+    </DimensionProvider>
   );
 }
 

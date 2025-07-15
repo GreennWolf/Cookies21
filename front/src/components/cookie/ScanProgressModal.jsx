@@ -79,8 +79,21 @@ const ScanProgressModal = ({ scan, onClose, onScanCompleted, onScanCancelled }) 
     };
   }, [currentScan, onScanCompleted, onScanCancelled]);
 
+  // Función para cerrar el modal sin cancelar (cuando está corriendo)
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    }
+  };
+
   // Cancelar scan
   const handleCancelScan = async () => {
+    const confirmed = window.confirm(
+      '¿Estás seguro de que quieres cancelar este escaneo? El progreso se perderá.'
+    );
+    
+    if (!confirmed) return;
+
     setIsLoading(true);
     setError(null);
     
@@ -105,23 +118,22 @@ const ScanProgressModal = ({ scan, onClose, onScanCompleted, onScanCancelled }) 
   const isActive = ['pending', 'running', 'in_progress'].includes(currentScan.status);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md relative">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-semibold text-gray-900">
             Progreso del Escaneo
           </h3>
-          {!isActive && (
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
+          <button
+            onClick={handleClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+            title={isActive ? "Cerrar ventana (el escaneo continuará en segundo plano)" : "Cerrar"}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* Estado del scan */}
@@ -203,6 +215,22 @@ const ScanProgressModal = ({ scan, onClose, onScanCompleted, onScanCancelled }) 
         {currentScan.status === 'error' && currentScan.error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-300 text-red-700 rounded">
             <strong>Error en el escaneo:</strong> {currentScan.error}
+          </div>
+        )}
+
+        {/* Nota informativa cuando el escaneo está activo */}
+        {isActive && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+            <div className="flex items-start space-x-2">
+              <svg className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-sm text-blue-800">
+                  <strong>Puedes cerrar esta ventana sin problema.</strong> El escaneo continuará ejecutándose en segundo plano y recibirás una notificación cuando termine.
+                </p>
+              </div>
+            </div>
           </div>
         )}
 

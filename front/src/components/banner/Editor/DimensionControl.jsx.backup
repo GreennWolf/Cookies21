@@ -1,0 +1,559 @@
+import React, { useState, useEffect, useRef } from 'react';
+import styleUtils from '../../../utils/styleUtils';
+import handleAutocompleteSize from './handleAutocompleteSize';
+
+/**
+ * Componente para controlar las dimensiones (ancho, alto, etc.)
+ * con soporte para diferentes unidades (px, %) y límites específicos según el tipo de componente
+ */
+const DimensionControl = ({
+  label,
+  property,
+  value,
+  onChange,
+  containerSize = 0,
+  min = 0,
+  max = 1000,
+  componentType = 'default', // Tipo de componente
+  componentId = null // ID opcional del componente para obtener dimensiones reales
+}) => {
+  // Valores mínimos específicos para botones y otros elementos (en píxeles)
+  const MIN_SIZES = {
+    'button': { width: 80, height: 30 },
+    'text': { width: 40, height: 20 },
+    'image': { width: 50, height: 50 },
+    'default': { width: 30, height: 30 }
+  };
+  
+  // Referencias para detectar cambios iniciales
+  const isFirstRender = useRef(true);
+  const previousComponentId = useRef(null);
+  
+  // Obtener mínimos según propiedad y tipo de componente
+  const getMinSize = () => {
+    const minSizes = MIN_SIZES[componentType] || MIN_SIZES.default;
+    
+    if (property === 'width' || property === 'minWidth' || property === 'maxWidth') {
+      return minSizes.width;
+    } else if (property === 'height' || property === 'minHeight' || property === 'maxHeight') {
+      return minSizes.height;
+    }
+    return min;
+  };
+  
+  // Calcular el mínimo en la unidad actual
+  const getMinForCurrentUnit = (currentUnit) => {
+    const minPx = getMinSize();
+    if (currentUnit === 'px') return minPx;
+    if (currentUnit === '%' && containerSize > 0) {
+      // Convertir mínimo de px a % basado en tamaño del canvas
+      return (minPx / containerSize) * 100;
+    }
+    return min;
+  };
+  
+  // DESACTIVADO: Calculación de máximo que limitaba valores
+  const getMaxForCurrentUnit = (currentUnit) => {
+    // PERMITIR CUALQUIER VALOR para evitar limitaciones por zoom
+    if (currentUnit === '%') return 999; // Permitir cualquier porcentaje
+    return 9999; // Permitir cualquier valor en px
+  };
+  
+  // Parseamos el valor inicial para obtener el valor numérico y la unidad
+  const initialParsed = styleUtils.parseStyleValue(value || '');
+  
+  // Estados locales
+  const [numValue, setNumValue] = useState(initialParsed.value || '');
+  const [unit, setUnit] = useState(initialParsed.unit || 'px');
+  const [isInvalid, setIsInvalid] = useState(false);
+  const [actualDimension, setActualDimension] = useState(null);
+  
+  // Actualizar estado local cuando cambia el prop value - OPTIMIZADO
+  useEffect(() => {
+    const parsed = styleUtils.parseStyleValue(value || '');
+    
+    // SOLO actualizar si realmente cambió el valor para evitar bucles
+    const newNumValue = parsed.value || '';
+    const newUnit = parsed.unit || 'px';
+    
+    if (numValue !== newNumValue || unit !== newUnit) {
+      console.log(`🔄 DimensionControl useEffect: prop value=${value} -> parsed=${parsed.value}${parsed.unit}`);
+      setNumValue(newNumValue);
+      setUnit(newUnit);
+    }
+  }, [value]); // No incluir numValue y unit para evitar bucles
+  
+  // DESACTIVADO: Efecto que causaba bucles infinitos al obtener dimensiones constantemente
+  // useEffect(() => {
+  //   // Solo ejecutar cuando cambia el componente o en el primer render
+  //   if (componentId !== previousComponentId.current || isFirstRender.current) {
+  //     // Actualizar referencia
+  //     previousComponentId.current = componentId;
+  //     isFirstRender.current = false;
+  //     
+  //     // Obtener dimensiones reales y actualizar los inputs
+  //     if (componentId) {
+  //       setTimeout(() => {
+  //         const dimensions = getComponentDimensions();
+  //         if (dimensions && dimensions.compRect) {
+  //           // Guardar dimensión actual según propiedad
+  //           let actualValue;
+  //           if (property === 'width' || property === 'maxWidth') {
+  //             actualValue = dimensions.compRect.width;
+  //             setActualDimension(actualValue);
+  //           } else if (property === 'height' || property === 'maxHeight') {
+  //             actualValue = dimensions.compRect.height;
+  //             setActualDimension(actualValue);
+  //           }
+  //           
+  //           if (actualValue) {
+  //             
+  //             // Si la unidad actual es porcentaje, convertir
+  //             if (unit === '%' && dimensions.containerRect) {
+  //               const containerDimension = property.includes('width') 
+  //                 ? dimensions.containerRect.width 
+  //                 : dimensions.containerRect.height;
+  //               
+  //               if (containerDimension > 0) {
+  //                 const percentValue = (actualValue / containerDimension) * 100;
+  //                 setNumValue(percentValue.toFixed(1));
+  //               }
+  //             } else {
+  //               // Si es px, usar directamente
+  //               setNumValue(Math.round(actualValue));
+  //             }
+  //           }
+  //         }
+  //       }, 100); // Pequeño retraso para asegurar que el DOM está actualizado
+  //     }
+  //   }
+  // }, [componentId, property, unit]);
+  
+  // Validar y aplicar límites al valor (versión mejorada - ahora muestra advertencia pero permite valores menores)
+  const validateValue = (value, valueUnit) => {
+    let numVal = parseFloat(value);
+    console.log(`🚨 validateValue: ENTRADA=${value} SALIDA=${numVal} (SIN VALIDACIONES)`);
+    
+    if (isNaN(numVal)) {
+      return '';
+    }
+    
+    // NO VALIDAR NADA - RETORNAR EL VALOR TAL COMO LLEGA
+    setIsInvalid(false);
+    
+    return numVal;
+  };
+  
+  // Intentar reposicionar componente si excede los límites
+  const tryRepositionComponent = (newSize, sizeProp) => {
+    try {
+      if (!componentId) return;
+      
+      const componentEl = document.querySelector(`[data-id="${componentId}"]`);
+      if (!componentEl) return;
+      
+      const containerEl = componentEl.closest('.banner-container');
+      if (!containerEl) return;
+      
+      // Obtener la posición actual
+      const compRect = componentEl.getBoundingClientRect();
+      const containerRect = containerEl.getBoundingClientRect();
+      
+      const isWidthProperty = sizeProp.includes('width');
+      
+      // Calcular si se sale del canvas
+      if (isWidthProperty) {
+        const right = compRect.left - containerRect.left + newSize;
+        if (right > containerRect.width) {
+          // Calcular nueva posición left
+          const currentLeft = parseFloat(componentEl.style.left) || 0;
+          const overflow = right - containerRect.width;
+          const newLeft = Math.max(0, currentLeft - overflow);
+          
+          // Convertir a porcentaje
+          const leftPercent = (newLeft / containerRect.width) * 100;
+          
+          // Aplicar nueva posición
+          componentEl.style.left = `${leftPercent}%`;
+          
+          // Disparar evento de posición actualizada
+          setTimeout(() => {
+            const event = new CustomEvent('component:position', {
+              detail: {
+                id: componentId,
+                position: { left: `${leftPercent}%` }
+              }
+            });
+            containerEl.dispatchEvent(event);
+          }, 50);
+          
+        }
+      } else {
+        // Para propiedad de altura
+        const bottom = compRect.top - containerRect.top + newSize;
+        if (bottom > containerRect.height) {
+          // Calcular nueva posición top
+          const currentTop = parseFloat(componentEl.style.top) || 0;
+          const overflow = bottom - containerRect.height;
+          const newTop = Math.max(0, currentTop - overflow);
+          
+          // Convertir a porcentaje
+          const topPercent = (newTop / containerRect.height) * 100;
+          
+          // Aplicar nueva posición
+          componentEl.style.top = `${topPercent}%`;
+          
+          // Disparar evento de posición actualizada
+          setTimeout(() => {
+            const event = new CustomEvent('component:position', {
+              detail: {
+                id: componentId,
+                position: { top: `${topPercent}%` }
+              }
+            });
+            containerEl.dispatchEvent(event);
+          }, 50);
+          
+        }
+      }
+    } catch (error) {
+      console.error('Error al reposicionar componente:', error);
+    }
+  };
+  
+  // Manejar cambio de valor numérico - SOLO actualizar estado local
+  const handleValueChange = (e) => {
+    const newRawValue = e.target.value;
+    console.log(`🚨 INPUT CAMBIO: escribiendo ${newRawValue} en ${property} (SOLO LOCAL)`);
+    
+    // SOLO actualizar estado local, NO disparar onChange
+    setNumValue(newRawValue);
+  };
+  
+  // Manejar cuando el usuario termina de editar (blur)
+  const handleBlur = (e) => {
+    const newRawValue = e.target.value;
+    console.log(`🚨 INPUT BLUR: aplicando ${newRawValue} en ${property}`);
+    
+    if (!isNaN(parseFloat(newRawValue)) || newRawValue === '') {
+      if (newRawValue === '') {
+        console.log(`🚨 ENVIANDO: campo vacío`);
+        onChange(property, '');
+        return;
+      }
+      
+      // APLICAR LÍMITES: 10% mínimo, 100% máximo para porcentajes
+      let finalValue = parseFloat(newRawValue);
+      if (unit === '%') {
+        finalValue = Math.max(10, Math.min(100, finalValue));
+        console.log(`🔧 LÍMITES APLICADOS: ${newRawValue}% → ${finalValue}% (rango 10%-100%)`);
+      }
+      
+      const formattedValue = styleUtils.formatStyleValue(finalValue, unit);
+      
+      console.log(`🚨 ENVIANDO: ${newRawValue} → ${formattedValue}`);
+      onChange(property, formattedValue);
+    }
+  };
+  
+  // Manejar cambio de unidad - versión mejorada
+  const handleUnitChange = (e) => {
+    const newUnit = e.target.value;
+    const oldUnit = unit;
+    
+    // Convertir valor solo si es un número válido
+    if (numValue === '' || isNaN(parseFloat(numValue))) {
+      setUnit(newUnit);
+      return;
+    }
+    
+    // Obtener el tamaño real del contenedor para conversiones
+    const dimensions = getComponentDimensions();
+    const referenceSize = dimensions?.containerRect?.width || containerSize || 1000;
+    
+    console.log(`🔄 USANDO referenceSize real ${referenceSize}px`);
+    
+    console.log(`🔄 DimensionControl.handleUnitChange:`, {
+      componentId,
+      referenceSize,
+      containerSize,
+      oldUnit,
+      newUnit,
+      numValue
+    });
+    
+    // Realizar la conversión entre unidades usando la referencia correcta
+    let convertedValue;
+    if (referenceSize > 0) {
+      // De px a %
+      if (oldUnit === 'px' && newUnit === '%') {
+        // Porcentaje relativo al contenedor de referencia
+        convertedValue = (parseFloat(numValue) / referenceSize) * 100;
+      } 
+      // De % a px
+      else if (oldUnit === '%' && newUnit === 'px') {
+        // Píxeles basados en % del contenedor de referencia
+        convertedValue = (parseFloat(numValue) * referenceSize) / 100;
+      }
+      else {
+        convertedValue = parseFloat(numValue);
+      }
+    } else {
+      convertedValue = parseFloat(numValue);
+      console.warn('⚠️ No se pudo convertir correctamente: tamaño del contenedor desconocido');
+    }
+    
+    
+    // NO validar límites en conversión para respetar valores del usuario
+    const finalValue = convertedValue;
+    
+    // Actualizar estado local
+    setUnit(newUnit);
+    setNumValue(finalValue);
+    
+    // Notificar cambio
+    const formattedValue = styleUtils.formatStyleValue(finalValue, newUnit);
+    
+    console.log(`🔄 handleUnitChange FINAL: ${property} = ${formattedValue}`);
+    
+    onChange(property, formattedValue);
+  };
+  
+  // Función mejorada para obtener dimensiones del componente
+  const getComponentDimensions = () => {
+    try {
+      // Si no tenemos ID de componente, intentar obtener el canvas directamente
+      if (!componentId) {
+        const canvasEl = document.querySelector('.banner-container');
+        if (canvasEl) {
+          const canvasRect = canvasEl.getBoundingClientRect();
+          return {
+            containerRect: { width: canvasRect.width, height: canvasRect.height }
+          };
+        }
+        return {
+          containerRect: { width: containerSize || 800, height: (containerSize || 800) * 0.75 }
+        };
+      }
+      
+      // Buscar el elemento del componente
+      const componentEl = document.querySelector(`[data-id="${componentId}"]`);
+      if (!componentEl) {
+        const canvasEl = document.querySelector('.banner-container');
+        if (canvasEl) {
+          const canvasRect = canvasEl.getBoundingClientRect();
+          return {
+            containerRect: { width: canvasRect.width, height: canvasRect.height }
+          };
+        }
+        return {
+          containerRect: { width: containerSize || 800, height: (containerSize || 800) * 0.75 }
+        };
+      }
+      
+      // CORRECCIÓN: Detectar si es un componente hijo y buscar su contenedor padre
+      let referenceContainer = null;
+      let isChildComponent = false;
+      
+      // Buscar el contenedor padre inmediato (si es un hijo)
+      let parentContainer = componentEl.parentElement;
+      while (parentContainer && parentContainer.getAttribute('data-component-type') !== 'container') {
+        parentContainer = parentContainer.parentElement;
+      }
+      
+      if (parentContainer && parentContainer.getAttribute('data-component-type') === 'container') {
+        // Es un componente hijo, usar el contenedor padre como referencia
+        referenceContainer = parentContainer;
+        isChildComponent = true;
+        console.log(`📐 DimensionControl: Usando contenedor padre para ${componentId}`);
+      } else {
+        // Es un componente principal, usar el banner container
+        referenceContainer = componentEl.closest('.banner-container');
+      }
+      
+      if (!referenceContainer) {
+        const canvasEl = document.querySelector('.banner-container');
+        if (canvasEl) {
+          const canvasRect = canvasEl.getBoundingClientRect();
+          return {
+            containerRect: { width: canvasRect.width, height: canvasRect.height }
+          };
+        }
+        return {
+          containerRect: { width: containerSize || 800, height: (containerSize || 800) * 0.75 }
+        };
+      }
+      
+      // Obtener dimensiones reales SIN ZOOM
+      const compRect = componentEl.getBoundingClientRect();
+      let containerRect = referenceContainer.getBoundingClientRect();
+      
+      // DESACTIVADO: Corrección de zoom que causaba doble aplicación y limitaba a 64%
+      console.log(`🔍 DimensionControl: Usando dimensiones sin corrección de zoom`);
+      console.log(`🔍 DimensionControl: Container width: ${containerRect.width}px`);
+      
+      // NO aplicar ninguna corrección de zoom - usar dimensiones directas
+      
+      // Usar las dimensiones reales del contenedor
+      console.log(`🔍 getComponentDimensions: Container real width: ${containerRect.width}px`);
+      
+      return {
+        compRect,
+        containerRect, // USAR dimensiones reales
+        componentEl,
+        width: compRect.width,
+        height: compRect.height,
+        // Calcular porcentajes respecto al contenedor real
+        widthPercent: (compRect.width / containerRect.width) * 100,
+        heightPercent: (compRect.height / containerRect.height) * 100,
+        isChildComponent,
+        referenceContainer
+      };
+    } catch (error) {
+      console.error('Error al obtener dimensiones:', error);
+      return {
+        containerRect: { width: containerSize, height: containerSize * 0.75 }
+      };
+    }
+  };
+  
+  // Función mejorada para autocompletar según el tipo de componente
+  const handleAutoComplete = () => {
+    // Usar dimensiones reales del componente/canvas
+    const realDimensions = getComponentDimensions();
+    
+    // Usar nuestra función mejorada para autocompletar
+    const deviceView = 'desktop'; // Vista actual por defecto
+    const idealValue = handleAutocompleteSize(
+      componentType,
+      deviceView,
+      property,
+      unit,
+      () => realDimensions
+    );
+    
+    // Aplicar si tenemos un valor válido
+    if (idealValue !== null && idealValue !== undefined) {
+      // Actualizar estado local
+      setNumValue(idealValue);
+      
+      // DESACTIVADO: Comprobar límites en autocompletar
+      // const minLimit = getMinForCurrentUnit(unit);
+      setIsInvalid(false); // No marcar como inválido
+      
+      // Formatear y notificar cambio
+      const formattedValue = styleUtils.formatStyleValue(idealValue, unit);
+      onChange(property, formattedValue);
+      
+    }
+  };
+  
+  // Calcular y mostrar límites para mejor UX
+  const currentMinLimit = getMinForCurrentUnit(unit);
+  const currentMaxLimit = getMaxForCurrentUnit(unit);
+  
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between items-center">
+        <label className="block text-xs font-medium">{label}</label>
+        {/* Mostrar límites actuales */}
+        <span className="text-[10px] text-gray-500">
+          {currentMinLimit.toFixed(1)} - {currentMaxLimit.toFixed(1)} {unit}
+        </span>
+      </div>
+      <div className="flex items-center gap-1">
+        <input
+          type="number"
+          value={numValue}
+          onChange={handleValueChange}
+          onBlur={handleBlur}
+          className={`flex-1 p-1 text-xs border rounded ${
+            isInvalid ? 'border-red-400 bg-red-50' : ''
+          }`}
+          min={0} // Permitir cualquier valor para flexibilidad
+          max={unit === '%' ? 100 : 9999} // Máximos razonables
+          step={unit === '%' ? 0.1 : 1} // Paso más fino para porcentajes
+        />
+        <select
+          value={unit}
+          onChange={handleUnitChange}
+          className="p-1 text-xs border rounded"
+        >
+          <option value="px">px</option>
+          <option value="%">%</option>
+        </select>
+        
+        {/* Botón para autocompletar tamaño */}
+        <button
+          type="button"
+          onClick={handleAutoComplete}
+          className="p-1 border rounded text-xs bg-gray-50 hover:bg-blue-50 flex-shrink-0"
+          title="Autocompletar con tamaño ideal"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 5v14m0-9-9-5v10l9-5Z"/>
+          </svg>
+        </button>
+      </div>
+      
+      {/* Mensajes informativos */}
+      <div className="text-[10px] space-y-1">
+        {/* Mensaje de aviso si el valor está por debajo del mínimo */}
+        {isInvalid && (
+          <p className="text-red-600 font-medium">
+            Valor menor que el mínimo recomendado de {currentMinLimit.toFixed(0)}{unit}
+          </p>
+        )}
+        
+        {/* Mostrar dimensión actual si tenemos el dato */}
+        {actualDimension && !numValue && (
+          <div className="text-blue-500 font-medium">
+            Dimensión actual: {Math.round(actualDimension)}px
+          </div>
+        )}
+        
+        {/* En caso de porcentaje, mostrar equivalente en px para mejor contexto */}
+        {unit === '%' && numValue !== '' && !isNaN(parseFloat(numValue)) && (
+          <div className="text-gray-500">
+            {(() => {
+              // Usar dimensiones reales del canvas/contenedor
+              const dimensions = getComponentDimensions();
+              const isWidthProperty = property.includes('width');
+              const referenceSize = isWidthProperty 
+                ? dimensions?.containerRect?.width 
+                : dimensions?.containerRect?.height;
+              const referenceName = dimensions?.isChildComponent ? 'contenedor' : 'canvas';
+              
+              if (referenceSize > 0) {
+                return `≈ ${Math.round((parseFloat(numValue) * referenceSize) / 100)}px de ${Math.round(referenceSize)}px del ${referenceName}`;
+              }
+              return null;
+            })()}
+          </div>
+        )}
+        
+        {/* En caso de píxeles, mostrar equivalente en % */}
+        {unit === 'px' && numValue !== '' && !isNaN(parseFloat(numValue)) && (
+          <div className="text-gray-500">
+            {(() => {
+              // Usar dimensiones reales del canvas/contenedor
+              const dimensions = getComponentDimensions();
+              const isWidthProperty = property.includes('width');
+              const referenceSize = isWidthProperty 
+                ? dimensions?.containerRect?.width 
+                : dimensions?.containerRect?.height;
+              const referenceName = dimensions?.isChildComponent ? 'contenedor' : 'canvas';
+              
+              if (referenceSize > 0) {
+                return `≈ ${((parseFloat(numValue) / referenceSize) * 100).toFixed(1)}% del ${referenceName}`;
+              }
+              return null;
+            })()}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default DimensionControl;

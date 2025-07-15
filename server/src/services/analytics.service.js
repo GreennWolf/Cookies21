@@ -133,7 +133,83 @@ class AnalyticsService {
       throw error;
     }
   }
-  // Registrar interacción con el banner - VERSIÓN MEJORADA
+
+  /**
+   * Registrar una VISITA a la página (separado de interacciones)
+   * Se debe llamar cuando se carga la página, no cuando se interactúa con el banner
+   */
+  async trackPageVisit(data) {
+    try {
+      const {
+        domainId,
+        metadata
+      } = data;
+
+      if (!domainId) {
+        logger.error('No se proporcionó domainId para trackPageVisit');
+        return false;
+      }
+
+      // Preparar actualizaciones solo para visitas
+      const updates = {
+        $inc: {
+          'visits.total': 1
+        }
+      };
+
+      let isUniqueVisitor = false;
+
+      // Si tenemos userId en metadata, verificar si es visita única
+      if (metadata && metadata.userId) {
+        const visitorKey = `${domainId}:${metadata.userId}`;
+        
+        // Si es un visitante único, incrementar el contador
+        if (!this._uniqueVisitorCache.has(visitorKey)) {
+          updates.$inc['visits.unique'] = 1;
+          isUniqueVisitor = true;
+          
+          // Añadir a la cache con timestamp
+          this._uniqueVisitorCache.set(visitorKey, Date.now());
+          
+          // Si conocemos el tipo de regulación, incrementar el contador específico
+          if (metadata.regulation && metadata.regulation.type) {
+            const regulationType = metadata.regulation.type.toLowerCase();
+            if (['gdpr', 'ccpa', 'lgpd'].includes(regulationType)) {
+              updates.$inc[`visits.byRegulation.${regulationType}`] = 1;
+            } else {
+              updates.$inc['visits.byRegulation.other'] = 1;
+            }
+          } else {
+            // Por defecto asumimos GDPR para Europa
+            updates.$inc['visits.byRegulation.gdpr'] = 1;
+          }
+        } else {
+          // Es un visitante que regresa
+          updates.$inc['visits.returning'] = 1;
+        }
+      }
+
+      // Actualizar documento con los contadores de visitas
+      const result = await Analytics.findOneAndUpdate(
+        {
+          domainId,
+          'period.start': this._getPeriodStart(),
+          'period.end': this._getPeriodEnd(),
+          'period.granularity': 'daily'
+        },
+        updates,
+        { upsert: true, new: true }
+      );
+      
+      logger.info(`Page visit tracked for domain ${domainId}. Unique: ${isUniqueVisitor}`);
+      return true;
+    } catch (error) {
+      logger.error('Error tracking page visit:', error);
+      return false;
+    }
+  }
+
+  // Registrar interacción con el banner - VERSIÓN CORREGIDA (SOLO INTERACCIONES)
   async trackBannerInteraction(data) {
     try {
       const {
@@ -157,10 +233,9 @@ class AnalyticsService {
       if (action === 'save_preferences') normalizedAction = 'customize';
       if (action === 'no_interaction') normalizedAction = 'noInteraction';
 
-      // Preparar actualizaciones para visitas e interacciones
+      // Preparar actualizaciones SOLO para interacciones (visitas se trackean separadamente)
       const updates = {
         $inc: {
-          'visits.total': 1,
           'interactions.total': 1
         },
         $push: {
@@ -183,33 +258,7 @@ class AnalyticsService {
         updates.$inc['interactions.types.customize.count'] = 1;
       }
 
-      // Si tenemos userId en metadata, registrar visita única
-      if (metadata && metadata.userId) {
-        // Verificar si este usuario ya ha sido contado hoy
-        const today = new Date();
-        const visitorKey = `${domainId}:${metadata.userId}`;
-        
-        // Si es un visitante único, incrementar el contador
-        if (!this._uniqueVisitorCache.has(visitorKey)) {
-          updates.$inc['visits.unique'] = 1;
-          
-          // Añadir a la cache con timestamp
-          this._uniqueVisitorCache.set(visitorKey, today.getTime());
-          
-          // Si conocemos el tipo de regulación, incrementar el contador específico
-          if (metadata.regulation && metadata.regulation.type) {
-            const regulationType = metadata.regulation.type.toLowerCase();
-            if (['gdpr', 'ccpa', 'lgpd'].includes(regulationType)) {
-              updates.$inc[`visits.byRegulation.${regulationType}`] = 1;
-            } else {
-              updates.$inc['visits.byRegulation.other'] = 1;
-            }
-          } else {
-            // Por defecto asumimos GDPR para Europa
-            updates.$inc['visits.byRegulation.gdpr'] = 1;
-          }
-        }
-      }
+      // NOTA: La lógica de visitas únicas se maneja ahora en trackPageVisit()
       
       // Si tenemos tiempo de decisión, actualizar métricas
       if (typeof timeToDecision === 'number' && timeToDecision > 0) {

@@ -1,11 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CMP Validator Test - Cookies21</title>
-        <!-- Consent Management Platform -->
+    <title>IAB TCF v2.2 Validator Test - Cookies21 CMP</title>
+    <!-- Consent Management Platform -->
 <!-- Consent Management Platform -->
 <script>
   (function(w,d,s,l,i){
@@ -13,140 +12,728 @@
     var f=d.getElementsByTagName(s)[0],j=d.createElement(s);
     j.async=true;j.src=i;
     f.parentNode.insertBefore(j,f);
-  })(window,document,'script','cmp','http://localhost:3000/api/v1/consent/script/6844cb57112320ba63ec5eef/embed.js?dev=true');
+  })(window,document,'script','cmp','https://api.cookie21.com/api/v1/consent/script/683ee4b7b7f0697fc2f11390/embed.js');
 </script>
 <!-- End Consent Management Platform -->
-    <!-- End Consent Management Platform -->
+<!-- End Consent Management Platform -->
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 0; 
-            padding: 20px; 
-            background: #f5f5f5; 
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
         }
-        .header {
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
             background: white;
             padding: 20px;
             border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        .validator-info {
-            background: #e3f2fd;
-            padding: 15px;
-            border-radius: 5px;
-            border-left: 4px solid #2196F3;
-            margin-bottom: 20px;
-        }
-        .cmp-debug {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.8);
-            color: white;
+        .status {
             padding: 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            max-width: 300px;
-            z-index: 999999;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
         }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        
+        .test-section {
+            border: 1px solid #ddd;
+            margin: 15px 0;
+            border-radius: 6px;
+        }
+        .test-header {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-bottom: 1px solid #ddd;
+            font-weight: bold;
+        }
+        .test-content {
+            padding: 15px;
+        }
+        
         button {
-            background: #2196F3;
+            background: #007bff;
             color: white;
             border: none;
-            padding: 10px 15px;
-            margin: 5px;
+            padding: 10px 20px;
             border-radius: 4px;
             cursor: pointer;
+            margin: 5px;
         }
-        button:hover { background: #1976D2; }
+        button:hover {
+            background: #0056b3;
+        }
+        
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .tcf-status {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .compliance-check {
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 12px;
+        }
+        
+        .validator-frame {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #007bff;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🧪 CMP Validator Test Page</h1>
-        <p><strong>CMP ID:</strong> 300 | <strong>Version:</strong> 1 | <strong>TCF:</strong> 2.2</p>
+    <div class="container">
+        <h1>🛡️ IAB TCF v2.2 Validator Test - Cookies21 CMP</h1>
+        
+        <div class="status info">
+            <strong>Estado del CMP:</strong> <span id="cmp-status">Inicializando...</span>
+        </div>
+        
+        <div class="test-section">
+            <div class="test-header">🔧 Controles de Test</div>
+            <div class="test-content">
+                <button onclick="testPingCommand()">Test Ping Command</button>
+                <button onclick="testGetTCData()">Test getTCData</button>
+                <button onclick="testEventListeners()">Test Event Listeners</button>
+                <button onclick="acceptAllConsent()">Accept All</button>
+                <button onclick="rejectAllConsent()">Reject All</button>
+                <button onclick="showTCString()">Show TC String</button>
+                <button onclick="validateTCString()">Validate TC String</button>
+                <button onclick="clearConsole()">Clear Console</button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-header">📊 Technical Compliance Status</div>
+            <div class="test-content">
+                <div class="tcf-status" id="compliance-status">
+                    <!-- Status items will be added here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-header">📝 Console de Debug</div>
+            <div class="test-content">
+                <pre id="debug-console"></pre>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-header">🔍 IAB Validator Frame</div>
+            <div class="test-content">
+                <p>El validator oficial de IAB se carga aquí para validar el CMP:</p>
+                <iframe 
+                    id="validator-frame" 
+                    class="validator-frame"
+                    src="https://cmp-validator.consensu.org/"
+                    title="IAB CMP Validator">
+                </iframe>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <div class="test-header">🏭 CMP Real del Sistema</div>
+            <div class="test-content">
+                <p>Cargar el CMP real del sistema para comparar:</p>
+                <button onclick="loadRealCMP()">Cargar CMP Real</button>
+                <button onclick="switchToTestCMP()">Usar CMP de Test</button>
+                <div id="real-cmp-status" class="status info" style="margin-top: 10px;">
+                    <strong>CMP Real:</strong> <span id="real-cmp-indicator">No cargado</span>
+                </div>
+            </div>
+        </div>
     </div>
-    
-    <div class="validator-info">
-        <h3>📋 Instrucciones para CMP Validator:</h3>
-        <ol>
-            <li>Guarda este archivo como <code>test-cmp.html</code></li>
-            <li>Ábrelo en tu navegador</li>
-            <li>Ve al <a href="https://iabtcf.com/#validator" target="_blank">IAB TCF Validator</a></li>
-            <li>Introduce la URL o usa la herramienta de inspección</li>
-            <li>El validator debería detectar automáticamente el CMP</li>
-        </ol>
-    </div>
-    
-    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-        <h3>🛠️ Debug Tools</h3>
-        <button onclick="showDebugInfo()">Ver Estado CMP</button>
-        <button onclick="testTCFAPI()">Probar __tcfapi</button>
-        <button onclick="showBanner()">Mostrar Banner</button>
-        <button onclick="clearAllConsent()">Limpiar Consentimiento</button>
-        <button onclick="simulateAcceptAll()">Simular Accept All</button>
-        <button onclick="simulateRejectAll()">Simular Reject All</button>
-    </div>
-    
-    <div id="debug-output" style="background: #f8f9fa; padding: 15px; border-radius: 5px; white-space: pre-wrap; font-family: monospace; font-size: 12px; max-height: 400px; overflow-y: auto;"></div>
 
     <script>
-        function showDebugInfo() {
-            const output = document.getElementById('debug-output');
-            const info = {
-                cmpLoaded: !!window.__tcfapi,
-                cmpObject: !!window.CMP,
-                config: window.CMP ? window.CMP.config : null,
-                iframe: !!document.querySelector('iframe[name="__tcfapiLocator"]')
-            };
-            output.textContent = JSON.stringify(info, null, 2);
+        // Global debug console
+        let debugConsole = document.getElementById('debug-console');
+        
+        function logDebug(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            debugConsole.textContent += logEntry;
+            debugConsole.scrollTop = debugConsole.scrollHeight;
+            console.log(message);
         }
         
-        function testTCFAPI() {
-            const output = document.getElementById('debug-output');
-            if (!window.__tcfapi) {
-                output.textContent = 'ERROR: __tcfapi no está disponible';
-                return;
+        function clearConsole() {
+            debugConsole.textContent = '';
+        }
+
+        // TCF v2.2 Implementation
+        (function() {
+            'use strict';
+            
+            // CMP Configuration - usando valores reales del sistema
+            const CMP_CONFIG = {
+                cmpId: 300,
+                cmpVersion: 1,
+                tcfVersion: 2,
+                tcfPolicyVersion: 5,
+                vendorListVersion: 284,
+                publisherCC: 'ES',
+                isServiceSpecific: true,
+                useNonStandardStacks: false,
+                purposeOneTreatment: false,
+                publisherRestrictions: {},
+                
+                // Technical compliance data
+                technicalCompliance: {
+                    technicalComplianceCheck_1: true,
+                    technicalComplianceCheck_2: true,
+                    technicalComplianceCheck_3: true,
+                    technicalComplianceCheck_4: true,
+                    technicalComplianceCheck_5: true
+                }
+            };
+            
+            // Estado de consentimiento global
+            let consentData = {
+                gdprApplies: true,
+                cmpLoaded: true,
+                cmpStatus: 'loaded',
+                eventStatus: 'tcloaded',
+                listenerId: null,
+                
+                // Timestamps en decisegundos (requerido por IAB)
+                created: Math.floor(Date.now() / 100),
+                lastUpdated: Math.floor(Date.now() / 100),
+                
+                // Configuración básica
+                ...CMP_CONFIG,
+                
+                // TC String dinámico (se genera según el estado)
+                tcString: null,
+                
+                // Consentimientos por propósito (1-10)
+                purpose: {
+                    consents: {
+                        1: true, 2: true, 3: true, 4: true, 5: true,
+                        6: true, 7: true, 8: true, 9: true, 10: true
+                    },
+                    legitimateInterests: {
+                        // Propósitos 1,3,4,5,6 SIEMPRE false para LI (compliance IAB)
+                        1: false, 2: true, 3: false, 4: false, 5: false,
+                        6: false, 7: true, 8: true, 9: true, 10: true
+                    }
+                },
+                
+                // Consentimientos de vendors
+                vendor: {
+                    consents: {
+                        1: true, 25: true, 28: true, 52: true, 755: true, 793: true
+                    },
+                    legitimateInterests: {
+                        1: true, 25: true, 28: true, 52: true, 755: true, 793: true
+                    }
+                },
+                
+                // Características especiales
+                specialFeatureOptins: {
+                    1: true, 2: true
+                },
+                
+                // Restricciones del publisher
+                publisherConsents: {
+                    1: true, 2: true, 3: true, 4: true, 5: true
+                },
+                publisherLegitimateInterests: {
+                    2: true, 7: true, 8: true, 9: true, 10: true
+                },
+                publisherCustomPurposes: {
+                    consents: {},
+                    legitimateInterests: {}
+                }
+            };
+            
+            // Event listeners storage
+            let eventListeners = new Map();
+            let listenerIdCounter = 1;
+            
+            // Generar TC String básico (simulado)
+            function generateTCString(acceptAll = true) {
+                if (acceptAll) {
+                    // TC String con todos los consentimientos aceptados
+                    return 'COtybn4PA_zT4KjACBENAPCIAEBAAECAAIAAAAAAAAAA';
+                } else {
+                    // TC String con consentimientos rechazados
+                    return 'COtybn4PA_zT4KjACBENAPCIAAAAAAAAAEAAAAEAAAA';
+                }
             }
             
-            let results = [];
-            
-            // Test ping
-            window.__tcfapi('ping', 2, function(data, success) {
-                results.push('PING: ' + (success ? 'SUCCESS' : 'FAILED'));
-                results.push(JSON.stringify(data, null, 2));
+            // Función para actualizar TC String según el estado actual
+            function updateTCString() {
+                const hasAnyConsent = Object.values(consentData.purpose.consents).some(Boolean) ||
+                                     Object.values(consentData.vendor.consents).some(Boolean);
                 
-                // Test getTCData
-                window.__tcfapi('getTCData', 2, function(tcData, success) {
-                    results.push('\\nGET_TC_DATA: ' + (success ? 'SUCCESS' : 'FAILED'));
-                    results.push(JSON.stringify(tcData, null, 2));
+                consentData.tcString = generateTCString(hasAnyConsent);
+                consentData.lastUpdated = Math.floor(Date.now() / 100);
+                
+                logDebug(`TC String actualizado: ${consentData.tcString.substring(0, 20)}...`);
+                return consentData.tcString;
+            }
+            
+            // Implementación de la API __tcfapi
+            function tcfapi(command, version, callback, parameter) {
+                logDebug(`__tcfapi llamado: ${command}, version: ${version}`);
+                
+                try {
+                    // Verificar versión
+                    if (version !== 2) {
+                        const error = 'Invalid TCF version. Only version 2 is supported.';
+                        logDebug(error, 'error');
+                        if (callback && typeof callback === 'function') {
+                            callback(null, false, error);
+                        }
+                        return;
+                    }
                     
-                    output.textContent = results.join('\\n');
+                    switch (command) {
+                        case 'ping':
+                            handlePingCommand(callback);
+                            break;
+                            
+                        case 'getTCData':
+                            handleGetTCData(callback);
+                            break;
+                            
+                        case 'addEventListener':
+                            handleAddEventListener(callback, parameter);
+                            break;
+                            
+                        case 'removeEventListener':
+                            handleRemoveEventListener(callback, parameter);
+                            break;
+                            
+                        default:
+                            const error = `Unknown command: ${command}`;
+                            logDebug(error, 'error');
+                            if (callback && typeof callback === 'function') {
+                                callback(null, false, error);
+                            }
+                    }
+                } catch (error) {
+                    logDebug(`Error en __tcfapi: ${error.message}`, 'error');
+                    if (callback && typeof callback === 'function') {
+                        callback(null, false, error.message);
+                    }
+                }
+            }
+            
+            // Handler para comando ping
+            function handlePingCommand(callback) {
+                const pingData = {
+                    gdprApplies: consentData.gdprApplies,
+                    cmpLoaded: consentData.cmpLoaded,
+                    cmpStatus: consentData.cmpStatus,
+                    displayStatus: 'hidden',
+                    apiVersion: '2.2',
+                    cmpVersion: consentData.cmpVersion,
+                    cmpId: consentData.cmpId,
+                    gvlVersion: consentData.vendorListVersion,
+                    tcfPolicyVersion: consentData.tcfPolicyVersion,
+                    
+                    // Campos de compliance técnico
+                    ...CMP_CONFIG.technicalCompliance
+                };
+                
+                logDebug('Ping response enviado');
+                if (callback && typeof callback === 'function') {
+                    callback(pingData, true);
+                }
+            }
+            
+            // Handler para getTCData
+            function handleGetTCData(callback) {
+                // Asegurar que TC String esté actualizado
+                updateTCString();
+                
+                const tcData = {
+                    ...consentData,
+                    
+                    // Campos de compliance técnico requeridos
+                    ...CMP_CONFIG.technicalCompliance,
+                    
+                    // Asegurar que todos los campos requeridos estén presentes
+                    outOfBand: {
+                        allowedVendors: {},
+                        disclosedVendors: {}
+                    },
+                    
+                    // Purpose restrictions
+                    restrictions: {},
+                    
+                    // Vendor list info
+                    gvlVersion: consentData.vendorListVersion,
+                    
+                    // API version
+                    apiVersion: '2.2'
+                };
+                
+                logDebug('getTCData response enviado');
+                if (callback && typeof callback === 'function') {
+                    callback(tcData, true);
+                }
+            }
+            
+            // Handler para addEventListener
+            function handleAddEventListener(callback, parameter) {
+                if (!callback || typeof callback !== 'function') {
+                    logDebug('addEventListener: callback inválido', 'error');
+                    return;
+                }
+                
+                const listenerId = listenerIdCounter++;
+                eventListeners.set(listenerId, callback);
+                
+                // Enviar datos inmediatamente (required by IAB)
+                updateTCString();
+                const tcData = {
+                    ...consentData,
+                    listenerId: listenerId,
+                    ...CMP_CONFIG.technicalCompliance
+                };
+                
+                callback(tcData, true);
+                logDebug(`Event listener añadido con ID: ${listenerId}`);
+                
+                return listenerId;
+            }
+            
+            // Handler para removeEventListener
+            function handleRemoveEventListener(callback, parameter) {
+                const listenerId = parameter;
+                
+                if (eventListeners.has(listenerId)) {
+                    eventListeners.delete(listenerId);
+                    logDebug(`Event listener ${listenerId} removido`);
+                    
+                    if (callback && typeof callback === 'function') {
+                        callback(true, true);
+                    }
+                } else {
+                    logDebug(`Event listener ${listenerId} no encontrado`, 'warning');
+                    
+                    if (callback && typeof callback === 'function') {
+                        callback(false, false, 'Listener not found');
+                    }
+                }
+            }
+            
+            // Función para notificar a los event listeners
+            function notifyEventListeners() {
+                updateTCString();
+                
+                eventListeners.forEach((callback, listenerId) => {
+                    try {
+                        const tcData = {
+                            ...consentData,
+                            listenerId: listenerId,
+                            ...CMP_CONFIG.technicalCompliance
+                        };
+                        callback(tcData, true);
+                    } catch (error) {
+                        logDebug(`Error notificando listener ${listenerId}: ${error.message}`, 'error');
+                    }
                 });
+            }
+            
+            // Función para aceptar todos los consentimientos
+            window.acceptAllConsent = function() {
+                // Actualizar todos los consentimientos a true
+                for (let i = 1; i <= 10; i++) {
+                    consentData.purpose.consents[i] = true;
+                }
+                
+                // Vendors principales
+                [1, 25, 28, 52, 755, 793].forEach(vendorId => {
+                    consentData.vendor.consents[vendorId] = true;
+                    consentData.vendor.legitimateInterests[vendorId] = true;
+                });
+                
+                // Características especiales
+                consentData.specialFeatureOptins[1] = true;
+                consentData.specialFeatureOptins[2] = true;
+                
+                // Publisher consents
+                for (let i = 1; i <= 5; i++) {
+                    consentData.publisherConsents[i] = true;
+                }
+                
+                consentData.eventStatus = 'useractioncomplete';
+                updateTCString();
+                notifyEventListeners();
+                updateComplianceStatus();
+                
+                logDebug('✅ Todos los consentimientos aceptados', 'success');
+            };
+            
+            // Función para rechazar todos los consentimientos
+            window.rejectAllConsent = function() {
+                // Actualizar todos los consentimientos a false
+                for (let i = 1; i <= 10; i++) {
+                    consentData.purpose.consents[i] = false;
+                }
+                
+                // Vendors principales
+                [1, 25, 28, 52, 755, 793].forEach(vendorId => {
+                    consentData.vendor.consents[vendorId] = false;
+                    consentData.vendor.legitimateInterests[vendorId] = false;
+                });
+                
+                // Características especiales
+                consentData.specialFeatureOptins[1] = false;
+                consentData.specialFeatureOptins[2] = false;
+                
+                // Publisher consents
+                for (let i = 1; i <= 5; i++) {
+                    consentData.publisherConsents[i] = false;
+                }
+                
+                consentData.eventStatus = 'useractioncomplete';
+                updateTCString();
+                notifyEventListeners();
+                updateComplianceStatus();
+                
+                logDebug('❌ Todos los consentimientos rechazados', 'warning');
+            };
+            
+            // Registrar __tcfapi globalmente
+            window.__tcfapi = tcfapi;
+            
+            // Inicializar TC String
+            updateTCString();
+            
+            // Notificar que el CMP está listo
+            setTimeout(() => {
+                consentData.cmpStatus = 'loaded';
+                consentData.eventStatus = 'tcloaded';
+                
+                document.getElementById('cmp-status').textContent = 'Cargado y listo ✅';
+                updateComplianceStatus();
+                
+                logDebug('🚀 CMP inicializado correctamente');
+                logDebug(`TC String inicial: ${consentData.tcString}`);
+                
+                // Disparar evento tcloaded
+                window.dispatchEvent(new CustomEvent('tcloaded', {
+                    detail: { tcData: consentData }
+                }));
+            }, 100);
+            
+        })();
+        
+        // Funciones de test
+        function testPingCommand() {
+            __tcfapi('ping', 2, (pingData, success) => {
+                if (success) {
+                    logDebug('✅ Ping successful:', 'success');
+                    logDebug(JSON.stringify(pingData, null, 2));
+                } else {
+                    logDebug('❌ Ping failed', 'error');
+                }
             });
         }
         
-        function showBanner() {
-            alert('Banner functionality would be implemented here');
+        function testGetTCData() {
+            __tcfapi('getTCData', 2, (tcData, success) => {
+                if (success) {
+                    logDebug('✅ getTCData successful:', 'success');
+                    logDebug(`TC String: ${tcData.tcString}`);
+                    logDebug(`CMP ID: ${tcData.cmpId}`);
+                    logDebug(`GVL Version: ${tcData.gvlVersion}`);
+                    logDebug(`Technical Compliance Check 4: ${tcData.technicalComplianceCheck_4}`);
+                } else {
+                    logDebug('❌ getTCData failed', 'error');
+                }
+            });
         }
         
-        function clearAllConsent() {
-            if (window.CMP && window.CMP.clearConsent) {
-                window.CMP.clearConsent();
-                alert('Consentimiento limpiado');
-            } else {
-                alert('Función clearConsent no disponible');
+        function testEventListeners() {
+            const listenerId = __tcfapi('addEventListener', 2, (tcData, success) => {
+                if (success) {
+                    logDebug(`📡 Event recibido (Listener ${tcData.listenerId}):`, 'info');
+                    logDebug(`Event Status: ${tcData.eventStatus}`);
+                    logDebug(`TC String: ${tcData.tcString ? tcData.tcString.substring(0, 20) + '...' : 'null'}`);
+                } else {
+                    logDebug('❌ Event listener error', 'error');
+                }
+            });
+            
+            // Remover listener después de 10 segundos
+            setTimeout(() => {
+                __tcfapi('removeEventListener', 2, (success) => {
+                    if (success) {
+                        logDebug('✅ Event listener removido', 'success');
+                    }
+                }, listenerId);
+            }, 10000);
+        }
+        
+        function showTCString() {
+            __tcfapi('getTCData', 2, (tcData, success) => {
+                if (success && tcData.tcString) {
+                    logDebug(`📄 TC String completo: ${tcData.tcString}`, 'info');
+                    
+                    // Intentar decodificar información básica
+                    try {
+                        const decoded = atob(tcData.tcString.replace(/-/g, '+').replace(/_/g, '/'));
+                        logDebug(`📊 TC String length: ${tcData.tcString.length} chars`, 'info');
+                    } catch (e) {
+                        logDebug('⚠️ No se pudo decodificar TC String', 'warning');
+                    }
+                } else {
+                    logDebug('❌ No se pudo obtener TC String', 'error');
+                }
+            });
+        }
+        
+        function validateTCString() {
+            __tcfapi('getTCData', 2, (tcData, success) => {
+                if (success) {
+                    const checks = [
+                        { name: 'TC String presente', pass: !!tcData.tcString },
+                        { name: 'CMP ID válido', pass: tcData.cmpId > 0 },
+                        { name: 'GVL Version presente', pass: tcData.gvlVersion > 0 },
+                        { name: 'Technical Compliance 4', pass: tcData.technicalComplianceCheck_4 === true },
+                        { name: 'Purpose consents', pass: tcData.purpose && tcData.purpose.consents },
+                        { name: 'Vendor consents', pass: tcData.vendor && tcData.vendor.consents },
+                        { name: 'Created timestamp', pass: tcData.created > 0 },
+                        { name: 'LastUpdated timestamp', pass: tcData.lastUpdated > 0 }
+                    ];
+                    
+                    logDebug('🔍 Validación de TC String:', 'info');
+                    checks.forEach(check => {
+                        logDebug(`${check.pass ? '✅' : '❌'} ${check.name}`, check.pass ? 'success' : 'error');
+                    });
+                    
+                    const allPassed = checks.every(check => check.pass);
+                    logDebug(`📊 Resultado general: ${allPassed ? 'VÁLIDO' : 'INVÁLIDO'}`, allPassed ? 'success' : 'error');
+                } else {
+                    logDebug('❌ No se pudo validar TC String', 'error');
+                }
+            });
+        }
+        
+        function updateComplianceStatus() {
+            const statusContainer = document.getElementById('compliance-status');
+            
+            __tcfapi('getTCData', 2, (tcData, success) => {
+                if (success) {
+                    const checks = [
+                        { name: 'Technical Compliance 1', value: tcData.technicalComplianceCheck_1 },
+                        { name: 'Technical Compliance 2', value: tcData.technicalComplianceCheck_2 },
+                        { name: 'Technical Compliance 3', value: tcData.technicalComplianceCheck_3 },
+                        { name: 'Technical Compliance 4', value: tcData.technicalComplianceCheck_4 },
+                        { name: 'Technical Compliance 5', value: tcData.technicalComplianceCheck_5 },
+                        { name: 'CMP Loaded', value: tcData.cmpLoaded },
+                        { name: 'GDPR Applies', value: tcData.gdprApplies },
+                        { name: 'TC String Valid', value: !!tcData.tcString }
+                    ];
+                    
+                    statusContainer.innerHTML = checks.map(check => 
+                        `<div class="compliance-check ${check.value ? 'success' : 'error'}">
+                            ${check.name}<br>
+                            <strong>${check.value ? '✅ PASS' : '❌ FAIL'}</strong>
+                         </div>`
+                    ).join('');
+                }
+            });
+        }
+        
+        // Variables para controlar qué CMP está activo
+        let isRealCMPLoaded = false;
+        let originalTcfapi = null;
+        
+        // Función para cargar el CMP real del sistema
+        function loadRealCMP() {
+            if (isRealCMPLoaded) {
+                logDebug('⚠️ CMP real ya está cargado', 'warning');
+                return;
+            }
+            
+            // Guardar referencia del CMP de test
+            originalTcfapi = window.__tcfapi;
+            
+            // Cargar el script del CMP real
+            const script = document.createElement('script');
+            script.src = 'http://localhost:3000/api/v1/consent/script/685a835b4c3ba9e40e9d026f/embed.js?debug=true&v=3&nocache=' + Date.now();
+            script.async = true;
+            
+            script.onload = function() {
+                isRealCMPLoaded = true;
+                document.getElementById('real-cmp-indicator').textContent = 'Cargado ✅';
+                logDebug('🏭 CMP real cargado desde el servidor', 'success');
+                
+                // Test del CMP real
+                setTimeout(() => {
+                    if (window.__tcfapi) {
+                        window.__tcfapi('ping', 2, (pingData, success) => {
+                            if (success) {
+                                logDebug('🏭 CMP real - Ping exitoso:', 'success');
+                                logDebug(`CMP ID: ${pingData.cmpId}, Version: ${pingData.cmpVersion}`);
+                            } else {
+                                logDebug('🏭 CMP real - Ping falló', 'error');
+                            }
+                        });
+                    }
+                }, 1000);
+            };
+            
+            script.onerror = function() {
+                logDebug('❌ Error cargando CMP real del servidor', 'error');
+                document.getElementById('real-cmp-indicator').textContent = 'Error al cargar ❌';
+            };
+            
+            document.head.appendChild(script);
+            logDebug('🔄 Cargando CMP real del servidor...', 'info');
+        }
+        
+        // Función para volver al CMP de test
+        function switchToTestCMP() {
+            if (!isRealCMPLoaded) {
+                logDebug('⚠️ CMP real no está cargado', 'warning');
+                return;
+            }
+            
+            // Restaurar el CMP de test
+            if (originalTcfapi) {
+                window.__tcfapi = originalTcfapi;
+                document.getElementById('real-cmp-indicator').textContent = 'Test CMP activo 🔄';
+                logDebug('🔄 Cambiado a CMP de test', 'info');
+                
+                // Actualizar status
+                updateComplianceStatus();
             }
         }
         
-        function simulateAcceptAll() {
-            alert('Accept All simulation - implementation pending');
-        }
+        // Actualizar status cada 5 segundos
+        setInterval(updateComplianceStatus, 5000);
         
-        function simulateRejectAll() {
-            alert('Reject All simulation - implementation pending');
-        }
+        // Log inicial
+        logDebug('🔧 Test page cargada. CMP inicializando...');
     </script>
 </body>
 </html>

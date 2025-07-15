@@ -15,6 +15,7 @@ const iabService = require('../services/iab.service');
 const auditService = require('../services/audit.service');
 const logger = require('../utils/logger');
 const { getBaseUrl } = require('../config/urls');
+const { createCMPConfig } = require('../config/cmp.config');
 
 // Función para obtener la IP real del cliente
 function getClientIp(req) {
@@ -141,6 +142,14 @@ generateScript = catchAsync(async (req, res) => {
   const { domainId } = req.params;
   const { templateId, minify = false, includeVendorList = false } = req.body;
   const { clientId } = req;
+  
+  // Debug: parámetros recibidos
+  console.log('🔍 [ConsentScriptController-generateScript] Parámetros recibidos:');
+  console.log('   - domainId:', domainId);
+  console.log('   - templateId:', templateId);
+  console.log('   - clientId:', clientId);
+  console.log('   - includeVendorList:', includeVendorList);
+  console.log('   - minify:', minify);
 
   // Verificar acceso al dominio
   const domain = await Domain.findOne({
@@ -152,6 +161,13 @@ generateScript = catchAsync(async (req, res) => {
     throw new AppError('Domain not found', 404);
   }
 
+  // Debug: información antes de cargar template
+  console.log('🔍 [ConsentScriptController] Datos para cargar template:');
+  console.log('   - templateId recibido:', templateId);
+  console.log('   - domain.settings?.defaultTemplateId:', domain.settings?.defaultTemplateId);
+  console.log('   - clientId:', clientId);
+  console.log('   - ID final usado:', templateId || domain.settings?.defaultTemplateId);
+
   // Verificar template de banner
   let template = await BannerTemplate.findOne({
     _id: templateId || domain.settings?.defaultTemplateId,
@@ -160,6 +176,15 @@ generateScript = catchAsync(async (req, res) => {
       { type: 'system' }
     ]
   });
+  
+  console.log('🔍 [ConsentScriptController] Template encontrado (primera búsqueda):', template ? {
+    _id: template._id,
+    name: template.name,
+    clientId: template.clientId,
+    type: template.type,
+    hasSettings: !!template.settings,
+    hasFloatingIcon: !!template.settings?.floatingIcon
+  } : 'NULL');
 
   if (!template) {
     // Si no se encuentra la plantilla específica, buscar cualquier plantilla
@@ -171,6 +196,15 @@ generateScript = catchAsync(async (req, res) => {
         { type: 'system' }
       ]
     });
+    
+    console.log('🔍 [ConsentScriptController] Template encontrado (búsqueda alternativa):', template ? {
+      _id: template._id,
+      name: template.name,
+      clientId: template.clientId,
+      type: template.type,
+      hasSettings: !!template.settings,
+      hasFloatingIcon: !!template.settings?.floatingIcon
+    } : 'NULL');
     
     if (template) {
       console.log(`✅ Usando plantilla alternativa: ${template._id}`);
@@ -197,8 +231,24 @@ generateScript = catchAsync(async (req, res) => {
     templateId: template._id,
     apiEndpoint: `${baseUrl}/api/v1/consent`,
     cmpId: iabConfig.cmpId,
-    cmpVersion: iabConfig.cmpVersion
+    cmpVersion: iabConfig.cmpVersion,
+    // Configuración del icono flotante
+    floatingIcon: template.settings?.floatingIcon || {
+      enabled: true,
+      position: 'bottom-right',
+      color: '#007bff',
+      backgroundColor: 'transparent',
+      size: 40
+    }
   };
+  
+  // Debug detallado: mostrar información del template
+  console.log('🔍 [ConsentScriptController] Template ID usado:', template._id);
+  console.log('🔍 [ConsentScriptController] Template name:', template.name);
+  console.log('🔍 [ConsentScriptController] Template completo:', JSON.stringify(template, null, 2));
+  console.log('🔍 [ConsentScriptController] Template settings:', template.settings);
+  console.log('🔍 [ConsentScriptController] Template settings.floatingIcon:', template.settings?.floatingIcon);
+  console.log('🔍 [ConsentScriptController] Floating icon config final:', options.floatingIcon);
 
   // Obtener lista de vendors si se solicita
   let vendorList = null;
@@ -294,6 +344,67 @@ generateScript = catchAsync(async (req, res) => {
     }
   });
 });
+
+  /**
+   * Genera script embed completo que cumple con CMP validator
+   */
+  generateEmbedScript = catchAsync(async (req, res) => {
+    const { domainId } = req.params;
+    const { clientId } = req;
+
+    // Verificar acceso al dominio
+    const domain = await Domain.findOne({
+      _id: domainId,
+      clientId
+    });
+
+    if (!domain) {
+      throw new AppError('Domain not found', 404);
+    }
+
+    // Obtener base URL desde variables de entorno o configuración
+    const baseUrl = getBaseUrl();
+
+    // Configuración para la generación del script embed
+    const options = {
+      clientId,
+      domainId: domain._id,
+      templateId: domain.settings?.defaultTemplateId || 'default',
+      apiEndpoint: `${baseUrl}/api/v1/consent`
+    };
+
+    // Generar script embed completo
+    const embedScript = await consentScriptGenerator.generateEmbedScript(options);
+
+    // Registrar generación de script embed en auditoría
+    await auditService.logAction({
+      clientId,
+      userId: req.userId,
+      action: 'generate_embed',
+      resourceType: 'script',
+      resourceId: domain._id,
+      metadata: {
+        domainId: domain._id,
+        scriptType: 'embed',
+        validatorCompliant: true
+      },
+      context: {
+        domainId: domain._id
+      }
+    });
+
+    // Establecer headers apropiados para script
+    res.set({
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
+
+    // Devolver script embed listo para copiar y pegar
+    res.status(200).send(embedScript);
+  });
 
   /**
    * Genera script con integración de scripts del cliente
@@ -481,11 +592,11 @@ generateScript = catchAsync(async (req, res) => {
     
     if (devMode) {
       // Modo desarrollo: forzar localhost
-      baseUrl = 'http://localhost:3000';
+      baseUrl = getBaseUrl();
       console.log(`🔧 Forzando URL de desarrollo: ${baseUrl}`);
     } else {
       // Modo producción
-      baseUrl = process.env.BASE_URL || 'https://api.cookie21.com';
+      baseUrl = getBaseUrl();
       console.log(`🌐 Usando URL de producción: ${baseUrl}`);
     }
 
@@ -668,11 +779,49 @@ getBanner = catchAsync(async (req, res) => {
     throw new AppError('Banner template not found', 404);
   }
 
+  // Cargar información del cliente para reemplazar variables
+  let clientInfo = null;
+  if (template.clientId) {
+    try {
+      const Client = require('../models/Client');
+      const client = await Client.findById(template.clientId);
+      if (client) {
+        clientInfo = {
+          name: client.name,
+          fiscalInfo: client.fiscalInfo,
+          companyName: client.name,
+          businessName: client.fiscalInfo?.razonSocial || client.name,
+          razonSocial: client.fiscalInfo?.razonSocial || client.name,
+          nombreComercial: client.fiscalInfo?.nombreComercial || client.name,
+          cif: client.fiscalInfo?.cif || '',
+          email: client.email,
+          telefono: client.fiscalInfo?.telefono || '',
+          direccion: client.fiscalInfo?.direccion || ''
+        };
+        console.log('🏢 Cliente cargado para reemplazo de variables:', { 
+          clientId: template.clientId,
+          name: client.name,
+          razonSocial: client.fiscalInfo?.razonSocial 
+        });
+      }
+    } catch (error) {
+      console.warn('⚠️ No se pudo cargar información del cliente:', error.message);
+    }
+  }
+
   // Generar HTML y CSS del banner (utilizando el servicio bannerGenerator)
   const { generateHTML, generateCSS } = require('../services/bannerGenerator.service');
   
-  const html = await generateHTML(template);
-  const css = await generateCSS(template);
+  // Asegurarnos de pasar la estructura correcta a los métodos del generador
+  const bannerConfig = {
+    layout: template.layout || {},
+    components: template.components || [],
+    theme: template.theme || {},
+    settings: template.settings || {}
+  };
+  
+  const html = await generateHTML(bannerConfig, clientInfo);
+  const css = await generateCSS(bannerConfig);
 
   // Usar la función de generación de panel de preferencias del servicio fusionado
   let preferences;
@@ -772,11 +921,51 @@ getBannerByDomain = catchAsync(async (req, res) => {
     throw new AppError('No banner template available for this domain', 404);
   }
 
-  // Generar HTML y CSS del banner
+  // Cargar información del cliente para reemplazar variables
+  let clientInfo = null;
+  if (domain.clientId) {
+    try {
+      const Client = require('../models/Client');
+      const clientId = domain.clientId; // SIEMPRE usar domain.clientId
+      const client = await Client.findById(clientId);
+      if (client) {
+        clientInfo = {
+          name: client.name,
+          fiscalInfo: client.fiscalInfo,
+          companyName: client.name,
+          businessName: client.fiscalInfo?.razonSocial || client.name,
+          razonSocial: client.fiscalInfo?.razonSocial || client.name,
+          nombreComercial: client.fiscalInfo?.nombreComercial || client.name,
+          cif: client.fiscalInfo?.cif || '',
+          domain: domain.domain,
+          email: client.email,
+          telefono: client.fiscalInfo?.telefono || '',
+          direccion: client.fiscalInfo?.direccion || ''
+        };
+        console.log('🏢 Cliente cargado para reemplazo de variables:', { 
+          clientId,
+          name: client.name,
+          razonSocial: client.fiscalInfo?.razonSocial 
+        });
+      }
+    } catch (error) {
+      console.warn('⚠️ No se pudo cargar información del cliente:', error.message);
+    }
+  }
+
+  // Generar HTML y CSS del banner con información del cliente
   const { generateHTML, generateCSS } = require('../services/bannerGenerator.service');
   
-  const html = await generateHTML(template);
-  const css = await generateCSS(template);
+  // Asegurarnos de pasar la estructura correcta a los métodos del generador
+  const bannerConfig = {
+    layout: template.layout || {},
+    components: template.components || [],
+    theme: template.theme || {},
+    settings: template.settings || {}
+  };
+  
+  const html = await generateHTML(bannerConfig, clientInfo);
+  const css = await generateCSS(bannerConfig);
 
   // Generar panel de preferencias
   let preferences;
@@ -957,6 +1146,11 @@ detectCountry = catchAsync(async (req, res) => {
   serveEmbedScript = catchAsync(async (req, res) => {
     const { domainId } = req.params;
     
+    // Debug: parámetros recibidos para embed script
+    console.log('🔍 [ConsentScriptController-serveEmbedScript] Parámetros recibidos:');
+    console.log('   - domainId:', domainId);
+    console.log('   - req.query:', req.query);
+    
     // Verificar suscripción primero - si está inactiva, devolver script de error
     if (req.subscriptionInactive) {
       return this._serveInactiveSubscriptionScript(req, res);
@@ -973,11 +1167,11 @@ detectCountry = catchAsync(async (req, res) => {
     
     if (devMode) {
       // Modo desarrollo: forzar localhost
-      baseUrl = 'http://localhost:3000';
+      baseUrl = getBaseUrl();
       console.log(`🔧 Forzando URL de desarrollo para embed.js: ${baseUrl}`);
     } else {
       // Modo producción
-      baseUrl = process.env.BASE_URL || 'https://api.cookie21.com';
+      baseUrl = getBaseUrl();
       console.log(`🌐 Usando URL de producción para embed.js: ${baseUrl}`);
     }
     
@@ -1016,12 +1210,26 @@ detectCountry = catchAsync(async (req, res) => {
       
       // 2. Obtener template por defecto configurado para el dominio
       const templateId = domain.settings?.defaultTemplateId;
+      console.log('🔍 [serveEmbedScript] Template a usar:');
+      console.log('   - domain.settings?.defaultTemplateId:', templateId);
+      console.log('   - domainId:', domainId);
+      
       if (!templateId) {
         console.error(`❌ DEBUG-CMP: No hay template configurado para el dominio: ${domainId}`);
         throw new AppError('Default template not configured for domain', 400);
       }
       
       const template = await BannerTemplate.findById(templateId);
+      console.log('🔍 [serveEmbedScript] Template cargado:', template ? {
+        _id: template._id,
+        name: template.name,
+        clientId: template.clientId,
+        type: template.type,
+        hasSettings: !!template.settings,
+        hasFloatingIcon: !!template.settings?.floatingIcon,
+        floatingIconConfig: template.settings?.floatingIcon
+      } : 'NULL');
+      
       if (!template) {
         console.error(`❌ DEBUG-CMP: Template no encontrado: ${templateId}`);
         throw new AppError('Banner template not found', 404);
@@ -1039,8 +1247,39 @@ detectCountry = catchAsync(async (req, res) => {
         console.log(`📋 Lista de vendors cargada: versión ${vendorList.version} con ${vendorList.vendors.length} vendors`);
       }
       
-      // 3. Generar el HTML y CSS
-      let html = await bannerGenerator.generateHTML(template);
+      // 3. Cargar información del cliente para reemplazar variables
+      let clientInfo = null;
+      if (domain.clientId) {
+        try {
+          const Client = require('../models/Client');
+          const client = await Client.findById(domain.clientId); // SIEMPRE usar domain.clientId
+          if (client) {
+            clientInfo = {
+              name: client.name,
+              fiscalInfo: client.fiscalInfo,
+              companyName: client.name,
+              businessName: client.fiscalInfo?.razonSocial || client.name,
+              razonSocial: client.fiscalInfo?.razonSocial || client.name,
+              nombreComercial: client.fiscalInfo?.nombreComercial || client.name,
+              cif: client.fiscalInfo?.cif || '',
+              domain: domain.domain,
+              email: client.email,
+              telefono: client.fiscalInfo?.telefono || '',
+              direccion: client.fiscalInfo?.direccion || ''
+            };
+            console.log('🏢 Cliente cargado para reemplazo de variables:', { 
+              clientId: domain.clientId,
+              name: client.name,
+              razonSocial: client.fiscalInfo?.razonSocial 
+            });
+          }
+        } catch (error) {
+          console.warn('⚠️ No se pudo cargar información del cliente:', error.message);
+        }
+      }
+      
+      // 4. Generar el HTML y CSS con información del cliente
+      let html = await bannerGenerator.generateHTML(template, clientInfo);
       const css = await bannerGenerator.generateCSS(template);
       
       // Generar panel de preferencias usando el servicio fusionado
@@ -1074,6 +1313,7 @@ detectCountry = catchAsync(async (req, res) => {
         cookieExpiry: 365,
         baseUrl: baseUrl,
         domainId: domainId, // ¡IMPORTANTE! Pasar explícitamente el domainId
+        clientId: domain.clientId, // ¡IMPORTANTE! Pasar explícitamente el clientId para el detector
         integrations: domainIntegrations // Pasar las integraciones al generador
       };
       
@@ -1139,6 +1379,17 @@ detectCountry = catchAsync(async (req, res) => {
       // Añadir datos del cliente para política de privacidad personalizada
       scriptOptions.clientData = client;
       
+      // AGREGAR: Configuración del icono flotante desde el template
+      scriptOptions.floatingIcon = template.settings?.floatingIcon || {
+        enabled: true,
+        position: 'bottom-right',
+        color: '#007bff',
+        backgroundColor: 'transparent',
+        size: 40
+      };
+      
+      console.log('🔍 [serveEmbedScript] Configuración del icono agregada a scriptOptions:', scriptOptions.floatingIcon);
+      
       // Generar script con datos enriquecidos
       let script = await bannerExportService.generateEmbeddableScript(
         template,
@@ -1159,13 +1410,17 @@ detectCountry = catchAsync(async (req, res) => {
       
       // 9. MEJORADA: Inicialización prioritaria optimizada para validador
       // Incluir cookies y vendors en las opciones de inicialización TCF
+      const cmpConfig = createCMPConfig();
+      const tcfConfig = cmpConfig.getTCFAPIConfig();
+      const gvlConfig = cmpConfig.getGVLConfig();
+      
       const initializationCode = tcfService.generatePriorityInitialization({
-        cmpId: process.env.IAB_CMP_ID || 28,
-        cmpVersion: 1,
-        gdprAppliesDefault: true,
-        publisherCC: domain.settings?.publisherCC || 'ES',
-        tcString: "CPinQIAPinQIAAGABCENATEIAACAAAAAAAAAAIpxQgAIBgCKgUA.II7Nd_X__bX9n-_7_6ft0eY1f9_r37uQzDhfNk-8F3L_W_LwX52E7NF36tq4KmR4ku1bBIQNlHMHUDUmwaokVrzHsak2cpyNKJ_JkknsZe2dYGF9Pn9lD-YKZ7_5_9_f52T_9_9_-39z3_9f___dv_-__-vjf_599n_v9fV_78_Kf9______-____________8A",
-        vendorListVersion: vendorList ? vendorList.version : 3,
+        cmpId: tcfConfig.cmpId,
+        cmpVersion: tcfConfig.cmpVersion,
+        gdprAppliesDefault: tcfConfig.gdprApplies,
+        publisherCC: domain.settings?.publisherCC || tcfConfig.publisherCC,
+        // TC String será generado dinámicamente por el servicio
+        vendorListVersion: vendorList ? vendorList.version : gvlConfig.vendorListVersion,
         // Inyectar datos de cookies y vendors para el validador
         cookiesByCategory,
         vendorList: vendorsData
@@ -3101,11 +3356,16 @@ detectCountry = catchAsync(async (req, res) => {
  * Obtener lista de vendors
  */
 getVendorList = catchAsync(async (req, res) => {
+  // Usar configuración unificada para fallback
+  const cmpConfig = createCMPConfig();
+  const gvlConfig = cmpConfig.getGVLConfig();
+  
   try {
+    
     // Crear fallback como valor predeterminado
     const fallbackList = {
-      vendorListVersion: 1,
-      version: 1,
+      vendorListVersion: gvlConfig.vendorListVersion,
+      version: gvlConfig.vendorListVersion,
       lastUpdated: new Date().toISOString(),
       purposes: {
         1: { id: 1, name: "Almacenar información", description: "Almacenar información en el dispositivo" },
@@ -3148,11 +3408,11 @@ getVendorList = catchAsync(async (req, res) => {
     
     // Asegurar que los campos mínimos estén presentes
     if (!vendorList.version) {
-      vendorList.version = 1;
+      vendorList.version = gvlConfig.vendorListVersion;
     }
     
     if (!vendorList.vendorListVersion) {
-      vendorList.vendorListVersion = vendorList.version;
+      vendorList.vendorListVersion = vendorList.version || gvlConfig.vendorListVersion;
     }
     
     // Establecer headers para permitir caché y CORS
@@ -3164,10 +3424,10 @@ getVendorList = catchAsync(async (req, res) => {
   } catch (error) {
     logger.error('Error fetching vendor list:', error);
     
-    // Si falla, devolver una estructura básica
+    // Si falla, devolver una estructura básica usando configuración unificada
     res.status(200).json({
-      vendorListVersion: 1,
-      version: 1,
+      vendorListVersion: gvlConfig.vendorListVersion,
+      version: gvlConfig.vendorListVersion,
       lastUpdated: new Date().toISOString(),
       purposes: {
         1: { id: 1, name: "Almacenar información", description: "Almacenar información en el dispositivo" },
@@ -3571,6 +3831,32 @@ getVendorList = catchAsync(async (req, res) => {
 
     try {
       const cookiesByCategory = await consentScriptGenerator.getDomainCookiesByCategory(domain);
+      
+      // Log especial para debuggear tt_sessionid
+      const ttInUnknown = cookiesByCategory.unknown?.find(c => c.name === 'tt_sessionid');
+      const ttInAdvertising = cookiesByCategory.advertising?.find(c => c.name === 'tt_sessionid');
+      
+      // FORZAR LOGS EN RESPUESTA
+      console.log(`🔍 [CONTROLLER DEBUG] Categorías disponibles:`, Object.keys(cookiesByCategory));
+      console.log(`🔍 [CONTROLLER DEBUG] Todas las cookies:`, 
+        Object.entries(cookiesByCategory).map(([cat, cookies]) => `${cat}: [${cookies.map(c => c.name).join(', ')}]`)
+      );
+      
+      // LOGGING FORZADO PARA DEBUG
+      logger.error(`🔍 [CONTROLLER DEBUG] EJECUTÁNDOSE - Categorías disponibles: ${Object.keys(cookiesByCategory).join(', ')}`);
+      
+      if (ttInUnknown) {
+        console.error(`🚨 [CONTROLLER] PROBLEMA: tt_sessionid está en categoría 'unknown': ${JSON.stringify(ttInUnknown)}`);
+        logger.error(`🚨 PROBLEMA: tt_sessionid está en categoría 'unknown': ${JSON.stringify(ttInUnknown)}`);
+      }
+      if (ttInAdvertising) {
+        console.log(`✅ [CONTROLLER] CORRECTO: tt_sessionid está en categoría 'advertising': ${JSON.stringify(ttInAdvertising)}`);
+        logger.info(`✅ CORRECTO: tt_sessionid está en categoría 'advertising': ${JSON.stringify(ttInAdvertising)}`);
+      }
+      if (!ttInUnknown && !ttInAdvertising) {
+        console.warn(`⚠️ [CONTROLLER] tt_sessionid no encontrada en unknown ni advertising`);
+        logger.warn(`⚠️ tt_sessionid no encontrada en unknown ni advertising`);
+      }
       
       const totalCookies = Object.values(cookiesByCategory).reduce((acc, cookies) => acc + cookies.length, 0);
       logger.info(`[API] Returning ${totalCookies} cookies in ${Object.keys(cookiesByCategory).length} categories for domain: ${domain}`);

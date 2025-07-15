@@ -12,6 +12,13 @@ const { cacheControl } = require('../../middleware/cache');
 // Todas las rutas requieren autenticación
 router.use(protect);
 
+// Ruta para subir imágenes temporales durante edición
+router.post(
+  '/upload-temp-image',
+  bannerImageUpload,
+  BannerTemplateController.uploadTempImage
+);
+
 // Rutas públicas (con caché)
 router.get(
   '/system',
@@ -133,6 +140,26 @@ router.post(
   BannerTemplateController.cleanupDeletedBannersImages
 );
 
+// Rutas de asignación de banners a clientes (solo para owners)
+router.patch(
+  '/:id/assign-client',
+  checkSubscriptionWithReadOnlyMode,
+  validateRequest(bannerTemplateValidation.assignBannerToClient),
+  BannerTemplateController.assignBannerToClient
+);
+
+router.patch(
+  '/:id/unassign-client',
+  checkSubscriptionWithReadOnlyMode,
+  BannerTemplateController.unassignBannerFromClient
+);
+
+router.get(
+  '/available-for-assignment',
+  checkSubscriptionWithReadOnlyMode,
+  BannerTemplateController.getAvailableBannersForAssignment
+);
+
 // Rutas de traducción
 router.post(
   '/:id/detect-languages',
@@ -161,6 +188,13 @@ router.put(
 router.get(
   '/translation-usage',
   BannerTemplateController.getTranslationUsage
+);
+
+// Ruta para enviar script por email
+router.post(
+  '/:id/send-script-email',
+  checkSubscriptionWithReadOnlyMode,
+  BannerTemplateController.sendScriptByEmail
 );
 
 module.exports = router;

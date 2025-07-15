@@ -7,7 +7,7 @@ import { useTranslations } from '../../../hooks/useTranslations';
 
 function PreferencesModal({ onClose, backgroundColor }) {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1100]">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1100]">
       <div 
         className="w-full max-w-lg rounded-lg shadow-xl p-6"
         style={{ backgroundColor: backgroundColor || '#ffffff' }}

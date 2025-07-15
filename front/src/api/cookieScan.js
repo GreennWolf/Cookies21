@@ -315,3 +315,64 @@ export const forceStopAllAnalysis = async (domainId) => {
     );
   }
 };
+
+/**
+ * Inicia un análisis inteligente de cookies con clasificación automática y detección de vendors.
+ * @param {string} domainId - ID del dominio.
+ * @param {object} analysisConfig - Configuración del análisis inteligente.
+ * @returns {object} Datos del análisis iniciado.
+ */
+export const startIntelligentAnalysis = async (domainId, analysisConfig = {}) => {
+  try {
+    const response = await apiClient.post(`/api/v1/advanced-cookie-analysis/domain/${domainId}/intelligent/start`, {
+      deepScan: analysisConfig.deepScan ?? true,
+      includeThirdParty: analysisConfig.includeThirdParty ?? true,
+      timeout: analysisConfig.timeout ?? 30000,
+      generateRecommendations: analysisConfig.generateRecommendations ?? true
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || 'Error starting intelligent analysis'
+    );
+  }
+};
+
+/**
+ * Obtiene los resultados del análisis inteligente.
+ * @param {string} domainId - ID del dominio.
+ * @param {object} options - Opciones de consulta.
+ * @returns {object} Resultados del análisis inteligente.
+ */
+export const getIntelligentAnalysisResults = async (domainId, options = {}) => {
+  try {
+    const params = new URLSearchParams({
+      limit: options.limit || 1,
+      includeDetails: options.includeDetails || true
+    });
+    
+    const response = await apiClient.get(`/api/v1/advanced-cookie-analysis/domain/${domainId}/intelligent/results?${params}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || 'Error getting intelligent analysis results'
+    );
+  }
+};
+
+/**
+ * Genera un reporte de cumplimiento GDPR.
+ * @param {string} domainId - ID del dominio.
+ * @param {string} format - Formato del reporte (json, pdf, csv).
+ * @returns {object} Reporte de cumplimiento.
+ */
+export const generateComplianceReport = async (domainId, format = 'json') => {
+  try {
+    const response = await apiClient.get(`/api/v1/advanced-cookie-analysis/domain/${domainId}/intelligent/compliance-report?format=${format}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || 'Error generating compliance report'
+    );
+  }
+};

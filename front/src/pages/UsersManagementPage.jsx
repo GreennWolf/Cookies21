@@ -73,6 +73,9 @@ const UsersManagementPage = () => {
         params.clientId = selectedClient;
       }
 
+      // Agregar límite alto para traer todos los usuarios
+      params.limit = 1000;
+      
       const response = await getUsers(params);
       setUsers(response.data.users || []); // Asegurarnos de que users sea un array
     } catch (error) {

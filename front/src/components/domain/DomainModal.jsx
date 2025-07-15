@@ -1,13 +1,15 @@
 /* /src/components/domain/DomainModal.jsx */
 import React, { useEffect } from 'react';
 import PropTypes from 'prop-types';
-import DomainForm from './DomainForm';
+// import DomainForm from './DomainForm';
+import DomainFormSimplified from './DomainFormSimplified';
 
 const DomainModal = ({ 
   onClose, 
   isOwner = false,
   clients = [],
-  selectedClientId = ''
+  selectedClientId = '',
+  editingDomain = null
 }) => {
   // Cerrar el modal al presionar Escape
   useEffect(() => {
@@ -19,7 +21,7 @@ const DomainModal = ({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md relative max-h-[80vh] overflow-y-auto">
         <button
           className="absolute top-2 right-2 text-gray-600 hover:text-gray-800"
@@ -27,12 +29,16 @@ const DomainModal = ({
         >
           &#10005;
         </button>
-        <h2 className="text-2xl font-bold mb-4 text-[#181818]">Crear Dominio</h2>
-        <DomainForm 
-          onSuccess={(newDomain) => onClose(newDomain)} 
+        <h2 className="text-2xl font-bold mb-4 text-[#181818]">
+          {editingDomain ? 'Editar Dominio' : 'Crear Dominio'}
+        </h2>
+        <DomainFormSimplified 
+          onSuccess={(updatedDomain) => onClose(updatedDomain)} 
           isOwner={isOwner}
           clients={clients}
           selectedClientId={selectedClientId}
+          editingDomain={editingDomain}
+          onCancel={() => onClose()}
         />
       </div>
     </div>
@@ -43,7 +49,8 @@ DomainModal.propTypes = {
   onClose: PropTypes.func.isRequired,
   isOwner: PropTypes.bool,
   clients: PropTypes.array,
-  selectedClientId: PropTypes.string
+  selectedClientId: PropTypes.string,
+  editingDomain: PropTypes.object
 };
 
 export default DomainModal;

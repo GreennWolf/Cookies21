@@ -9,7 +9,44 @@ class CookieIconService {
    * @returns {string} Código JavaScript e HTML para el icono flotante
    */
   generateFloatingIcon(options = {}) {
-    const { baseUrl = 'http://localhost:3000' } = options;
+    const { 
+      baseUrl = 'http://localhost:3000',
+      position = 'bottom-right',
+      color = '#007bff',
+      enabled = true,
+      backgroundColor = 'transparent',
+      size = 40
+    } = options;
+    
+    // Debug: mostrar configuración recibida
+    console.log('🔍 [CookieIconService] Configuración recibida:', {
+      baseUrl,
+      position,
+      color,
+      enabled,
+      backgroundColor,
+      size,
+      originalOptions: options
+    });
+    
+    // Si no está habilitado, retornar código vacío
+    if (!enabled) {
+      return `
+        // Icono flotante deshabilitado
+        window.CMP = window.CMP || {};
+        window.CMP.floatingIconEnabled = false;
+      `;
+    }
+    
+    // Calcular posición basada en la configuración
+    const positionStyles = {
+      'bottom-right': 'bottom: 20px; right: 20px;',
+      'bottom-left': 'bottom: 20px; left: 20px;',
+      'top-right': 'top: 20px; right: 20px;',
+      'top-left': 'top: 20px; left: 20px;'
+    }[position] || 'bottom: 20px; right: 20px;';
+    
+    console.log('🎯 [CookieIconService] Estilos calculados:', { position, positionStyles });
 
     return `
       // ===============================
@@ -21,13 +58,144 @@ class CookieIconService {
       window.CMP.floatingIcon = null;
       window.CMP.isOpen = false; // Variable para controlar si el banner está abierto
       
+      // Función global para detectar si hay banners visibles
+      window.CMP.isBannerVisible = function() {
+        console.log('[CMP] 🔍 Ejecutando isBannerVisible()...');
+        
+        // PRIMERA VERIFICACIÓN: Elementos con clase cmp-banner--visible (más específico)
+        const visibleCmpBanners = document.querySelectorAll('.cmp-banner--visible');
+        console.log(\`[CMP] 🎯 Elementos con cmp-banner--visible: \${visibleCmpBanners.length}\`);
+        
+        if (visibleCmpBanners.length > 0) {
+          for (const banner of visibleCmpBanners) {
+            console.log('[CMP] 📋 Banner cmp-banner--visible encontrado:', {
+              id: banner.id,
+              className: banner.className,
+              display: getComputedStyle(banner).display,
+              offsetWidth: banner.offsetWidth,
+              offsetHeight: banner.offsetHeight,
+              offsetParent: !!banner.offsetParent
+            });
+            
+            // Si tiene la clase visible, considerarlo visible independientemente del display
+            if (banner.offsetWidth > 0 && banner.offsetHeight > 0) {
+              console.log('[CMP] ✅ Banner CMP CONFIRMADO VISIBLE por clase cmp-banner--visible');
+              return true;
+            }
+          }
+        }
+        
+        // SEGUNDA VERIFICACIÓN: Elementos con clase cmp-banner que tengan clase visible
+        const cmpBanners = document.querySelectorAll('.cmp-banner');
+        console.log(\`[CMP] 🎯 Elementos con cmp-banner: \${cmpBanners.length}\`);
+        
+        if (cmpBanners.length > 0) {
+          for (const banner of cmpBanners) {
+            const hasVisibleClass = banner.classList.contains('cmp-banner--visible') || 
+                                   banner.classList.contains('visible') ||
+                                   banner.classList.contains('show') ||
+                                   banner.classList.contains('active');
+            
+            console.log('[CMP] 🔍 Banner cmp-banner encontrado:', {
+              id: banner.id,
+              className: banner.className,
+              hasVisibleClass,
+              display: getComputedStyle(banner).display,
+              offsetWidth: banner.offsetWidth,
+              offsetHeight: banner.offsetHeight,
+              offsetParent: !!banner.offsetParent
+            });
+            
+            // Si tiene clase visible Y tiene dimensiones, está visible
+            if (hasVisibleClass && banner.offsetWidth > 0 && banner.offsetHeight > 0) {
+              console.log('[CMP] ✅ Banner CMP VISIBLE por clase de estado');
+              return true;
+            }
+          }
+        }
+        
+        // TERCERA VERIFICACIÓN: Selectores generales para otros sistemas
+        const selectors = [
+          '#cmp-banner',
+          '[id*="banner-"][id*="container"]',
+          '[id*="cookie"]',
+          '[class*="cookie"]', 
+          '[id*="consent"]',
+          '[class*="consent"]',
+          '[id*="banner"]',
+          '[class*="banner"]',
+          '[data-testid*="cookie"]',
+          '[data-testid*="consent"]',
+          '[data-testid*="banner"]',
+          '.cookiebanner',
+          '.cookie-banner',
+          '.consent-banner',
+          '.privacy-banner',
+          '.gdpr-banner',
+          '#cookieNotice',
+          '#consentNotice',
+          '.notice-banner',
+          '[role="dialog"][aria-label*="cookie" i]',
+          '[role="dialog"][aria-label*="consent" i]',
+          '[role="banner"][class*="cookie" i]',
+          '[role="banner"][class*="consent" i]'
+        ];
+        
+        for (const selector of selectors) {
+          try {
+            const elements = document.querySelectorAll(selector);
+            for (const element of elements) {
+              // Verificar que no sea el icono flotante mismo
+              if (element.id === 'cmp-floating-icon') {
+                continue;
+              }
+              
+              // Verificaciones de visibilidad estándar
+              const style = getComputedStyle(element);
+              const isDisplayed = style.display !== 'none';
+              const isVisible = style.visibility !== 'hidden';
+              const isOpaque = parseFloat(style.opacity) > 0;
+              const hasOffsetParent = element.offsetParent !== null;
+              const hasSize = element.offsetWidth > 0 && element.offsetHeight > 0;
+              
+              const isElementVisible = isDisplayed && isVisible && isOpaque && hasOffsetParent && hasSize;
+              
+              if (isElementVisible) {
+                console.log('[CMP] 🔍 Banner genérico detectado visible:', {
+                  selector: selector,
+                  id: element.id,
+                  className: element.className,
+                  tagName: element.tagName,
+                  display: style.display,
+                  visibility: style.visibility,
+                  opacity: style.opacity,
+                  offsetWidth: element.offsetWidth,
+                  offsetHeight: element.offsetHeight,
+                  offsetParent: !!element.offsetParent
+                });
+                return true;
+              }
+            }
+          } catch (e) {
+            // Ignorar errores de selectores inválidos
+            console.log('[CMP] ⚠️ Error en selector:', selector, e.message);
+            continue;
+          }
+        }
+        
+        console.log('[CMP] ❌ No se detectaron banners visibles');
+        return false;
+      };
+      
       // Función para crear el icono flotante
       window.CMP.createFloatingIcon = function() {
         console.log('[CMP] 🔄 Intentando crear icono flotante... isOpen:', window.CMP.isOpen);
         
-        // No mostrar si el banner está abierto
-        if (window.CMP.isOpen) {
-          console.log('[CMP] ⚠️ Banner está abierto, no se muestra el icono');
+        // Verificar si hay banners visibles usando la función global
+        const bannerVisible = window.CMP.isBannerVisible();
+        
+        if (window.CMP.isOpen || bannerVisible) {
+          console.log('[CMP] ⚠️ Banner está abierto/visible, no se muestra el icono');
           return null;
         }
         
@@ -38,36 +206,82 @@ class CookieIconService {
           window.CMP.floatingIcon = null;
         }
         
+        // También eliminar cualquier icono existente del DOM
+        const existingIcon = document.getElementById('cmp-floating-icon');
+        if (existingIcon) {
+          existingIcon.remove();
+        }
+        
         // Crear el icono
         const icon = document.createElement('div');
-        icon.id = 'cookie-floating-icon';
-        icon.innerHTML = '<img src="${baseUrl}/icon.ico" width="40" height="40" style="width: 40px; height: 40px; border-radius: 8px;" alt="Cookie Settings" />';
+        icon.id = 'cmp-floating-icon';
+        
+        // Configurar imagen con tamaño dinámico
+        const iconSize = ${size};
+        const imageSize = Math.round(iconSize * 0.8); // Imagen 80% del tamaño del contenedor
+        icon.innerHTML = '<img src="${baseUrl}/icon.ico" width="' + imageSize + '" height="' + imageSize + '" style="width: ' + imageSize + 'px; height: ' + imageSize + 'px; border-radius: ' + Math.round(imageSize * 0.2) + 'px;" alt="Cookie Settings" />';
+        
+        // Debug: mostrar configuración en el navegador
+        console.log('[CMP] 🎯 Configuración del icono flotante:', {
+          position: '${position}',
+          color: '${color}',
+          enabled: ${enabled},
+          backgroundColor: '${backgroundColor}',
+          size: iconSize,
+          positionStyles: '${positionStyles}'
+        });
+        
+        // Determinar dirección de animación según posición
+        const animationClass = '${position}'.includes('top') ? 'floatInFromTop' : 'floatInFromBottom';
+        
+        // Configurar color de fondo
+        const backgroundStyle = '${backgroundColor}' === 'transparent' || '${backgroundColor}' === '' || '${backgroundColor}' === 'none' 
+          ? 'transparent' 
+          : '${backgroundColor}';
+        
         icon.style.cssText = \`
           position: fixed;
-          bottom: 20px;
-          right: 20px;
-          width: 40px;
-          height: 40px;
+          ${positionStyles}
+          width: \${iconSize}px;
+          height: \${iconSize}px;
           cursor: pointer;
           z-index: 2147483649;
           display: flex;
           align-items: center;
           justify-content: center;
           transition: all 0.3s ease;
-          animation: floatIn 0.5s ease-out;
+          animation: \${animationClass} 0.5s ease-out;
+          animation-fill-mode: both;
+          background: \${backgroundStyle} !important;
+          background-color: \${backgroundStyle} !important;
+          border: none !important;
+          border-radius: \${Math.round(iconSize * 0.2)}px;
+          box-shadow: \${backgroundStyle !== 'transparent' ? '0 2px 8px rgba(0,0,0,0.15)' : 'none'};
         \`;
         
         // Agregar efectos de hover
         icon.addEventListener('mouseenter', function() {
-          this.style.borderRadius = '12px';
-          this.style.backgroundColor = 'transparent';
+          const hoverRadius = Math.round(iconSize * 0.3);
+          this.style.borderRadius = hoverRadius + 'px';
+          this.style.backgroundColor = backgroundStyle;
+          this.style.background = backgroundStyle;
           this.style.transform = 'scale(1.1)';
+          if (backgroundStyle !== 'transparent') {
+            this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.25)';
+          }
         });
         
         icon.addEventListener('mouseleave', function() {
-          this.style.borderRadius = '0';
-          this.style.backgroundColor = 'transparent';
+          const normalRadius = Math.round(iconSize * 0.2);
+          this.style.borderRadius = normalRadius + 'px';
+          this.style.backgroundColor = backgroundStyle;
+          this.style.background = backgroundStyle;
           this.style.transform = 'scale(1)';
+          if (backgroundStyle !== 'transparent') {
+            this.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+          } else {
+            this.style.boxShadow = 'none';
+          }
         });
         
         // Agregar animación CSS
@@ -75,7 +289,7 @@ class CookieIconService {
           const styles = document.createElement('style');
           styles.id = 'floating-icon-styles';
           styles.textContent = \`
-            @keyframes floatIn {
+            @keyframes floatInFromBottom {
               from {
                 transform: translateY(100px) scale(0.5);
                 opacity: 0;
@@ -86,9 +300,26 @@ class CookieIconService {
               }
             }
             
-            #cookie-floating-icon:hover {
-              transform: scale(1.1);
-              background: transparent !important;
+            @keyframes floatInFromTop {
+              from {
+                transform: translateY(-100px) scale(0.5);
+                opacity: 0;
+              }
+              to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+              }
+            }
+            
+            #cmp-floating-icon {
+              border: none !important;
+              outline: none !important;
+            }
+            
+            #cmp-floating-icon:hover {
+              transform: scale(1.1) !important;
+              border: none !important;
+              outline: none !important;
             }
             
           \`;
@@ -98,6 +329,15 @@ class CookieIconService {
         // Event listener para mostrar el banner
         icon.addEventListener('click', function() {
           console.log('[CMP] 🎯 Icono flotante clickeado, mostrando banner...');
+          
+          // Marcar banner como abierto ANTES de mostrarlo
+          window.CMP.isOpen = true;
+          
+          // Ocultar este icono inmediatamente
+          if (window.CMP.floatingIcon) {
+            window.CMP.floatingIcon.style.display = 'none';
+          }
+          
           if (typeof window.CMP.showBannerFromIcon === 'function') {
             window.CMP.showBannerFromIcon();
           } else if (typeof window.CMP.showBanner === 'function') {
@@ -119,13 +359,12 @@ class CookieIconService {
       window.CMP.showFloatingIcon = function() {
         console.log('[CMP] 🔄 showFloatingIcon() llamada... isOpen:', window.CMP.isOpen);
         
-        // Verificar si el banner está realmente visible
-        const bannerElement = document.querySelector('#cmp-banner, [id*="cookie"], [class*="cookie"], [id*="consent"], [class*="consent"]');
-        const bannerVisible = bannerElement && bannerElement.style.display !== 'none' && bannerElement.offsetParent !== null;
+        // Usar la función global de detección de banners
+        const bannerVisible = window.CMP.isBannerVisible();
         
         // No mostrar si el banner está realmente visible
-        if (bannerVisible && window.CMP.isOpen) {
-          console.log('[CMP] ⚠️ Banner está visible y abierto, no se muestra el icono');
+        if (bannerVisible || window.CMP.isOpen) {
+          console.log('[CMP] ⚠️ Banner está visible/abierto, no se muestra el icono');
           return;
         }
         
@@ -136,13 +375,29 @@ class CookieIconService {
           window.CMP.isOpen = false;
         }
         
-        if (!window.CMP.floatingIcon) {
-          console.log('[CMP] 📝 Icono no existe, creándolo...');
-          window.CMP.createFloatingIcon();
-        } else {
-          console.log('[CMP] 👁️ Mostrando icono existente...');
-          window.CMP.floatingIcon.style.display = 'flex';
+        // Solo crear el icono si no existe uno visible
+        const existingIcon = document.getElementById('cmp-floating-icon');
+        if (existingIcon && existingIcon.style.display !== 'none') {
+          console.log('[CMP] ✅ Icono ya está visible, no se recrea');
+          return;
         }
+        
+        // Limpiar iconos existentes
+        console.log('[CMP] 🔄 Creando icono con configuración actualizada...');
+        if (window.CMP.floatingIcon) {
+          console.log('[CMP] 🗑️ Eliminando icono existente...');
+          window.CMP.floatingIcon.remove();
+          window.CMP.floatingIcon = null;
+        }
+        
+        // También eliminar cualquier icono con ID cmp-floating-icon
+        if (existingIcon) {
+          console.log('[CMP] 🗑️ Eliminando icono DOM existente...');
+          existingIcon.remove();
+        }
+        
+        console.log('[CMP] 🆕 Creando nuevo icono con configuración...');
+        window.CMP.createFloatingIcon();
       };
       
       // Función para ocultar el icono flotante
@@ -153,15 +408,30 @@ class CookieIconService {
           console.log('[CMP] 👁️ Ocultando icono flotante...');
           window.CMP.floatingIcon.style.display = 'none';
         }
+        
+        // También ocultar cualquier icono del DOM
+        const existingIcon = document.getElementById('cmp-floating-icon');
+        if (existingIcon) {
+          existingIcon.style.display = 'none';
+        }
       };
       
       // Función para ocultar el icono cuando el banner esté activo
       window.CMP.hideIconWhenBannerActive = function() {
         console.log('[CMP] 🔄 hideIconWhenBannerActive() llamada...');
         
+        // Marcar banner como abierto
+        window.CMP.isOpen = true;
+        
         if (window.CMP.floatingIcon) {
           console.log('[CMP] 👁️ Ocultando icono porque el banner está activo...');
           window.CMP.floatingIcon.style.display = 'none';
+        }
+        
+        // También ocultar cualquier icono del DOM
+        const existingIcon = document.getElementById('cmp-floating-icon');
+        if (existingIcon) {
+          existingIcon.style.display = 'none';
         }
       };
       
@@ -169,9 +439,23 @@ class CookieIconService {
       window.CMP.showIconWhenBannerClosed = function() {
         console.log('[CMP] 🔄 showIconWhenBannerClosed() llamada...');
         
+        // Marcar banner como cerrado
+        window.CMP.isOpen = false;
+        
+        // Verificar si ya hay consentimiento
+        const hasConsent = checkExistingConsent();
+        if (!hasConsent) {
+          console.log('[CMP] ⚠️ No hay consentimiento, no se muestra el icono');
+          return;
+        }
+        
+        // Mostrar el icono existente o crear uno nuevo
         if (window.CMP.floatingIcon) {
-          console.log('[CMP] 👁️ Mostrando icono porque el banner se cerró...');
+          console.log('[CMP] 👁️ Mostrando icono existente porque el banner se cerró...');
           window.CMP.floatingIcon.style.display = 'flex';
+        } else {
+          console.log('[CMP] 🆕 Creando nuevo icono porque el banner se cerró...');
+          window.CMP.createFloatingIcon();
         }
       };
       
@@ -486,8 +770,116 @@ class CookieIconService {
         window.CMP.hideFloatingIcon();
       };
       
+      // ===============================
+      // OBSERVADOR DE CAMBIOS DEL DOM
+      // ===============================
+      
+      // Configurar MutationObserver para detectar banners que aparecen/desaparecen
+      window.CMP.setupBannerObserver = function() {
+        console.log('[CMP] 🔍 Configurando observador de banners...');
+        
+        if (window.CMP._bannerObserver) {
+          console.log('[CMP] ⚠️ Observador ya configurado, saltando...');
+          return;
+        }
+        
+        const observer = new MutationObserver(function(mutations) {
+          let shouldCheck = false;
+          
+          mutations.forEach(function(mutation) {
+            // Verificar si se agregaron/removieron nodos
+            if (mutation.type === 'childList') {
+              // Verificar nodos agregados
+              mutation.addedNodes.forEach(function(node) {
+                if (node.nodeType === 1) { // Element node
+                  const element = node;
+                  // Verificar si el elemento o sus hijos son banners
+                  if (element.id && (element.id.includes('cookie') || element.id.includes('consent') || element.id.includes('banner'))) {
+                    console.log('[CMP] 👁️ Banner agregado al DOM:', element.id);
+                    shouldCheck = true;
+                  }
+                  if (element.className && typeof element.className === 'string' && 
+                      (element.className.includes('cookie') || element.className.includes('consent') || element.className.includes('banner'))) {
+                    console.log('[CMP] 👁️ Banner con clase agregado al DOM:', element.className);
+                    shouldCheck = true;
+                  }
+                  
+                  // Verificar elementos hijos
+                  const childBanners = element.querySelectorAll && element.querySelectorAll('[id*="cookie"], [id*="consent"], [id*="banner"], [class*="cookie"], [class*="consent"], [class*="banner"]');
+                  if (childBanners && childBanners.length > 0) {
+                    console.log('[CMP] 👁️ Elementos banner detectados en nodo agregado:', childBanners.length);
+                    shouldCheck = true;
+                  }
+                }
+              });
+              
+              // Verificar nodos removidos
+              mutation.removedNodes.forEach(function(node) {
+                if (node.nodeType === 1) { // Element node
+                  const element = node;
+                  if (element.id && (element.id.includes('cookie') || element.id.includes('consent') || element.id.includes('banner'))) {
+                    console.log('[CMP] 👁️ Banner removido del DOM:', element.id);
+                    shouldCheck = true;
+                  }
+                }
+              });
+            }
+            
+            // Verificar cambios de atributos (como style, class)
+            if (mutation.type === 'attributes') {
+              const element = mutation.target;
+              if (element.id && (element.id.includes('cookie') || element.id.includes('consent') || element.id.includes('banner'))) {
+                console.log('[CMP] 👁️ Atributos de banner cambiados:', element.id, 'atributo:', mutation.attributeName);
+                shouldCheck = true;
+              }
+              if (element.className && typeof element.className === 'string' && 
+                  (element.className.includes('cookie') || element.className.includes('consent') || element.className.includes('banner'))) {
+                console.log('[CMP] 👁️ Atributos de banner con clase cambiados:', element.className, 'atributo:', mutation.attributeName);
+                shouldCheck = true;
+              }
+            }
+          });
+          
+          // Verificar estado del icono si se detectaron cambios relevantes
+          if (shouldCheck) {
+            console.log('[CMP] 🔄 Cambios detectados, verificando estado del icono...');
+            setTimeout(function() {
+              const bannerVisible = window.CMP.isBannerVisible();
+              
+              if (bannerVisible && window.CMP.floatingIcon && window.CMP.floatingIcon.style.display !== 'none') {
+                console.log('[CMP] 🙈 Banner ahora visible, ocultando icono...');
+                window.CMP.hideFloatingIcon();
+                window.CMP.isOpen = true;
+              } else if (!bannerVisible && (!window.CMP.floatingIcon || window.CMP.floatingIcon.style.display === 'none')) {
+                console.log('[CMP] 👁️ Banner ahora oculto, mostrando icono...');
+                window.CMP.isOpen = false;
+                window.CMP.showFloatingIcon();
+              }
+            }, 100); // Pequeño delay para que se complete la mutación
+          }
+        });
+        
+        // Observar todo el document
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['style', 'class', 'id']
+        });
+        
+        window.CMP._bannerObserver = observer;
+        console.log('[CMP] ✅ Observador de banners configurado exitosamente');
+      };
+      
+      // Configurar observador cuando el DOM esté listo
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', window.CMP.setupBannerObserver);
+      } else {
+        window.CMP.setupBannerObserver();
+      }
+      
       // IMPORTANTE: Ejecutar inmediatamente al cargar
-      console.log('[CMP] 🚀 Código del icono flotante cargado con control de estado isOpen');
+      console.log('[CMP] 🚀 Código del icono flotante cargado con control de estado isOpen y observador del DOM');
       
       // Verificar funciones inmediatamente
       if (typeof window.CMP.verifyFloatingIconFunctions === 'function') {

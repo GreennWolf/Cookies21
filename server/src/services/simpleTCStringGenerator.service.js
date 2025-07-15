@@ -2,27 +2,39 @@
 // Generador simple de TC Strings válidos sin dependencias externas
 
 const logger = require('../utils/logger');
+const { createCMPConfig } = require('../config/cmp.config');
 
 /**
  * Clase para generar TC Strings válidos de forma simple
  * Basado en la especificación TCF v2.2 de IAB
+ * Usa configuración unificada del CMP
  */
 class SimpleTCStringGenerator {
   constructor() {
+    // Usar configuración unificada
+    const cmpConfig = createCMPConfig();
+    const tcStringConfig = cmpConfig.getTCStringConfig();
+    
     this.version = 2;
-    this.cmpId = 300;
-    this.cmpVersion = 1;
+    this.cmpId = tcStringConfig.cmpId; // Desde configuración unificada
+    this.cmpVersion = tcStringConfig.cmpVersion; // Desde configuración unificada
     this.consentScreen = 0;
     this.consentLanguage = 'EN'; // Idioma por defecto
-    this.vendorListVersion = 3;
-    this.tcfPolicyVersion = 4;
-    this.isServiceSpecific = true;
-    this.useNonStandardStacks = false;
+    this.vendorListVersion = tcStringConfig.vendorListVersion; // Desde configuración unificada
+    this.tcfPolicyVersion = tcStringConfig.tcfPolicyVersion; // Desde configuración unificada
+    this.isServiceSpecific = tcStringConfig.isServiceSpecific; // Desde configuración unificada
+    this.useNonStandardStacks = tcStringConfig.useNonStandardStacks; // Desde configuración unificada
     this.specialFeatureOptins = 0;
     this.purposeConsents = 0;
     this.purposeLegitimateInterests = 0;
-    this.purposeOneTreatment = false;
-    this.publisherCC = 'ES';
+    this.purposeOneTreatment = tcStringConfig.purposeOneTreatment; // Desde configuración unificada
+    this.publisherCC = tcStringConfig.publisherCC; // Desde configuración unificada
+    
+    logger.info('🏗️ SimpleTCStringGenerator inicializado con configuración unificada:', {
+      cmpId: this.cmpId,
+      vendorListVersion: this.vendorListVersion,
+      tcfPolicyVersion: this.tcfPolicyVersion
+    });
   }
 
   /**
@@ -87,12 +99,12 @@ class SimpleTCStringGenerator {
     // Version (6 bits) - siempre 2 para TCF v2
     binary += this.intToBinary(2, 6);
     
-    // Created (36 bits) - timestamp en decisegundos
-    const created = options.created || this.getCurrentTimestamp();
-    binary += this.intToBinary(created, 36);
+    // COMPLIANCE POINT 10: Created y LastUpdated deben ser iguales en primera carga
+    const now = this.getCurrentTimestamp();
+    const created = options.created || now;
+    const lastUpdated = options.lastUpdated || options.created || now; // Usar created si está disponible
     
-    // LastUpdated (36 bits) - timestamp en decisegundos  
-    const lastUpdated = options.lastUpdated || this.getCurrentTimestamp();
+    binary += this.intToBinary(created, 36);
     binary += this.intToBinary(lastUpdated, 36);
     
     // CmpId (12 bits)
@@ -168,8 +180,11 @@ class SimpleTCStringGenerator {
     let purposeLI = 0;
     if (options.legitimateInterests) {
       Object.entries(options.legitimateInterests).forEach(([id, li]) => {
-        if (li && id <= 24 && id > 1) { // El propósito 1 no puede usar LI
-          purposeLI |= (1 << (24 - parseInt(id)));
+        const purposeId = parseInt(id);
+        // COMPLIANCE POINT 9: Propósitos 1,3,4,5,6 NO pueden usar Legitimate Interest
+        const forbiddenLIPurposes = [1, 3, 4, 5, 6];
+        if (li && purposeId <= 24 && !forbiddenLIPurposes.includes(purposeId)) {
+          purposeLI |= (1 << (24 - purposeId));
         }
       });
     }
@@ -255,9 +270,19 @@ class SimpleTCStringGenerator {
    * @returns {string} TC String optimizado para validador
    */
   generateValidatorTCString() {
-    // Usar un TC String válido conocido del IAB para testing
-    // Este es un ejemplo válido de la documentación IAB TCF v2.2
-    return "COtybn4PA_zT4KjACBENAPCIAEBAAECAAIAAAAAAAAAA";
+    // Generar TC String con consentimientos iniciales en 0 (COMPLIANCE POINT 1)
+    const validatorOptions = {
+      cmpId: 300,
+      cmpVersion: 1,
+      publisherCC: 'ES',
+      consentLanguage: 'EN',
+      purposes: {}, // VACÍO - sin consentimientos iniciales
+      legitimateInterests: {}, // VACÍO - sin LI iniciales
+      specialFeatures: {}, // VACÍO - sin SF iniciales
+      vendors: {} // VACÍO - sin vendor consents iniciales
+    };
+
+    return this.generateTCString(validatorOptions);
   }
 
   /**

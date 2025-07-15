@@ -2,6 +2,25 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import ComponentRenderer from './ComponentRenderer';
 import { Box } from 'lucide-react';
 
+// DIMENSIONES ESTÁNDAR PARA DISPOSITIVOS REALES (UX MEJORADA)
+const DEVICE_REAL_DIMENSIONS = {
+  mobile: {
+    width: 375,   // iPhone estándar
+    height: 667,  // iPhone estándar
+    name: 'Móvil (iPhone)'
+  },
+  tablet: {
+    width: 768,   // iPad estándar
+    height: 1024, // iPad estándar  
+    name: 'Tablet (iPad)'
+  },
+  desktop: {
+    width: 1200,  // Desktop estándar
+    height: 800,  // Desktop estándar
+    name: 'Desktop'
+  }
+};
+
 // Función de throttle para optimización
 const throttle = (func, limit) => {
   let inThrottle;
@@ -44,7 +63,8 @@ function BannerCanvas({
   onUpdateChildPosition,
   onUpdateComponent,
   onUnattachFromContainer,
-  onReorderChildren // Añadimos el parámetro para reordenar componentes
+  onReorderChildren, // Añadimos el parámetro para reordenar componentes
+  clientInfo = null
 }) {
   // Verificar que las funciones están definidas
   useEffect(() => {
@@ -114,29 +134,57 @@ function BannerCanvas({
     return el ? el.getBoundingClientRect() : null;
   };
 
-  // Estilos del contenedor basados en el layout - memoizado
+  // Estilos del contenedor basados en el layout - memoizado con UX MEJORADA
   const containerStyle = useMemo(() => {
     const layoutConfig = layout[deviceView] || {};
+    
+    // NUEVA LÓGICA: Usar dimensiones reales para móvil/tablet cuando esté en 100%
+    let calculatedWidth = layoutConfig.width || '100%';
+    let calculatedHeight = layoutConfig.height || 'auto';
+    let calculatedMinHeight = layoutConfig.minHeight || '400px';
+    
+    // Solo aplicar dimensiones reales para móvil y tablet con ESCALA para mejor visualización
+    if (deviceView === 'mobile' || deviceView === 'tablet') {
+      const deviceDimensions = DEVICE_REAL_DIMENSIONS[deviceView];
+      
+      // Si width está en 100%, usar dimensión real del dispositivo
+      if (calculatedWidth === '100%') {
+        calculatedWidth = `${deviceDimensions.width}px`;
+      }
+      
+      // Si height está en 100%, usar dimensión real
+      // Para 'auto', usar una altura razonable pero no la completa del dispositivo  
+      if (calculatedHeight === '100%') {
+        calculatedHeight = `${deviceDimensions.height}px`;
+        calculatedMinHeight = `${deviceDimensions.height}px`;
+      } else if (calculatedHeight === 'auto') {
+        // Para auto, usar una altura mínima más cómoda para edición
+        calculatedMinHeight = deviceView === 'mobile' ? '500px' : '600px';
+      }
+      
+      console.log(`📱 UX Mejorada: Canvas ${deviceView} usando dimensiones reales`, {
+        originalWidth: layoutConfig.width,
+        originalHeight: layoutConfig.height,
+        calculatedWidth,
+        calculatedHeight,
+        deviceDimensions
+      });
+    }
     
     const baseStyle = {
       position: 'relative',
       backgroundColor: layoutConfig.backgroundColor || '#ffffff',
-      width: layoutConfig.width || '100%',
-      height: layoutConfig.height || 'auto',
-      minHeight: layoutConfig.minHeight || '400px',
+      width: calculatedWidth,
+      height: calculatedHeight,
+      minHeight: calculatedMinHeight,
       border: isDragOver ? '3px solid #3b82f6' : '2px dashed #3b82f6',
       boxShadow: isDragOver ? '0 0 10px rgba(59, 130, 246, 0.5)' : '0 0 0 1px rgba(59, 130, 246, 0.3)',
       borderRadius: '8px',
       overflow: 'visible',
       transition: 'all 0.3s ease',
+      // NUEVO: Máximo width para evitar que se salga de la pantalla
+      maxWidth: '100vw'
     };
-    
-    // Si está en drag over, añadir un fondo sutil
-    if (isDragOver) {
-      baseStyle.backgroundColor = layoutConfig.backgroundColor 
-        ? `${layoutConfig.backgroundColor}ee`
-        : '#f0f9ff';
-    }
     
     return baseStyle;
   }, [layout, deviceView, isDragOver]);
@@ -626,7 +674,7 @@ function BannerCanvas({
   };
 
   // Versión mejorada del manejo de drop para soportar imágenes
-  const handleDrop = useCallback((e) => {
+  const handleDrop = useCallback(async (e) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -687,7 +735,7 @@ function BannerCanvas({
         };
         
         // Llamar a onAddComponent con el tipo, posición y datos adicionales
-        onAddComponent(window.__dragData.type, position, componentData);
+        await onAddComponent(window.__dragData.type, position, componentData);
         
         // Limpiar la variable global y estados
         window.__dragData = null;
@@ -710,7 +758,7 @@ function BannerCanvas({
       // Intentar con el tipo personalizado
       const componentType = e.dataTransfer.getData('component/sidebar');
       if (componentType) {
-        onAddComponent(componentType, position, {});
+        await onAddComponent(componentType, position, {});
         setIsDragOver(false);
         setIsDraggingNewComponent(false);
         return;
@@ -720,7 +768,7 @@ function BannerCanvas({
         const componentData = JSON.parse(jsonData);
         if (componentData.type) {
           // Pasar todos los datos del componente
-          onAddComponent(componentData.type, position, componentData);
+          await onAddComponent(componentData.type, position, componentData);
           setIsDragOver(false);
           setIsDraggingNewComponent(false);
           return;
@@ -987,18 +1035,53 @@ function BannerCanvas({
     </div>
   );
 
+  // Determinar si necesitamos contenedor con scroll para móvil/tablet
+  const needsScrollContainer = deviceView === 'mobile' || deviceView === 'tablet';
+
   return (
-    <div 
-      className="relative flex-1 bg-gray-100 overflow-visible p-4"
-      onClick={(e) => {
-        // Si se hizo clic directamente en este contenedor (y no en sus hijos)
-        if (e.target === e.currentTarget) {
-          setSelectedComponent(null);
-        }
-      }}
-    >
-      {/* Panel de control de pasos */}
+    <div className={`flex flex-col flex-1 h-full device-${deviceView}`}>
+      {/* Panel de control de pasos - SIEMPRE arriba */}
       <ControlPanel />
+      
+      {/* Indicador de dispositivo - FUERA del canvas, en header fijo */}
+      {needsScrollContainer && (
+        <div className="bg-blue-50 border-b border-blue-200 px-4 py-2 flex items-center justify-between text-sm">
+          <div className="flex items-center gap-3">
+            <span>
+              {deviceView === 'mobile' ? '📱' : '🖥️'}
+            </span>
+            <span className="font-medium text-blue-900">
+              {DEVICE_REAL_DIMENSIONS[deviceView].name}
+            </span>
+            <span className="text-blue-600">
+              {DEVICE_REAL_DIMENSIONS[deviceView].width}×{DEVICE_REAL_DIMENSIONS[deviceView].height}px
+            </span>
+            <span className="text-green-600 font-medium">
+              (Tamaño real)
+            </span>
+          </div>
+          <div className="text-xs text-blue-500 bg-blue-100 px-2 py-1 rounded">
+            Vista optimizada • Scroll habilitado
+          </div>
+        </div>
+      )}
+      
+      <div 
+        className={`relative flex-1 bg-gray-100 ${needsScrollContainer ? 'mobile-tablet-container p-5' : 'overflow-visible p-4'}`}
+        style={{
+          // NUEVA UX: Scrollbars cuando el canvas es muy grande para móvil/tablet
+          ...(needsScrollContainer && {
+            overflow: 'auto',
+            height: 'calc(100vh - 250px)' // Altura fija para scroll
+          })
+        }}
+        onClick={(e) => {
+          // Si se hizo clic directamente en este contenedor (y no en sus hijos)
+          if (e.target === e.currentTarget) {
+            setSelectedComponent(null);
+          }
+        }}
+      >
       
       
       <div
@@ -1107,6 +1190,7 @@ function BannerCanvas({
                 onReorderChildren={onReorderChildren} // CORREGIDO: Usar la prop pasada correctamente
                 onMoveToContainer={onMoveToContainer} // Agregar la prop para mover a contenedores
                 allComponents={components}
+                clientInfo={clientInfo}
               />
             </div>
           );
@@ -1173,6 +1257,22 @@ function BannerCanvas({
             </div>
           ))}
       </div>
+      </div>
+      
+      {/* Branding fuera del área editable */}
+      {bannerConfig?.showBranding !== false && (
+        <div className="bg-gray-50 border-t px-4 py-2 text-center text-xs text-gray-600">
+          Desarrollado por{' '}
+          <a 
+            href="https://cookie21.com" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline"
+          >
+            Cookie21
+          </a>
+        </div>
+      )}
     </div>
   );
 }

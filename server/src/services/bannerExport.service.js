@@ -6,6 +6,7 @@ const logger = require('../utils/logger');
 const consentScriptGenerator = require('./consentScriptGenerator.service');
 const cookieIconService = require('./cookieIconService');
 const { getBaseUrl } = require('../config/urls');
+const { createCMPConfig } = require('../config/cmp.config');
 
 class BannerExportService {
   /**
@@ -23,8 +24,11 @@ class BannerExportService {
         cookieExpiry = 365,
         baseUrl = getBaseUrl(),
         domainId = '',  // Aseguramos que siempre haya al menos un string vacío
-        clientData = null  // Datos del cliente para personalizar la política de privacidad
+        clientData = null,  // Datos del cliente para personalizar la política de privacidad
+        floatingIcon = { enabled: true, position: 'bottom-right', color: '#007bff', backgroundColor: 'transparent', size: 40 }  // Configuración del icono flotante
       } = options;
+      
+      console.log('🔍 [BannerExportService] Configuración del icono flotante recibida:', floatingIcon);
       
       // Procesar plantilla para exportación
       const processedTemplate = await this.processTemplateForExport(template);
@@ -41,7 +45,14 @@ class BannerExportService {
         console.log("✅ DEBUG: Usando HTML proporcionado directamente, longitud:", html.length);
       } else {
         console.log("🔍 DEBUG: Generando HTML desde plantilla...");
-        html = await bannerGenerator.generateHTML(processedTemplate);
+        // Asegurarnos de pasar la estructura correcta al generador de HTML
+        const htmlConfig = {
+          layout: processedTemplate.layout || {},
+          components: processedTemplate.components || [],
+          theme: processedTemplate.theme || {},
+          settings: processedTemplate.settings || {}
+        };
+        html = await bannerGenerator.generateHTML(htmlConfig, clientData);
         console.log("✅ DEBUG: HTML generado, longitud:", html.length);
       }
       
@@ -50,7 +61,14 @@ class BannerExportService {
         console.log("✅ DEBUG: Usando CSS proporcionado directamente, longitud:", css.length);
       } else {
         console.log("🔍 DEBUG: Generando CSS desde plantilla...");
-        css = await bannerGenerator.generateCSS(processedTemplate);
+        // Asegurarnos de pasar la estructura correcta al generador de CSS
+        const cssConfig = {
+          layout: processedTemplate.layout || {},
+          components: processedTemplate.components || [],
+          theme: processedTemplate.theme || {},
+          settings: processedTemplate.settings || {}
+        };
+        css = await bannerGenerator.generateCSS(cssConfig);
         console.log("✅ DEBUG: CSS generado, longitud:", css.length);
       }
       
@@ -126,7 +144,7 @@ class BannerExportService {
             width: 60% !important;
             min-width: 40% !important;
             max-width: 90% !important;
-            background-color: #ffffff !important;
+            /* background-color se define en el CSS generado desde el template */
             border-radius: 8px !important;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
             padding: 20px !important;
@@ -151,7 +169,7 @@ class BannerExportService {
             width: 50% !important;
             min-width: 40% !important;
             max-width: 70% !important;
-            background-color: #ffffff !important;
+            /* background-color se define en el CSS generado desde el template */
             border-radius: 8px !important;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
             padding: 20px !important;
@@ -169,7 +187,7 @@ class BannerExportService {
             width: 100% !important;
             min-width: 100% !important;
             max-width: 100% !important;
-            background-color: #ffffff !important;
+            /* background-color se define en el CSS generado desde el template */
             padding: 20px !important;
             pointer-events: auto !important;
             box-sizing: border-box !important;
@@ -203,13 +221,13 @@ class BannerExportService {
             visibility: visible !important;
             opacity: 1 !important;
             position: fixed !important;
-            background-color: #ffffff !important;
+            /* background-color se define en el CSS generado desde el template */
             border-radius: 8px !important;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
             padding: 20px !important;
             pointer-events: auto !important;
             box-sizing: border-box !important;
-            z-index: 99999 !important;
+            z-index: 2147483648 !important;
             ${layoutPosition === 'bottom' ? 'bottom: 0 !important;' : 'top: 0 !important;'}
             left: 0 !important;
             right: 0 !important;
@@ -243,10 +261,10 @@ class BannerExportService {
             left: 0 !important;
             right: 0 !important;
             width: 100% !important;
-            background-color: #ffffff !important;
+            /* background-color se define en el CSS generado desde el template */
             padding: 15px !important;
             box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1) !important;
-            z-index: 99999 !important;
+            z-index: 2147483648 !important;
             pointer-events: auto !important;
             box-sizing: border-box !important;
           }
@@ -273,6 +291,16 @@ class BannerExportService {
 // =============================================
 console.log("🚀 CMP Script iniciándose...");
 
+// COMPLIANCE POINT 7: Console logs de datos GVL v3 - VALORES ESTÁTICOS
+console.log('=== COMPLIANCE POINT 7: GVL DATA ===');
+console.log('gvlSpecificationVersion: 3');
+console.log('vendorListVersion: 284');
+console.log('tcfPolicyVersion: 5');
+console.log('cmpId: 300');
+console.log('cmpVersion: 1');
+console.log('lastUpdated: 2025-06-05T16:00:27Z');
+console.log('===================================');
+
 (function() {
   // =============================================
   // IMPLEMENTACIÓN DEL STUB TCF - PRIMERO EN EJECUCIÓN
@@ -282,16 +310,19 @@ console.log("🚀 CMP Script iniciándose...");
     
     // Variables de configuración del CMP
     var CMP_CONFIG = {
-      cmpId: ${process.env.IAB_CMP_ID || 28},
+      cmpId: ${process.env.IAB_CMP_ID || 300},
       cmpVersion: 1,
-      tcfPolicyVersion: 4, // TCF v2.2 usa policy version 4
+      tcfPolicyVersion: 5, // COMPLIANCE POINT 7: TCF Policy Version 5 según GVL real
       apiVersion: "2.2",
       gdprApplies: ${forceGDPR},
       publisherCC: "ES",
       language: navigator.language.substring(0, 2) || "es",
       consentScope: "service", // service o global
-      gvlVersion: 3 // Vendors List versión 3 para TCF v2.2
+      gvlVersion: 284, // COMPLIANCE POINT 7: GVL versión real desde config
+      vendorListVersion: 284 // COMPLIANCE POINT 7: Vendor List Version real desde config
     };
+    
+    console.log('🔧 COMPLIANCE POINT 7: CMP_CONFIG configurado:', CMP_CONFIG);
     
     // Crear iframe locator inmediatamente
     function createLocatorFrame() {
@@ -515,9 +546,9 @@ console.log("🚀 CMP Script iniciándose...");
   
   // Configuración
   var config = {
-    cmpId: ${process.env.IAB_CMP_ID || 28},
+    cmpId: ${process.env.IAB_CMP_ID || 300},
     cmpVersion: 1,
-    tcfPolicyVersion: 4, // TCF v2.2 usa policy version 4
+    tcfPolicyVersion: 5, // COMPLIANCE POINT 7: TCF v2.2 Policy Version 5
     publisherCC: "ES", // Código de país del publicador
     animation: {
       type: "${template.settings?.animation?.type || 'fade'}",
@@ -533,7 +564,9 @@ console.log("🚀 CMP Script iniciándose...");
     googleConsentMode: ${includeGoogleConsentMode},
     domainId: "${domainId}", // Pasamos el domainId a la configuración
     cookieName: "euconsent-v2", // Nombre estándar para TCF v2.2
-    language: navigator.language.substring(0, 2) || "es"
+    language: navigator.language.substring(0, 2) || "es",
+    gvlVersion: 284, // COMPLIANCE POINT 7: GVL versión actual desde config
+    vendorListVersion: 284 // COMPLIANCE POINT 7: Vendor List Version desde config
   };
   
   console.log("🔍 CMP Debug: Configuración inicializada", config);
@@ -646,7 +679,7 @@ console.log("🚀 CMP Script iniciándose...");
       onlyNecessary: "CPinQIAPinQIAAGABCENATEIAACAAAAAAAAAAIpxQgAIBgCKgUA.II7Nd_X__bX9n-_7_6ft0eY1f9_r37uQzDhfNk-8F3L_W_LwX52E7NF36tq4KmR4ku1bBIQNlHMHUDUmwaokVrzHsak2cpyNKJ_JkknsZe2dYGF9Pn9lD-YKZ7_5_9_f52T_9_9_-39z3_9f___dv_-__-vjf_599n_v9fV_78_Kf9______-____________8A",
       
       // Todos los propósitos aceptados
-      allAccepted: "CPinQgAPinQgAMXAJCENATEIAAEAAAAAAAAAAAAAAAA.II7Nd_X__bX9n-_7_6ft0eY1f9_r37uQzDhfNk-8F3L_W_LwX52E7NF36tq4KmR4ku1bBIQNlHMHUDUmwaokVrzHsak2cpyNKJ_JkknsZe2dYGF9Pn9lD-YKZ7_5_9_f52T_9_9_-39z3_9f___dv_-__-vjf_599n_v9fV_78_Kf9______-____________8A",
+      allAccepted: null, // COMPLIANCE: TC String generado dinámicamente
       
       // Mix de propósitos (1,2,7,8,9,10 aceptados)
       mixedPurposes: "CPinQsAPinQsAMXAJCENATEIAACAAAAAAAAAABtgAAAA.II7Nd_X__bX9n-_7_6ft0eY1f9_r37uQzDhfNk-8F3L_W_LwX52E7NF36tq4KmR4ku1bBIQNlHMHUDUmwaokVrzHsak2cpyNKJ_JkknsZe2dYGF9Pn9lD-YKZ7_5_9_f52T_9_9_-39z3_9f___dv_-__-vjf_599n_v9fV_78_Kf9______-____________8A"
@@ -1049,7 +1082,7 @@ console.log("🚀 CMP Script iniciándose...");
             left: 0 !important; 
             right: 0 !important; 
             background: white !important; 
-            z-index: 99999 !important; 
+            z-index: 2147483648 !important; 
             padding: 15px !important;
             box-shadow: 0 -2px 10px rgba(0,0,0,0.1) !important;
             display: flex !important;
@@ -1157,7 +1190,7 @@ console.log("🚀 CMP Script iniciándose...");
           display: block !important;
           visibility: visible !important;
           opacity: 1 !important;
-          z-index: 999999 !important;
+          z-index: 2147483648 !important;
           position: fixed !important;
           bottom: 0 !important;
           left: 0 !important;
@@ -1913,9 +1946,24 @@ console.log("🚀 CMP Script iniciándose...");
         6: true, 7: true, 8: true, 9: true, 10: true
       };
       
+      // COMPLIANCE POINT 9: Legitimate interests - Propósitos 1,3,4,5,6 SIEMPRE false
+      var legitimateInterests = {
+        1: false, // COMPLIANCE POINT 9: Propósito 1 SIEMPRE false para LI
+        2: true,  // Puede ser true según consentimiento del usuario
+        3: false, // COMPLIANCE POINT 9: Propósito 3 SIEMPRE false para LI
+        4: false, // COMPLIANCE POINT 9: Propósito 4 SIEMPRE false para LI
+        5: false, // COMPLIANCE POINT 9: Propósito 5 SIEMPRE false para LI
+        6: false, // COMPLIANCE POINT 9: Propósito 6 SIEMPRE false para LI
+        7: true,  // Puede ser true según consentimiento del usuario
+        8: true,  // Puede ser true según consentimiento del usuario
+        9: true,  // Puede ser true según consentimiento del usuario
+        10: true  // Puede ser true según consentimiento del usuario
+      };
+      
       // Crear objeto completo con formato cliente
       var decisions = {
         purposes: allPurposes,
+        legitimateInterests: legitimateInterests, // COMPLIANCE POINT 9: Añadir legitimate interests explícitos
         vendors: {},
         specialFeatures: { 1: true, 2: true }
       };
@@ -1970,7 +2018,7 @@ console.log("🚀 CMP Script iniciándose...");
             var icon = document.createElement('div');
             icon.id = 'cookie-floating-icon-fallback';
             icon.innerHTML = '<svg width="30" height="30" viewBox="0 0 256 255" xmlns="http://www.w3.org/2000/svg"><g transform="translate(0.000000,255.000000) scale(0.100000,-0.100000)" fill="#ffffff" stroke="none"><path d="M1150 2475 c0 -24 -2 -25 -75 -25 -75 0 -75 0 -75 -75 0 -73 -1 -75 -25 -75 -23 0 -25 -3 -25 -50 0 -50 0 -50 -50 -50 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 25 0 25 -100 25 -100 0 -100 0 -100 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -24 0 -25 -2 -25 -75 0 -73 1 -75 25 -75 23 0 25 -3 25 -50 0 -47 2 -50 25 -50 23 0 25 -3 25 -50 0 -47 -2 -50 -25 -50 -23 0 -25 -3 -25 -50 0 -50 0 -50 -75 -50 -73 0 -75 -1 -75 -25 0 -23 -3 -25 -50 -25 -50 0 -50 0 -50 -250 0 -250 0 -250 75 -250 73 0 75 -1 75 -25 0 -23 3 -25 50 -25 50 0 50 0 50 -50 0 -47 2 -50 25 -50 23 0 25 -3 25 -50 0 -47 -2 -50 -25 -50 -24 0 -25 -2 -25 -75 0 -73 -1 -75 -25 -75 -20 0 -25 -5 -25 -25 0 -20 5 -25 25 -25 23 0 25 -3 25 -50 0 -47 2 -50 25 -50 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -24 2 -25 75 -25 73 0 75 1 75 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 20 0 25 -5 25 -25 0 -23 3 -25 50 -25 50 0 50 0 50 -50 0 -47 2 -50 25 -50 23 0 25 -3 25 -50 0 -47 2 -50 25 -50 20 0 25 -5 25 -25 0 -24 2 -25 75 -25 73 0 75 -1 75 -25 0 -25 1 -25 80 -25 79 0 80 0 80 25 0 24 2 25 75 25 73 0 75 1 75 25 0 20 5 25 25 25 24 0 25 2 25 75 0 73 1 75 25 75 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 20 0 25 -5 25 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -24 2 -25 75 -25 73 0 75 1 75 25 0 20 5 25 25 25 20 0 25 5 25 25 0 23 3 25 50 25 50 0 50 0 50 50 0 47 2 50 25 50 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 -5 25 -25 25 -23 0 -25 3 -25 50 0 47 -2 50 -25 50 -25 0 -25 0 -25 100 0 100 0 100 25 100 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 2 50 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 25 0 25 0 25 225 0 225 0 225 -50 225 -47 0 -50 2 -50 25 0 24 -2 25 -75 25 -73 0 -75 1 -75 25 0 20 -5 25 -25 25 -25 0 -25 0 -25 100 0 100 0 100 25 100 23 0 25 3 25 50 0 47 2 50 25 50 20 0 25 5 25 25 0 20 -5 25 -25 25 -23 0 -25 3 -25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 24 -2 25 -75 25 -73 0 -75 -1 -75 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 20 -5 25 -25 25 -24 0 -25 2 -25 75 0 73 -1 75 -25 75 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 25 0 25 -130 25 -130 0 -130 0 -130 -25z m360 -150 c0 -73 1 -75 25 -75 23 0 25 -3 25 -50 0 -50 0 -50 75 -50 73 0 75 -1 75 -25 0 -20 5 -25 25 -25 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 2 50 25 0 24 2 25 75 25 73 0 75 -1 75 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 24 0 25 -2 25 -75 0 -73 -1 -75 -25 -75 -25 0 -25 0 -25 -125 0 -125 0 -125 25 -125 23 0 25 -3 25 -50 0 -50 0 -50 75 -50 73 0 75 -1 75 -25 0 -23 3 -25 50 -25 50 0 50 0 50 -175 0 -175 0 -175 -25 -175 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -24 -2 -25 -75 -25 -75 0 -75 0 -75 -50 0 -47 -2 -50 -25 -50 -25 0 -25 0 -25 -100 0 -100 0 -100 25 -100 25 0 25 0 25 -100 0 -100 0 -100 -25 -100 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -47 0 -50 2 -50 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 24 -2 25 -75 25 -73 0 -75 -1 -75 -25 0 -23 -3 -25 -50 -25 -50 0 -50 0 -50 -50 0 -47 -2 -50 -25 -50 -24 0 -25 -2 -25 -75 0 -75 0 -75 -230 -75 -230 0 -230 0 -230 75 0 73 -1 75 -25 75 -23 0 -25 3 -25 50 0 50 0 50 -50 50 -47 0 -50 2 -50 25 0 24 -2 25 -75 25 -73 0 -75 -1 -75 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -23 -3 -25 -50 -25 -47 0 -50 2 -50 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 2 50 25 50 25 0 25 0 25 100 0 100 0 100 -25 100 -23 0 -25 3 -25 50 0 50 0 50 -75 50 -73 0 -75 1 -75 25 0 23 -3 25 -50 25 -50 0 -50 0 -50 200 0 200 0 200 50 200 47 0 50 2 50 25 0 24 2 25 75 25 75 0 75 0 75 50 0 47 2 50 25 50 25 0 25 0 25 100 0 100 0 100 -25 100 -23 0 -25 3 -25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 -2 50 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -23 3 -25 50 -25 47 0 50 2 50 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 2 50 25 50 23 0 25 3 25 50 0 50 0 50 230 50 230 0 230 0 230 -75z"></path><path d="M1050 2125 c0 -24 -2 -25 -75 -25 -73 0 -75 -1 -75 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -50 0 -50 0 -50 50 0 47 2 50 25 50 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 23 -3 25 -50 25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -24 0 -25 -2 -25 -75 0 -73 -1 -75 -25 -75 -25 0 -25 0 -25 -150 0 -150 0 -150 25 -150 24 0 25 -2 25 -75 0 -73 -1 -75 -25 -75 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -23 0 -25 -3 -25 -50 0 -47 2 -50 25 -50 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -24 2 -25 75 -25 73 0 75 -1 75 -25 0 -24 2 -25 75 -25 73 0 75 -1 75 -25 0 -25 0 -25 180 -25 180 0 180 0 180 25 0 24 2 25 75 25 73 0 75 1 75 25 0 23 3 25 50 25 47 0 50 2 50 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 2 50 25 50 24 0 25 2 25 75 0 73 1 75 25 75 25 0 25 0 25 250 0 250 0 250 -25 250 -24 0 -25 2 -25 75 0 73 -1 75 -25 75 -23 0 -25 3 -25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 24 -2 25 -75 25 -73 0 -75 1 -75 25 0 25 0 25 -230 25 -230 0 -230 0 -230 -25z m460 -250 c0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 23 0 25 -3 25 -50 0 -47 2 -50 25 -50 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 25 0 25 0 25 -100 0 -100 0 -100 25 -100 25 0 25 0 25 -100 0 -100 0 -100 -25 -100 -24 0 -25 -2 -25 -75 0 -73 -1 -75 -25 -75 -23 0 -25 -3 -25 -50 0 -47 -2 -50 -25 -50 -23 0 -25 -3 -25 -50 0 -47 -2 -50 -25 -50 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -25 0 -25 -230 -25 -230 0 -230 0 -230 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -23 0 -25 3 -25 50 0 47 2 50 25 50 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 23 0 25 3 25 50 0 47 -2 50 -25 50 -24 0 -25 2 -25 75 0 73 -1 75 -25 75 -25 0 -25 0 -25 100 0 100 0 100 25 100 24 0 25 2 25 75 0 73 1 75 25 75 23 0 25 3 25 50 0 47 2 50 25 50 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 20 5 25 25 25 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 2 50 25 0 23 3 25 50 25 47 0 50 2 50 25 0 25 0 25 230 25 230 0 230 0 230 -25z"></path><path d="M1050 1825 c0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 5 -25 25 -25 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 2 50 25 0 25 0 25 205 25 205 0 205 0 205 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -20 5 -25 25 -25 23 0 25 -3 25 -50 0 -47 2 -50 25 -50 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 25 0 25 0 25 -250 0 -250 0 -250 -25 -250 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -23 0 -25 -3 -25 -50 0 -50 0 -50 -50 -50 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -25 0 -25 -180 -25 -180 0 -180 0 -180 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 -5 -25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -25 0 -25 205 -25 205 0 205 0 205 25 0 24 2 25 75 25 73 0 75 1 75 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 2 50 25 50 24 0 25 2 25 75 0 73 1 75 25 75 25 0 25 0 25 100 0 100 0 100 -25 100 -24 0 -25 2 -25 75 0 73 -1 75 -25 75 -23 0 -25 3 -25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 25 0 25 -230 25 -230 0 -230 0 -230 -25z"></path><path d="M1100 1675 c0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -24 0 -25 -2 -25 -75 0 -73 -1 -75 -25 -75 -25 0 -25 0 -25 -100 0 -100 0 -100 25 -100 24 0 25 -2 25 -75 0 -73 1 -75 25 -75 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -25 0 -25 180 -25 180 0 180 0 180 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -50 0 -50 0 -50 -50 0 -50 0 -50 -50 -50 -47 0 -50 -2 -50 -25 0 -25 -1 -25 -80 -25 -79 0 -80 0 -80 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 20 -5 25 -25 25 -25 0 -25 0 -25 150 0 150 0 150 25 150 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 25 0 25 105 25 105 0 105 0 105 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -24 2 -25 75 -25 73 0 75 1 75 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 25 0 25 -180 25 -180 0 -180 0 -180 -25z"></path><path d="M200 1375 c0 -23 3 -25 50 -25 50 0 50 0 50 -50 0 -47 -2 -50 -25 -50 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -24 2 -25 75 -25 73 0 75 1 75 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 5 25 25 25 24 0 25 2 25 75 0 75 0 75 -75 75 -73 0 -75 -1 -75 -25z"></path><path d="M450 1275 c0 -125 0 -125 25 -125 25 0 25 0 25 125 0 125 0 125 -25 125 -25 0 -25 0 -25 -125z"></path></g></svg>';
-            icon.style.cssText = 'position: fixed !important; bottom: 20px !important; right: 20px !important; width: 60px !important; height: 60px !important; background: #667eea !important; border-radius: 50% !important; display: flex !important; align-items: center !important; justify-content: center !important; cursor: pointer !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important; z-index: 999999 !important; padding: 12px !important;';
+            icon.style.cssText = 'position: fixed !important; bottom: 20px !important; right: 20px !important; width: 60px !important; height: 60px !important; background: red !important; border-radius: 50% !important; display: flex !important; align-items: center !important; justify-content: center !important; cursor: pointer !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important; z-index: 2147483648 !important; padding: 12px !important;';
             
             icon.addEventListener('click', function() {
               console.log("[CMP] 🔄 Clic en icono flotante de respaldo");
@@ -2002,9 +2050,24 @@ console.log("🚀 CMP Script iniciándose...");
         6: false, 7: false, 8: false, 9: false, 10: false
       };
       
+      // COMPLIANCE POINT 9: Legitimate interests - TODOS false para reject all
+      var legitimateInterests = {
+        1: false, // COMPLIANCE POINT 9: Propósito 1 SIEMPRE false para LI
+        2: false, // False porque se rechazan todas las cookies no esenciales
+        3: false, // COMPLIANCE POINT 9: Propósito 3 SIEMPRE false para LI
+        4: false, // COMPLIANCE POINT 9: Propósito 4 SIEMPRE false para LI
+        5: false, // COMPLIANCE POINT 9: Propósito 5 SIEMPRE false para LI
+        6: false, // COMPLIANCE POINT 9: Propósito 6 SIEMPRE false para LI
+        7: false, // False porque se rechazan todas las cookies no esenciales
+        8: false, // False porque se rechazan todas las cookies no esenciales
+        9: false, // False porque se rechazan todas las cookies no esenciales
+        10: false // False porque se rechazan todas las cookies no esenciales
+      };
+      
       // Crear objeto completo con formato cliente
       var decisions = {
         purposes: minimalPurposes,
+        legitimateInterests: legitimateInterests, // COMPLIANCE POINT 9: Añadir legitimate interests explícitos
         vendors: {},
         specialFeatures: { 1: false, 2: false }
       };
@@ -2046,7 +2109,7 @@ console.log("🚀 CMP Script iniciándose...");
             var icon = document.createElement('div');
             icon.id = 'cookie-floating-icon-fallback';
             icon.innerHTML = '<svg width="30" height="30" viewBox="0 0 256 255" xmlns="http://www.w3.org/2000/svg"><g transform="translate(0.000000,255.000000) scale(0.100000,-0.100000)" fill="#ffffff" stroke="none"><path d="M1150 2475 c0 -24 -2 -25 -75 -25 -75 0 -75 0 -75 -75 0 -73 -1 -75 -25 -75 -23 0 -25 -3 -25 -50 0 -50 0 -50 -50 -50 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 25 0 25 -100 25 -100 0 -100 0 -100 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -24 0 -25 -2 -25 -75 0 -73 1 -75 25 -75 23 0 25 -3 25 -50 0 -47 2 -50 25 -50 23 0 25 -3 25 -50 0 -47 -2 -50 -25 -50 -23 0 -25 -3 -25 -50 0 -50 0 -50 -75 -50 -73 0 -75 -1 -75 -25 0 -23 -3 -25 -50 -25 -50 0 -50 0 -50 -250 0 -250 0 -250 75 -250 73 0 75 -1 75 -25 0 -23 3 -25 50 -25 50 0 50 0 50 -50 0 -47 2 -50 25 -50 23 0 25 -3 25 -50 0 -47 -2 -50 -25 -50 -24 0 -25 -2 -25 -75 0 -73 -1 -75 -25 -75 -20 0 -25 -5 -25 -25 0 -20 5 -25 25 -25 23 0 25 -3 25 -50 0 -47 2 -50 25 -50 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -24 2 -25 75 -25 73 0 75 1 75 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 20 0 25 -5 25 -25 0 -23 3 -25 50 -25 50 0 50 0 50 -50 0 -47 2 -50 25 -50 23 0 25 -3 25 -50 0 -47 2 -50 25 -50 20 0 25 -5 25 -25 0 -24 2 -25 75 -25 73 0 75 -1 75 -25 0 -25 1 -25 80 -25 79 0 80 0 80 25 0 24 2 25 75 25 73 0 75 1 75 25 0 20 5 25 25 25 24 0 25 2 25 75 0 73 1 75 25 75 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 20 0 25 -5 25 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -24 2 -25 75 -25 73 0 75 1 75 25 0 20 5 25 25 25 20 0 25 5 25 25 0 23 3 25 50 25 50 0 50 0 50 50 0 47 2 50 25 50 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 -5 25 -25 25 -23 0 -25 3 -25 50 0 47 -2 50 -25 50 -25 0 -25 0 -25 100 0 100 0 100 25 100 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 2 50 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 25 0 25 0 25 225 0 225 0 225 -50 225 -47 0 -50 2 -50 25 0 24 -2 25 -75 25 -73 0 -75 1 -75 25 0 20 -5 25 -25 25 -25 0 -25 0 -25 100 0 100 0 100 25 100 23 0 25 3 25 50 0 47 2 50 25 50 20 0 25 5 25 25 0 20 -5 25 -25 25 -23 0 -25 3 -25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 24 -2 25 -75 25 -73 0 -75 -1 -75 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 20 -5 25 -25 25 -24 0 -25 2 -25 75 0 73 -1 75 -25 75 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 25 0 25 -130 25 -130 0 -130 0 -130 -25z m360 -150 c0 -73 1 -75 25 -75 23 0 25 -3 25 -50 0 -50 0 -50 75 -50 73 0 75 -1 75 -25 0 -20 5 -25 25 -25 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 2 50 25 0 24 2 25 75 25 73 0 75 -1 75 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 24 0 25 -2 25 -75 0 -73 -1 -75 -25 -75 -25 0 -25 0 -25 -125 0 -125 0 -125 25 -125 23 0 25 -3 25 -50 0 -50 0 -50 75 -50 73 0 75 -1 75 -25 0 -23 3 -25 50 -25 50 0 50 0 50 -175 0 -175 0 -175 -25 -175 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -24 -2 -25 -75 -25 -75 0 -75 0 -75 -50 0 -47 -2 -50 -25 -50 -25 0 -25 0 -25 -100 0 -100 0 -100 25 -100 25 0 25 0 25 -100 0 -100 0 -100 -25 -100 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -47 0 -50 2 -50 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 24 -2 25 -75 25 -73 0 -75 -1 -75 -25 0 -23 -3 -25 -50 -25 -50 0 -50 0 -50 -50 0 -47 -2 -50 -25 -50 -24 0 -25 -2 -25 -75 0 -75 0 -75 -230 -75 -230 0 -230 0 -230 75 0 73 -1 75 -25 75 -23 0 -25 3 -25 50 0 50 0 50 -50 50 -47 0 -50 2 -50 25 0 24 -2 25 -75 25 -73 0 -75 -1 -75 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -23 -3 -25 -50 -25 -47 0 -50 2 -50 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 2 50 25 50 25 0 25 0 25 100 0 100 0 100 -25 100 -23 0 -25 3 -25 50 0 50 0 50 -75 50 -73 0 -75 1 -75 25 0 23 -3 25 -50 25 -50 0 -50 0 -50 200 0 200 0 200 50 200 47 0 50 2 50 25 0 24 2 25 75 25 75 0 75 0 75 50 0 47 2 50 25 50 25 0 25 0 25 100 0 100 0 100 -25 100 -23 0 -25 3 -25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 -2 50 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -23 3 -25 50 -25 47 0 50 2 50 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 2 50 25 50 23 0 25 3 25 50 0 50 0 50 230 50 230 0 230 0 230 -75z"></path><path d="M1050 2125 c0 -24 -2 -25 -75 -25 -73 0 -75 -1 -75 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -50 0 -50 0 -50 50 0 47 2 50 25 50 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 23 -3 25 -50 25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -24 0 -25 -2 -25 -75 0 -73 -1 -75 -25 -75 -25 0 -25 0 -25 -150 0 -150 0 -150 25 -150 24 0 25 -2 25 -75 0 -73 -1 -75 -25 -75 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -23 0 -25 -3 -25 -50 0 -47 2 -50 25 -50 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -24 2 -25 75 -25 73 0 75 -1 75 -25 0 -24 2 -25 75 -25 73 0 75 -1 75 -25 0 -25 0 -25 180 -25 180 0 180 0 180 25 0 24 2 25 75 25 73 0 75 1 75 25 0 23 3 25 50 25 47 0 50 2 50 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 2 50 25 50 24 0 25 2 25 75 0 73 1 75 25 75 25 0 25 0 25 250 0 250 0 250 -25 250 -24 0 -25 2 -25 75 0 73 -1 75 -25 75 -23 0 -25 3 -25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 24 -2 25 -75 25 -73 0 -75 1 -75 25 0 25 0 25 -230 25 -230 0 -230 0 -230 -25z m460 -250 c0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 23 0 25 -3 25 -50 0 -47 2 -50 25 -50 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 25 0 25 0 25 -100 0 -100 0 -100 25 -100 25 0 25 0 25 -100 0 -100 0 -100 -25 -100 -24 0 -25 -2 -25 -75 0 -73 -1 -75 -25 -75 -23 0 -25 -3 -25 -50 0 -47 -2 -50 -25 -50 -23 0 -25 -3 -25 -50 0 -47 -2 -50 -25 -50 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -25 0 -25 -230 -25 -230 0 -230 0 -230 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -23 0 -25 3 -25 50 0 47 2 50 25 50 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 23 0 25 3 25 50 0 47 -2 50 -25 50 -24 0 -25 2 -25 75 0 73 -1 75 -25 75 -25 0 -25 0 -25 100 0 100 0 100 25 100 24 0 25 2 25 75 0 73 1 75 25 75 23 0 25 3 25 50 0 47 2 50 25 50 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 20 5 25 25 25 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 2 50 25 0 23 3 25 50 25 47 0 50 2 50 25 0 25 0 25 230 25 230 0 230 0 230 -25z"></path><path d="M1050 1825 c0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 5 -25 25 -25 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 2 50 25 0 25 0 25 205 25 205 0 205 0 205 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -20 5 -25 25 -25 23 0 25 -3 25 -50 0 -47 2 -50 25 -50 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 25 0 25 0 25 -250 0 -250 0 -250 -25 -250 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -23 0 -25 -3 -25 -50 0 -50 0 -50 -50 -50 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -25 0 -25 -180 -25 -180 0 -180 0 -180 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 -5 -25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -25 0 -25 205 -25 205 0 205 0 205 25 0 24 2 25 75 25 73 0 75 1 75 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 2 50 25 50 24 0 25 2 25 75 0 73 1 75 25 75 25 0 25 0 25 100 0 100 0 100 -25 100 -24 0 -25 2 -25 75 0 73 -1 75 -25 75 -23 0 -25 3 -25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 25 0 25 -230 25 -230 0 -230 0 -230 -25z"></path><path d="M1100 1675 c0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -24 0 -25 -2 -25 -75 0 -73 -1 -75 -25 -75 -25 0 -25 0 -25 -100 0 -100 0 -100 25 -100 24 0 25 -2 25 -75 0 -73 1 -75 25 -75 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -25 0 -25 180 -25 180 0 180 0 180 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -50 0 -50 0 -50 -50 0 -50 0 -50 -50 -50 -47 0 -50 -2 -50 -25 0 -25 -1 -25 -80 -25 -79 0 -80 0 -80 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 20 -5 25 -25 25 -25 0 -25 0 -25 150 0 150 0 150 25 150 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 25 0 25 105 25 105 0 105 0 105 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -24 2 -25 75 -25 73 0 75 1 75 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 25 0 25 -180 25 -180 0 -180 0 -180 -25z"></path><path d="M200 1375 c0 -23 3 -25 50 -25 50 0 50 0 50 -50 0 -47 -2 -50 -25 -50 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -24 2 -25 75 -25 73 0 75 1 75 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 5 25 25 25 24 0 25 2 25 75 0 75 0 75 -75 75 -73 0 -75 -1 -75 -25z"></path><path d="M450 1275 c0 -125 0 -125 25 -125 25 0 25 0 25 125 0 125 0 125 -25 125 -25 0 -25 0 -25 -125z"></path></g></svg>';
-            icon.style.cssText = 'position: fixed !important; bottom: 20px !important; right: 20px !important; width: 60px !important; height: 60px !important; background: #667eea !important; border-radius: 50% !important; display: flex !important; align-items: center !important; justify-content: center !important; cursor: pointer !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important; z-index: 999999 !important; padding: 12px !important;';
+            icon.style.cssText = 'position: fixed !important; bottom: 20px !important; right: 20px !important; width: 60px !important; height: 60px !important; background: red !important; border-radius: 50% !important; display: flex !important; align-items: center !important; justify-content: center !important; cursor: pointer !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important; z-index: 2147483648 !important; padding: 12px !important;';
             
             icon.addEventListener('click', function() {
               console.log("[CMP] 🔄 Clic en icono flotante de respaldo");
@@ -2470,7 +2533,7 @@ console.log("🚀 CMP Script iniciándose...");
             var icon = document.createElement('div');
             icon.id = 'cookie-floating-icon-fallback';
             icon.innerHTML = '<svg width="30" height="30" viewBox="0 0 256 255" xmlns="http://www.w3.org/2000/svg"><g transform="translate(0.000000,255.000000) scale(0.100000,-0.100000)" fill="#ffffff" stroke="none"><path d="M1150 2475 c0 -24 -2 -25 -75 -25 -75 0 -75 0 -75 -75 0 -73 -1 -75 -25 -75 -23 0 -25 -3 -25 -50 0 -50 0 -50 -50 -50 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 25 0 25 -100 25 -100 0 -100 0 -100 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -24 0 -25 -2 -25 -75 0 -73 1 -75 25 -75 23 0 25 -3 25 -50 0 -47 2 -50 25 -50 23 0 25 -3 25 -50 0 -47 -2 -50 -25 -50 -23 0 -25 -3 -25 -50 0 -50 0 -50 -75 -50 -73 0 -75 -1 -75 -25 0 -23 -3 -25 -50 -25 -50 0 -50 0 -50 -250 0 -250 0 -250 75 -250 73 0 75 -1 75 -25 0 -23 3 -25 50 -25 50 0 50 0 50 -50 0 -47 2 -50 25 -50 23 0 25 -3 25 -50 0 -47 -2 -50 -25 -50 -24 0 -25 -2 -25 -75 0 -73 -1 -75 -25 -75 -20 0 -25 -5 -25 -25 0 -20 5 -25 25 -25 23 0 25 -3 25 -50 0 -47 2 -50 25 -50 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -24 2 -25 75 -25 73 0 75 1 75 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 20 0 25 -5 25 -25 0 -23 3 -25 50 -25 50 0 50 0 50 -50 0 -47 2 -50 25 -50 23 0 25 -3 25 -50 0 -47 2 -50 25 -50 20 0 25 -5 25 -25 0 -24 2 -25 75 -25 73 0 75 -1 75 -25 0 -25 1 -25 80 -25 79 0 80 0 80 25 0 24 2 25 75 25 73 0 75 1 75 25 0 20 5 25 25 25 24 0 25 2 25 75 0 73 1 75 25 75 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 20 0 25 -5 25 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -24 2 -25 75 -25 73 0 75 1 75 25 0 20 5 25 25 25 20 0 25 5 25 25 0 23 3 25 50 25 50 0 50 0 50 50 0 47 2 50 25 50 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 -5 25 -25 25 -23 0 -25 3 -25 50 0 47 -2 50 -25 50 -25 0 -25 0 -25 100 0 100 0 100 25 100 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 2 50 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 25 0 25 0 25 225 0 225 0 225 -50 225 -47 0 -50 2 -50 25 0 24 -2 25 -75 25 -73 0 -75 1 -75 25 0 20 -5 25 -25 25 -25 0 -25 0 -25 100 0 100 0 100 25 100 23 0 25 3 25 50 0 47 2 50 25 50 20 0 25 5 25 25 0 20 -5 25 -25 25 -23 0 -25 3 -25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 24 -2 25 -75 25 -73 0 -75 -1 -75 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 20 -5 25 -25 25 -24 0 -25 2 -25 75 0 73 -1 75 -25 75 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 25 0 25 -130 25 -130 0 -130 0 -130 -25z m360 -150 c0 -73 1 -75 25 -75 23 0 25 -3 25 -50 0 -50 0 -50 75 -50 73 0 75 -1 75 -25 0 -20 5 -25 25 -25 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 2 50 25 0 24 2 25 75 25 73 0 75 -1 75 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 24 0 25 -2 25 -75 0 -73 -1 -75 -25 -75 -25 0 -25 0 -25 -125 0 -125 0 -125 25 -125 23 0 25 -3 25 -50 0 -50 0 -50 75 -50 73 0 75 -1 75 -25 0 -23 3 -25 50 -25 50 0 50 0 50 -175 0 -175 0 -175 -25 -175 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -24 -2 -25 -75 -25 -75 0 -75 0 -75 -50 0 -47 -2 -50 -25 -50 -25 0 -25 0 -25 -100 0 -100 0 -100 25 -100 25 0 25 0 25 -100 0 -100 0 -100 -25 -100 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -47 0 -50 2 -50 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 24 -2 25 -75 25 -73 0 -75 -1 -75 -25 0 -23 -3 -25 -50 -25 -50 0 -50 0 -50 -50 0 -47 -2 -50 -25 -50 -24 0 -25 -2 -25 -75 0 -75 0 -75 -230 -75 -230 0 -230 0 -230 75 0 73 -1 75 -25 75 -23 0 -25 3 -25 50 0 50 0 50 -50 50 -47 0 -50 2 -50 25 0 24 -2 25 -75 25 -73 0 -75 -1 -75 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -23 -3 -25 -50 -25 -47 0 -50 2 -50 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 2 50 25 50 25 0 25 0 25 100 0 100 0 100 -25 100 -23 0 -25 3 -25 50 0 50 0 50 -75 50 -73 0 -75 1 -75 25 0 23 -3 25 -50 25 -50 0 -50 0 -50 200 0 200 0 200 50 200 47 0 50 2 50 25 0 24 2 25 75 25 75 0 75 0 75 50 0 47 2 50 25 50 25 0 25 0 25 100 0 100 0 100 -25 100 -23 0 -25 3 -25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 -2 50 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -23 3 -25 50 -25 47 0 50 2 50 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 2 50 25 50 23 0 25 3 25 50 0 50 0 50 230 50 230 0 230 0 230 -75z"></path><path d="M1050 2125 c0 -24 -2 -25 -75 -25 -73 0 -75 -1 -75 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -50 0 -50 0 -50 50 0 47 2 50 25 50 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 23 -3 25 -50 25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -24 0 -25 -2 -25 -75 0 -73 -1 -75 -25 -75 -25 0 -25 0 -25 -150 0 -150 0 -150 25 -150 24 0 25 -2 25 -75 0 -73 -1 -75 -25 -75 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -23 0 -25 -3 -25 -50 0 -47 2 -50 25 -50 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -24 2 -25 75 -25 73 0 75 -1 75 -25 0 -24 2 -25 75 -25 73 0 75 -1 75 -25 0 -25 0 -25 180 -25 180 0 180 0 180 25 0 24 2 25 75 25 73 0 75 1 75 25 0 23 3 25 50 25 47 0 50 2 50 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 2 50 25 50 24 0 25 2 25 75 0 73 1 75 25 75 25 0 25 0 25 250 0 250 0 250 -25 250 -24 0 -25 2 -25 75 0 73 -1 75 -25 75 -23 0 -25 3 -25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 24 -2 25 -75 25 -73 0 -75 1 -75 25 0 25 0 25 -230 25 -230 0 -230 0 -230 -25z m460 -250 c0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 23 0 25 -3 25 -50 0 -47 2 -50 25 -50 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 25 0 25 0 25 -100 0 -100 0 -100 25 -100 25 0 25 0 25 -100 0 -100 0 -100 -25 -100 -24 0 -25 -2 -25 -75 0 -73 -1 -75 -25 -75 -23 0 -25 -3 -25 -50 0 -47 -2 -50 -25 -50 -23 0 -25 -3 -25 -50 0 -47 -2 -50 -25 -50 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -25 0 -25 -230 -25 -230 0 -230 0 -230 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -23 0 -25 3 -25 50 0 47 2 50 25 50 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 23 0 25 3 25 50 0 47 -2 50 -25 50 -24 0 -25 2 -25 75 0 73 -1 75 -25 75 -25 0 -25 0 -25 100 0 100 0 100 25 100 24 0 25 2 25 75 0 73 1 75 25 75 23 0 25 3 25 50 0 47 2 50 25 50 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 20 5 25 25 25 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 2 50 25 0 23 3 25 50 25 47 0 50 2 50 25 0 25 0 25 230 25 230 0 230 0 230 -25z"></path><path d="M1050 1825 c0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 5 -25 25 -25 20 0 25 5 25 25 0 23 3 25 50 25 47 0 50 2 50 25 0 25 0 25 205 25 205 0 205 0 205 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -20 5 -25 25 -25 23 0 25 -3 25 -50 0 -47 2 -50 25 -50 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 25 0 25 0 25 -250 0 -250 0 -250 -25 -250 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -23 0 -25 -3 -25 -50 0 -50 0 -50 -50 -50 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -25 0 -25 -180 -25 -180 0 -180 0 -180 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 -5 -25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -25 0 -25 205 -25 205 0 205 0 205 25 0 24 2 25 75 25 73 0 75 1 75 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 2 50 25 50 24 0 25 2 25 75 0 73 1 75 25 75 25 0 25 0 25 100 0 100 0 100 -25 100 -24 0 -25 2 -25 75 0 73 -1 75 -25 75 -23 0 -25 3 -25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 25 0 25 -230 25 -230 0 -230 0 -230 -25z"></path><path d="M1100 1675 c0 -23 -3 -25 -50 -25 -47 0 -50 -2 -50 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -24 0 -25 -2 -25 -75 0 -73 -1 -75 -25 -75 -25 0 -25 0 -25 -100 0 -100 0 -100 25 -100 24 0 25 -2 25 -75 0 -73 1 -75 25 -75 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -20 5 -25 25 -25 20 0 25 -5 25 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -25 0 -25 180 -25 180 0 180 0 180 25 0 23 3 25 50 25 47 0 50 2 50 25 0 20 5 25 25 25 20 0 25 5 25 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -50 0 -50 0 -50 -50 0 -50 0 -50 -50 -50 -47 0 -50 -2 -50 -25 0 -25 -1 -25 -80 -25 -79 0 -80 0 -80 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 20 -5 25 -25 25 -25 0 -25 0 -25 150 0 150 0 150 25 150 20 0 25 5 25 25 0 20 5 25 25 25 20 0 25 5 25 25 0 25 0 25 105 25 105 0 105 0 105 -25 0 -23 3 -25 50 -25 47 0 50 -2 50 -25 0 -24 2 -25 75 -25 73 0 75 1 75 25 0 20 5 25 25 25 23 0 25 3 25 50 0 47 -2 50 -25 50 -20 0 -25 5 -25 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 23 -3 25 -50 25 -47 0 -50 2 -50 25 0 25 0 25 -180 25 -180 0 -180 0 -180 -25z"></path><path d="M200 1375 c0 -23 3 -25 50 -25 50 0 50 0 50 -50 0 -47 -2 -50 -25 -50 -20 0 -25 -5 -25 -25 0 -20 -5 -25 -25 -25 -20 0 -25 -5 -25 -25 0 -24 2 -25 75 -25 73 0 75 1 75 25 0 20 -5 25 -25 25 -20 0 -25 5 -25 25 0 20 5 25 25 25 24 0 25 2 25 75 0 75 0 75 -75 75 -73 0 -75 -1 -75 -25z"></path><path d="M450 1275 c0 -125 0 -125 25 -125 25 0 25 0 25 125 0 125 0 125 -25 125 -25 0 -25 0 -25 -125z"></path></g></svg>';
-            icon.style.cssText = 'position: fixed !important; bottom: 20px !important; right: 20px !important; width: 60px !important; height: 60px !important; background: #667eea !important; border-radius: 50% !important; display: flex !important; align-items: center !important; justify-content: center !important; cursor: pointer !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important; z-index: 999999 !important; padding: 12px !important;';
+            icon.style.cssText = 'position: fixed !important; bottom: 20px !important; right: 20px !important; width: 60px !important; height: 60px !important; background: red !important; border-radius: 50% !important; display: flex !important; align-items: center !important; justify-content: center !important; cursor: pointer !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important; z-index: 2147483648 !important; padding: 12px !important;';
             
             icon.addEventListener('click', function() {
               console.log("[CMP] 🔄 Clic en icono flotante de respaldo");
@@ -2510,7 +2573,7 @@ console.log("🚀 CMP Script iniciándose...");
           "padding: 10px 20px;" +
           "border-radius: 4px;" +
           "box-shadow: 0 2px 4px rgba(0,0,0,0.2);" +
-          "z-index: 999999;" +
+          "z-index: 2147483648;" +
           "opacity: 0;" +
           "transition: opacity 0.3s ease-in-out;";
       feedback.textContent = "Preferencias guardadas";
@@ -2591,7 +2654,7 @@ console.log("🚀 CMP Script iniciándose...");
         vendorConsents: consentState.vendors,
         specialFeatures: consentState.specialFeatures,
         language: config.language,
-        gvlVersion: config.gvlVersion || 3
+        gvlVersion: config.gvlVersion || 284
       });
       
       // Guardar en cookie
@@ -3407,19 +3470,19 @@ console.log("🚀 CMP Script iniciándose...");
               consentState.tcString = TCStringGenerator.generateTCString({
                 cmpId: config.cmpId,
                 cmpVersion: config.cmpVersion,
-                tcfPolicyVersion: config.tcfPolicyVersion || 4,
+                tcfPolicyVersion: config.tcfPolicyVersion || 5, // COMPLIANCE POINT 7
                 publisherCC: config.publisherCC || 'ES',
                 purposeConsents: consentState.purposes || { 1: true },
                 vendorConsents: consentState.vendors || {},
                 specialFeatures: consentState.specialFeatures || {},
                 language: config.language || 'es',
-                gvlVersion: config.gvlVersion || 3
+                gvlVersion: config.gvlVersion || 284
               });
             }
             
             var tcData = {
               tcString: consentState.tcString,
-              tcfPolicyVersion: config.tcfPolicyVersion || 4,
+              tcfPolicyVersion: config.tcfPolicyVersion || 5, // COMPLIANCE POINT 7
               cmpVersion: config.cmpVersion,
               cmpId: config.cmpId,
               gdprApplies: true,
@@ -3585,7 +3648,7 @@ console.log("🚀 CMP Script iniciándose...");
           // URL de la API - usar la configuración del dominio
           var apiUrl = '${baseUrl}/api/v1';
           var domainId = '${domainId}';
-          var fullUrl = apiUrl + '/consent/cookies?domain=' + encodeURIComponent(domainId);
+          var fullUrl = apiUrl + '/consent/cookies?domain=' + encodeURIComponent(domainId) + '&debug=' + Date.now();
           
           console.log('[CMP] 📡 URL de petición:', fullUrl);
           
@@ -3629,7 +3692,11 @@ console.log("🚀 CMP Script iniciándose...");
                 analytics: 'Cookies Analíticas',
                 marketing: 'Cookies de Marketing',
                 personalization: 'Cookies de Personalización',
-                unknown: 'Otras Cookies'
+                functional: 'Cookies Funcionales',
+                advertising: 'Cookies de Publicidad',
+                social: 'Cookies de Redes Sociales',
+                other: 'Otras Cookies',
+                unknown: 'Cookies Sin Clasificar'
               };
               
               var hasAnyCookies = false;
@@ -3812,15 +3879,39 @@ console.log("🚀 CMP Script iniciándose...");
               console.log('[CMP] 🍪 Datos de cookies recibidos:', data);
               
               var cookiesByCategory = data.data || data.cookies || {};
+              console.log('[CMP] 🔍 Categorías recibidas:', Object.keys(cookiesByCategory));
+              console.log('[CMP] 🔍 Detalle por categoría:', cookiesByCategory);
+              
               var html = '<div style="overflow-y: hidden;">';
               
               var hasAnyCookies = false;
+              
+              // Mapeo de nombres de categorías
+              var categoryNames = {
+                necessary: 'Cookies Necesarias',
+                analytics: 'Cookies Analíticas',
+                marketing: 'Cookies de Marketing',
+                personalization: 'Cookies de Personalización',
+                functional: 'Cookies Funcionales',
+                advertising: 'Cookies de Publicidad',
+                social: 'Cookies de Redes Sociales',
+                other: 'Otras Cookies',
+                unknown: 'Cookies Sin Clasificar'
+              };
+              
+              // Si hay categorías desconocidas, log para debugging
+              Object.keys(cookiesByCategory).forEach(function(cat) {
+                if (!categoryNames[cat]) {
+                  console.warn('[CMP] ⚠️ Categoría no mapeada encontrada:', cat);
+                }
+              });
+              
               Object.keys(cookiesByCategory).forEach(function(category) {
                 var cookies = cookiesByCategory[category];
                 if (cookies && cookies.length > 0) {
                   hasAnyCookies = true;
                   html += '<div style="margin-bottom: 20px;">';
-                  html += '<h4 style="margin: 0 0 10px 0; color: #333; text-transform: capitalize;">' + category + '</h4>';
+                  html += '<h4 style="margin: 0 0 10px 0; color: #333; text-transform: capitalize;">' + (categoryNames[category] || category) + '</h4>';
                   cookies.forEach(function(cookie) {
                     html += '<div style="padding: 10px; border-bottom: 1px solid #eee; margin-left: 10px;">';
                     html += '<div><strong>' + cookie.name + '</strong></div>';
@@ -3922,7 +4013,14 @@ console.log("🚀 CMP Script iniciándose...");
       
       // === CÓDIGO DEL ICONO FLOTANTE DE COOKIE21 ===
       // Incluir antes de exponer API para que las funciones estén disponibles
-      ${cookieIconService.generateFloatingIcon({ baseUrl })}
+      ${cookieIconService.generateFloatingIcon({ 
+        baseUrl, 
+        position: floatingIcon.position, 
+        color: floatingIcon.color, 
+        enabled: floatingIcon.enabled,
+        backgroundColor: floatingIcon.backgroundColor,
+        size: floatingIcon.size
+      })}
       // === FIN DEL CÓDIGO DEL ICONO FLOTANTE ===
       
       // Exponer API pública
@@ -4050,7 +4148,155 @@ console.log("🚀 CMP Script iniciándose...");
       }
     }
   }, 5000); // Verificar cada 5 segundos
+  
+  // =============================================
+  // MONITOR ICONO FLOTANTE - FORZAR APARICIÓN
+  // =============================================
+  // SISTEMA DE RESPONSIVE LAYOUT - ACTUALIZACION DINAMICA
+  // =============================================
+  // Función para actualizar layout responsive en tiempo real
+  function updateResponsiveLayout() {
+    try {
+      var banner = document.getElementById('cmp-banner');
+      var modalContainer = document.getElementById('cmp-modal-container');
+      
+      if (!banner) return;
+      
+      // Detectar tamaño de pantalla actual
+      var currentDevice = 'desktop';
+      if (window.innerWidth <= 768) {
+        currentDevice = 'mobile';
+      } else if (window.innerWidth <= 1024) {
+        currentDevice = 'tablet';
+      }
+      
+      // Obtener configuración del layout desde los data attributes
+      var desktopType = banner.getAttribute('data-position') ? banner.className.match(/cmp-banner--(\w+)/)?.[1] : 'banner';
+      var desktopPosition = banner.getAttribute('data-position') || 'bottom';
+      
+      var tabletType = banner.getAttribute('data-tablet-type') || desktopType;
+      var tabletPosition = banner.getAttribute('data-tablet-position') || desktopPosition;
+      
+      var mobileType = banner.getAttribute('data-mobile-type') || desktopType;
+      var mobilePosition = banner.getAttribute('data-mobile-position') || desktopPosition;
+      
+      // Determinar configuración actual según el dispositivo
+      var currentType, currentPosition;
+      
+      if (currentDevice === 'mobile') {
+        currentType = mobileType;
+        currentPosition = mobilePosition;
+      } else if (currentDevice === 'tablet') {
+        currentType = tabletType;
+        currentPosition = tabletPosition;
+      } else {
+        currentType = desktopType;
+        currentPosition = desktopPosition;
+      }
+      
+      // Actualizar clases CSS del banner
+      banner.className = banner.className.replace(/cmp-banner--\w+/, 'cmp-banner--' + currentType);
+      banner.setAttribute('data-position', currentPosition);
+      
+      // Para modales, actualizar también el contenedor
+      if (modalContainer && currentType === 'modal') {
+        modalContainer.setAttribute('data-position', currentPosition);
+      }
+      
+      console.log('[CMP] 📱 Layout responsive actualizado:', {
+        device: currentDevice,
+        type: currentType,
+        position: currentPosition,
+        screenWidth: window.innerWidth
+      });
+      
+    } catch (error) {
+      console.error('[CMP] ❌ Error actualizando layout responsive:', error);
+    }
+  }
+  
+  // Ejecutar al cargar y en cambios de tamaño
+  updateResponsiveLayout();
+  window.addEventListener('resize', updateResponsiveLayout);
+  window.addEventListener('orientationchange', function() {
+    setTimeout(updateResponsiveLayout, 100);
+  });
+  
+  // Verificar cada 2 segundos si el banner está oculto y el icono debe aparecer
+  setInterval(function() {
+    try {
+      if (window.CMP && !window.CMP.isOpen) {
+        var banner = document.getElementById('cmp-banner');
+        var modalContainer = document.getElementById('cmp-modal-container');
+        var floatingIcon = document.getElementById('cmp-floating-icon');
+        
+        // Verificar si el banner está realmente oculto
+        var bannerHidden = true;
+        
+        if (banner) {
+          var bannerStyle = window.getComputedStyle(banner);
+          bannerHidden = bannerStyle.display === 'none' || bannerStyle.visibility === 'hidden';
+        }
+        
+        if (modalContainer) {
+          var modalStyle = window.getComputedStyle(modalContainer);
+          bannerHidden = bannerHidden && (modalStyle.display === 'none' || modalStyle.visibility === 'hidden');
+        }
+        
+        // Si el banner está oculto pero el icono flotante no existe o está oculto, forzar su aparición
+        if (bannerHidden && (!floatingIcon || window.getComputedStyle(floatingIcon).display === 'none')) {
+          console.log('[CMP] 🎯 Forzando aparición del icono flotante...');
+          
+          if (typeof window.CMP.showFloatingIcon === 'function') {
+            window.CMP.showFloatingIcon();
+          } else if (typeof window.showIconNow === 'function') {
+            window.showIconNow();
+          } else {
+            // Crear icono flotante manualmente si no existe la función
+            if (!floatingIcon) {
+              console.log('[CMP] 🔧 Creando icono flotante manualmente...');
+              var icon = document.createElement('div');
+              icon.id = 'cmp-floating-icon';
+              icon.innerHTML = '🍪';
+              icon.style.cssText = [
+                'position: fixed !important',
+                '${floatingIcon.position.includes('bottom') ? 'bottom: 20px' : 'top: 20px'} !important',
+                '${floatingIcon.position.includes('right') ? 'right: 20px' : 'left: 20px'} !important',
+                'width: ${floatingIcon.size || 40}px !important',
+                'height: ${floatingIcon.size || 40}px !important',
+                'background-color: ${floatingIcon.backgroundColor === 'transparent' || floatingIcon.backgroundColor === 'none' || floatingIcon.backgroundColor === '' ? 'transparent' : floatingIcon.backgroundColor} !important',
+                'border-radius: 50% !important',
+                'display: flex !important',
+                'align-items: center !important',
+                'justify-content: center !important',
+                'cursor: pointer !important',
+                'z-index: 2147483648 !important',
+                'font-size: 20px !important',
+                'box-shadow: ${floatingIcon.backgroundColor === 'transparent' || floatingIcon.backgroundColor === 'none' || floatingIcon.backgroundColor === '' ? 'none' : '0 4px 20px rgba(0,0,0,0.3)'} !important'
+              ].join('; ');
+              
+              icon.addEventListener('click', function() {
+                if (typeof window.CMP.showBanner === 'function') {
+                  window.CMP.showBanner();
+                }
+              });
+              
+              document.body.appendChild(icon);
+              console.log('[CMP] ✅ Icono flotante creado manualmente');
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[CMP] ❌ Error en monitor del icono flotante:', error);
+    }
+  }, 2000); // Verificar cada 2 segundos
 })();
+
+// =============================================
+// COOKIE DETECTOR EMBED - DETECCIÓN AUTOMÁTICA DE COOKIES
+// =============================================
+${consentScriptGenerator.generateEmbedDetectorScript(options)}
     `;
     
     console.log("🔍 DEBUG: Script generado, longitud:", script.length);

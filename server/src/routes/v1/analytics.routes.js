@@ -11,7 +11,10 @@ const { analyticsAccessHandler } = require('../../middleware/domainAccess');
 // Log para verificar que el router de analytics se ha cargado correctamente
 console.log('🔄 Analytics router cargado correctamente');
 
-// Todas las rutas requieren autenticación
+// Ruta pública para trackear visitas de página (sin autenticación)
+router.post('/page-visit', AnalyticsController.trackPageVisit);
+
+// Todas las demás rutas requieren autenticación
 router.use(protect);
 
 // Middleware para todas las rutas con parámetro domainId
